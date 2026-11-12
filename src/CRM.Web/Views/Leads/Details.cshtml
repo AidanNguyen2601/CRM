@@ -7,18 +7,18 @@
 <div class="toolbar">
     @if (!converted)
     {
-        <a class="btn btn-primary" asp-action="Convert" asp-route-id="@Model.Id">Chuyển đổi thành khách hàng</a>
-        <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Sửa</a>
-        <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-leadId="@Model.Id">+ Hoạt động</a>
-        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" data-confirm="Xóa lead này?" class="ms-auto"><button class="btn btn-outline-danger">Xóa</button></form>
+        <a class="btn btn-primary" asp-action="Convert" asp-route-id="@Model.Id">@T("Chuyển đổi thành khách hàng")</a>
+        <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">@T("Sửa")</a>
+        <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-leadId="@Model.Id">@T("+ Hoạt động")</a>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" data-confirm="@T("Xóa lead này?")" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
     }
 </div>
 @if (converted)
 {
     <div class="alert alert-success">
-        Đã chuyển đổi ngày @Model.ConvertedAt?.ToString("dd/MM/yyyy") thành khách hàng
+        @T("Đã chuyển đổi ngày {0} thành khách hàng", Model.ConvertedAt?.ToString("dd/MM/yyyy"))
         <a asp-controller="Customers" asp-action="Details" asp-route-id="@Model.ConvertedCustomerId">@Model.ConvertedCustomer?.Name</a>
-        @if (Model.ConvertedOpportunityId.HasValue) { <span>· <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@Model.ConvertedOpportunityId">xem cơ hội</a></span> }
+        @if (Model.ConvertedOpportunityId.HasValue) { <span>· <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@Model.ConvertedOpportunityId">@T("xem cơ hội")</a></span> }
     </div>
 }
 <div class="row g-3">
@@ -29,18 +29,18 @@
             <partial name="_Badge" model="Model.Status" /> <partial name="_Badge" model="Model.Rating" />
             <hr />
             <dl class="row small mb-0 info">
-                <dt class="col-5">Điện thoại</dt><dd class="col-7">@Model.Phone</dd>
+                <dt class="col-5">@T("Điện thoại")</dt><dd class="col-7">@Model.Phone</dd>
                 <dt class="col-5">Email</dt><dd class="col-7">@Model.Email</dd>
-                <dt class="col-5">Nguồn</dt><dd class="col-7">@Model.Source.GetDisplayName()</dd>
-                <dt class="col-5">Giá trị dự kiến</dt><dd class="col-7">@Model.EstimatedValue.ToMoney()</dd>
-                <dt class="col-5">Phụ trách</dt><dd class="col-7">@Model.Owner?.FullName</dd>
-                <dt class="col-5">Ngày tạo</dt><dd class="col-7">@Model.CreatedAt.ToDate()</dd>
+                <dt class="col-5">@T("Nguồn")</dt><dd class="col-7">@Model.Source.GetDisplayName()</dd>
+                <dt class="col-5">@T("Giá trị dự kiến")</dt><dd class="col-7">@Model.EstimatedValue.ToMoney()</dd>
+                <dt class="col-5">@T("Phụ trách")</dt><dd class="col-7">@Model.Owner?.FullName</dd>
+                <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@Model.CreatedAt.ToDate()</dd>
             </dl>
             @if (!string.IsNullOrEmpty(Model.Description)) { <hr /><div class="small pre">@Model.Description</div> }
         </div></div>
     </div>
     <div class="col-lg-8">
-        <div class="card"><div class="card-header">Lịch sử chăm sóc</div>
+        <div class="card"><div class="card-header">@T("Lịch sử chăm sóc")</div>
             <div class="card-body"><partial name="_ActivityList" model="acts" /></div>
         </div>
     </div>

@@ -63,7 +63,7 @@ public class LeadsController : CrmControllerBase
     public async Task<IActionResult> Save(Lead model)
     {
         if (string.IsNullOrWhiteSpace(model.Phone) && string.IsNullOrWhiteSpace(model.Email))
-            ModelState.AddModelError(nameof(model.Phone), "Cần ít nhất số điện thoại hoặc email");
+            ModelState.AddModelError(nameof(model.Phone), I18n.T("Cần ít nhất số điện thoại hoặc email"));
         if (!ModelState.IsValid)
         {
             await LoadOwnersAsync(model.OwnerId);
@@ -84,7 +84,7 @@ public class LeadsController : CrmControllerBase
             if (!User.CanAccess(l)) return NotAllowed();
             if (l.Status == LeadStatus.Converted)
             {
-                TempData["Error"] = "Lead đã chuyển đổi, không thể sửa.";
+                TempData["Error"] = I18n.T("Lead đã chuyển đổi, không thể sửa.");
                 return RedirectToAction(nameof(Details), new { id = l.Id });
             }
             l.FullName = model.FullName; l.Company = model.Company; l.JobTitle = model.JobTitle;
@@ -94,7 +94,7 @@ public class LeadsController : CrmControllerBase
             l.OwnerId = ResolveOwner(model.OwnerId);
         }
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã lưu lead.";
+        TempData["Success"] = I18n.T("Đã lưu lead.");
         return RedirectToAction(nameof(Details), new { id = model.Id });
     }
 
@@ -114,7 +114,7 @@ public class LeadsController : CrmControllerBase
         {
             LeadId = id, Lead = l, ExistingCustomerId = match?.Id,
             NewCustomerName = match == null ? (l.Company ?? l.FullName) : null,
-            OpportunityName = $"{l.Company ?? l.FullName} – {l.Description?.Split('.')[0] ?? "Cơ hội mới"}",
+            OpportunityName = $"{l.Company ?? l.FullName} – {l.Description?.Split('.')[0] ?? I18n.T("Cơ hội mới")}",
             OpportunityAmount = l.EstimatedValue
         });
     }
@@ -128,9 +128,9 @@ public class LeadsController : CrmControllerBase
         if (l.Status == LeadStatus.Converted) return RedirectToAction(nameof(Details), new { id = l.Id });
 
         if (vm.ExistingCustomerId == null && string.IsNullOrWhiteSpace(vm.NewCustomerName))
-            ModelState.AddModelError(nameof(vm.NewCustomerName), "Chọn khách hàng có sẵn hoặc nhập tên khách hàng mới");
+            ModelState.AddModelError(nameof(vm.NewCustomerName), I18n.T("Chọn khách hàng có sẵn hoặc nhập tên khách hàng mới"));
         if (vm.CreateOpportunity && string.IsNullOrWhiteSpace(vm.OpportunityName))
-            ModelState.AddModelError(nameof(vm.OpportunityName), "Nhập tên cơ hội");
+            ModelState.AddModelError(nameof(vm.OpportunityName), I18n.T("Nhập tên cơ hội"));
         if (!ModelState.IsValid)
         {
             vm.Lead = l;
@@ -187,7 +187,7 @@ public class LeadsController : CrmControllerBase
         foreach (var a in acts) { a.CustomerId = customer.Id; a.ContactId = contact.Id; a.OpportunityId = opp?.Id; }
         await Db.SaveChangesAsync();
 
-        TempData["Success"] = $"Đã chuyển đổi lead thành khách hàng {customer.Name}" + (opp != null ? " và tạo cơ hội bán hàng." : ".");
+        TempData["Success"] = opp != null ? I18n.T("Đã chuyển đổi lead thành khách hàng {0} và tạo cơ hội bán hàng.", customer.Name) : I18n.T("Đã chuyển đổi lead thành khách hàng {0}.", customer.Name);
         return opp != null
             ? RedirectToAction("Details", "Opportunities", new { id = opp.Id })
             : RedirectToAction("Details", "Customers", new { id = customer.Id });
@@ -201,12 +201,12 @@ public class LeadsController : CrmControllerBase
         if (!User.CanAccess(l)) return NotAllowed();
         if (await Db.Activities.AnyAsync(a => a.LeadId == id))
         {
-            TempData["Error"] = "Lead đã có hoạt động chăm sóc. Hãy chuyển trạng thái 'Không phù hợp' thay vì xóa.";
+            TempData["Error"] = I18n.T("Lead đã có hoạt động chăm sóc. Hãy chuyển trạng thái 'Không phù hợp' thay vì xóa.");
             return RedirectToAction(nameof(Details), new { id });
         }
         Db.Leads.Remove(l);
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã xóa lead.";
+        TempData["Success"] = I18n.T("Đã xóa lead.");
         return RedirectToAction(nameof(Index));
     }
 

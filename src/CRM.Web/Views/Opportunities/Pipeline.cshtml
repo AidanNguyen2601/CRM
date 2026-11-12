@@ -1,13 +1,13 @@
 @model List<Opportunity>
 @{
-    ViewData["Title"] = "Pipeline bán hàng";
+    ViewData["Title"] = T("Pipeline bán hàng");
     var stages = new[] { OpportunityStage.Prospecting, OpportunityStage.Qualification, OpportunityStage.Proposal, OpportunityStage.Negotiation };
 }
 <form method="get" class="toolbar">
-    @if (User.SeesAll()) { <div><label class="form-label small mb-1">Phụ trách</label><select name="ownerId" class="form-select" asp-items="ViewBag.Owners" onchange="this.form.submit()"><option value="">-- Tất cả --</option></select></div> }
-    <div class="small text-muted ms-2 mb-2">Tổng pipeline: <b>@Model.Sum(o => o.Amount).ToMoney()</b> · Trọng số: <b>@Model.Sum(o => o.WeightedAmount).ToMoney()</b></div>
-    <a class="btn btn-outline-secondary ms-auto" asp-action="Index">Dạng bảng</a>
-    <a class="btn btn-primary" asp-action="Create">+ Thêm cơ hội</a>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="ownerId" class="form-select" asp-items="ViewBag.Owners" onchange="this.form.submit()"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <div class="small text-muted ms-2 mb-2">@T("Tổng pipeline:") <b>@Model.Sum(o => o.Amount).ToMoney()</b> · @T("Trọng số:") <b>@Model.Sum(o => o.WeightedAmount).ToMoney()</b></div>
+    <a class="btn btn-outline-secondary ms-auto" asp-action="Index">@T("Dạng bảng")</a>
+    <a class="btn btn-primary" asp-action="Create">@T("+ Thêm cơ hội")</a>
 </form>
 <div class="kanban">
 @foreach (var s in stages)
@@ -15,7 +15,7 @@
     var items = Model.Where(o => o.Stage == s).ToList();
     <div class="kanban-col">
         <h6><span>@s.GetDisplayName()</span><span class="badge bg-secondary">@items.Count</span></h6>
-        <div class="sum">@items.Sum(o => o.Amount).ToShortMoney() · xác suất @((int)s)%</div>
+        <div class="sum">@items.Sum(o => o.Amount).ToShortMoney() · @T("xác suất {0}%", (int)s)</div>
         @foreach (var o in items)
         {
             <div class="kcard @(o.ExpectedCloseDate < DateTime.Today ? "late" : "")">
@@ -25,8 +25,8 @@
                 <div class="meta">@o.Owner?.FullName</div>
                 <form asp-action="ChangeStage" asp-route-id="@o.Id" method="post" class="mt-2">
                     <input type="hidden" name="returnTo" value="pipeline" />
-                    <select name="stage" class="form-select form-select-sm" onchange="if(this.value=='0'){var r=prompt('Lý do thua?');if(!r){this.selectedIndex=0;return;}this.form.lostReason.value=r;}this.form.submit()">
-                        <option value="">Chuyển giai đoạn…</option>
+                    <select name="stage" class="form-select form-select-sm" onchange="if(this.value=='0'){var r=prompt('@T("Lý do thua?")');if(!r){this.selectedIndex=0;return;}this.form.lostReason.value=r;}this.form.submit()">
+                        <option value="">@T("Chuyển giai đoạn…")</option>
                         @foreach (var t in Enum.GetValues<OpportunityStage>().Where(x => x != s))
                         {
                             <option value="@((int)t)">@t.GetDisplayName()</option>

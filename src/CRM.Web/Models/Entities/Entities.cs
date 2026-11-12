@@ -49,12 +49,12 @@ public static class AppRoles
     public const string ManagerGroup = Admin + "," + Manager;
     public static readonly string[] All = { Admin, Manager, Sales };
 
-    public static string DisplayName(string role) => role switch
+    public static string DisplayName(string role) => CRM.Web.Infrastructure.I18n.T(role switch
     {
         Admin => "Quản trị hệ thống",
         Manager => "Quản lý kinh doanh",
         _ => "Nhân viên kinh doanh"
-    };
+    });
 }
 
 /// <summary>Khách hàng (doanh nghiệp / tổ chức)</summary>
@@ -455,4 +455,33 @@ public class QuoteLine
 
     public void Recalculate() =>
         LineTotal = Math.Round(Quantity * UnitPrice * (1 - DiscountPercent / 100m), 0);
+}
+
+/// <summary>
+/// Mục danh mục dùng chung (ngành nghề, tỉnh/thành, nhóm sản phẩm, đơn vị tính, lý do thua).
+/// Bản ghi nghiệp vụ lưu theo tên tiếng Việt (Name); NameEn dùng để hiển thị khi giao diện tiếng Anh.
+/// </summary>
+public class CatalogItem
+{
+    public int Id { get; set; }
+
+    [Display(Name = "Nhóm danh mục")]
+    public CatalogGroup Group { get; set; }
+
+    [Required(ErrorMessage = "Vui lòng nhập tên"), StringLength(200)]
+    [Display(Name = "Tên (tiếng Việt)")]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(200)]
+    [Display(Name = "Tên (tiếng Anh)")]
+    public string? NameEn { get; set; }
+
+    [Range(0, 9999)]
+    [Display(Name = "Thứ tự")]
+    public int SortOrder { get; set; }
+
+    [Display(Name = "Đang sử dụng")]
+    public bool IsActive { get; set; } = true;
+
+    [NotMapped] public string DisplayName => CRM.Web.Infrastructure.I18n.IsEnglish && !string.IsNullOrWhiteSpace(NameEn) ? NameEn! : Name;
 }

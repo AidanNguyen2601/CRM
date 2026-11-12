@@ -53,7 +53,7 @@ public class QuotesController : CrmControllerBase
         if (!User.CanAccess(q)) return NotAllowed();
         if (q.Status != QuoteStatus.Draft)
         {
-            TempData["Error"] = "Chỉ sửa được báo giá ở trạng thái Nháp.";
+            TempData["Error"] = I18n.T("Chỉ sửa được báo giá ở trạng thái Nháp.");
             return RedirectToAction(nameof(Details), new { id });
         }
         var vm = new QuoteFormViewModel
@@ -74,8 +74,8 @@ public class QuotesController : CrmControllerBase
     public async Task<IActionResult> Save(QuoteFormViewModel vm)
     {
         vm.Lines = vm.Lines.Where(l => !string.IsNullOrWhiteSpace(l.Description) || l.ProductId.HasValue).ToList();
-        if (vm.Lines.Count == 0) ModelState.AddModelError(string.Empty, "Báo giá cần ít nhất một dòng sản phẩm / dịch vụ.");
-        if (vm.ValidUntil < vm.QuoteDate) ModelState.AddModelError(nameof(vm.ValidUntil), "Ngày hiệu lực phải sau ngày báo giá");
+        if (vm.Lines.Count == 0) ModelState.AddModelError(string.Empty, I18n.T("Báo giá cần ít nhất một dòng sản phẩm / dịch vụ."));
+        if (vm.ValidUntil < vm.QuoteDate) ModelState.AddModelError(nameof(vm.ValidUntil), I18n.T("Ngày hiệu lực phải sau ngày báo giá"));
         if (!ModelState.IsValid)
         {
             if (vm.Lines.Count == 0) vm.Lines.Add(new QuoteLineInput());
@@ -117,7 +117,7 @@ public class QuotesController : CrmControllerBase
         }
         q.Recalculate();
         await Db.SaveChangesAsync();
-        TempData["Success"] = $"Đã lưu báo giá {q.Number}.";
+        TempData["Success"] = I18n.T("Đã lưu báo giá {0}.", q.Number);
         return RedirectToAction(nameof(Details), new { id = q.Id });
     }
 
@@ -139,7 +139,7 @@ public class QuotesController : CrmControllerBase
             }
         }
         await Db.SaveChangesAsync();
-        TempData["Success"] = $"Báo giá {q.Number}: {status.GetDisplayName()}.";
+        TempData["Success"] = I18n.T("Báo giá {0}: {1}.", q.Number, status.GetDisplayName());
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -163,7 +163,7 @@ public class QuotesController : CrmControllerBase
         q.Recalculate();
         Db.Quotes.Add(q);
         await Db.SaveChangesAsync();
-        TempData["Success"] = $"Đã tạo bản sao {q.Number}.";
+        TempData["Success"] = I18n.T("Đã tạo bản sao {0}.", q.Number);
         return RedirectToAction(nameof(Edit), new { id = q.Id });
     }
 

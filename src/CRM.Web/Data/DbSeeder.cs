@@ -7,14 +7,21 @@ namespace CRM.Web.Data;
 /// <summary>Tạo database (nếu chưa có) và nạp dữ liệu mẫu để chạy thử.</summary>
 public static class DbSeeder
 {
-    public static async Task SeedAsync(IServiceProvider services)
+    /// <summary>Đảm bảo schema + danh mục dùng chung; nạp dữ liệu mẫu nếu <paramref name="seedSampleData"/> và DB còn trống.</summary>
+    public static async Task SeedAsync(IServiceProvider services, bool seedSampleData = true)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
 
         await db.Database.EnsureCreatedAsync();
-        if (await db.Users.AnyAsync()) return;
+        await CatalogSeeder.EnsureTableAsync(db);
+        if (seedSampleData && !await db.Users.AnyAsync()) await SeedSampleDataAsync(db, hasher);
+        await CatalogSeeder.SeedAsync(db);
+    }
+
+    private static async Task SeedSampleDataAsync(CrmDbContext db, IPasswordHasher<AppUser> hasher)
+    {
 
         var today = DateTime.Today;
         var rnd = new Random(2026);

@@ -16,6 +16,7 @@ public class CrmDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<QuoteLine> QuoteLines => Set<QuoteLine>();
+    public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +26,7 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Customer>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<Product>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<Quote>().HasIndex(x => x.Number).IsUnique();
+        modelBuilder.Entity<CatalogItem>().HasIndex(x => new { x.Group, x.Name }).IsUnique();
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });
 

@@ -71,7 +71,7 @@ public class ActivitiesController : CrmControllerBase
     public async Task<IActionResult> Save(Activity model, string? returnUrl)
     {
         if (model.CustomerId == null && model.LeadId == null && model.OpportunityId == null)
-            ModelState.AddModelError(string.Empty, "Hoạt động cần gắn với ít nhất một khách hàng, lead hoặc cơ hội.");
+            ModelState.AddModelError(string.Empty, I18n.T("Hoạt động cần gắn với ít nhất một khách hàng, lead hoặc cơ hội."));
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);
@@ -105,7 +105,7 @@ public class ActivitiesController : CrmControllerBase
         }
 
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã lưu hoạt động.";
+        TempData["Success"] = I18n.T("Đã lưu hoạt động.");
         return !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Index));
     }
 
@@ -121,7 +121,7 @@ public class ActivitiesController : CrmControllerBase
         if (!string.IsNullOrWhiteSpace(result))
             a.Description = string.IsNullOrWhiteSpace(a.Description) ? result : a.Description + "\n" + result;
         await Db.SaveChangesAsync();
-        TempData["Success"] = $"Đã hoàn thành: {a.Subject}.";
+        TempData["Success"] = I18n.T("Đã hoàn thành: {0}.", a.Subject);
         return !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Index));
     }
 

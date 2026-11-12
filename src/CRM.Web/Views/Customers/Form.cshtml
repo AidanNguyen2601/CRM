@@ -1,5 +1,5 @@
 @model Customer
-@{ ViewData["Title"] = Model.Id == 0 ? "Thêm khách hàng" : $"Sửa khách hàng: {Model.Name}"; }
+@{ ViewData["Title"] = Model.Id == 0 ? T("Thêm khách hàng") : T("Sửa khách hàng: {0}", Model.Name); }
 <div class="card" style="max-width:960px"><div class="card-body">
 <form asp-action="Save" method="post">
     <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" />
@@ -8,18 +8,17 @@
         <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
         <div class="col-md-2"><label asp-for="Type" class="form-label"></label><select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<CustomerType>()"></select></div>
         <div class="col-md-2"><label asp-for="TaxCode" class="form-label"></label><input asp-for="TaxCode" class="form-control" /><span asp-validation-for="TaxCode" class="text-danger small"></span></div>
-        <div class="col-md-4"><label asp-for="Industry" class="form-label"></label><input asp-for="Industry" class="form-control" list="industries" />
-            <datalist id="industries"><option>Y tế</option><option>Dược phẩm</option><option>Giáo dục</option><option>Sản xuất</option><option>Bán lẻ</option><option>Tài chính – Ngân hàng</option><option>Vận tải – Logistics</option><option>Thực phẩm – Đồ uống</option><option>Công nghệ thông tin</option></datalist></div>
+        <div class="col-md-4"><label asp-for="Industry" class="form-label"></label><select asp-for="Industry" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Industry, Model.Industry)"><option value="">--</option></select></div>
         <div class="col-md-4"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /></div>
         <div class="col-md-4"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
         <div class="col-md-4"><label asp-for="Website" class="form-label"></label><input asp-for="Website" class="form-control" /></div>
         <div class="col-md-5"><label asp-for="Address" class="form-label"></label><input asp-for="Address" class="form-control" /></div>
-        <div class="col-md-3"><label asp-for="City" class="form-label"></label><input asp-for="City" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="City" class="form-label"></label><select asp-for="City" class="form-select" asp-items="Catalogs.Options(CatalogGroup.City, Model.City)"><option value="">--</option></select></div>
         <div class="col-md-3"><label asp-for="EmployeeCount" class="form-label"></label><input asp-for="EmployeeCount" class="form-control" /></div>
         @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
         <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
     </div>
-    <div class="mt-4"><button class="btn btn-primary">Lưu</button> <a asp-action="Index" class="btn btn-light">Hủy</a></div>
+    <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>
 </div></div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

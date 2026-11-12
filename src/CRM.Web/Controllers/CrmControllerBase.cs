@@ -49,7 +49,7 @@ public abstract class CrmControllerBase : Controller
 
     protected IActionResult NotAllowed()
     {
-        TempData["Error"] = "Bạn không có quyền với bản ghi này.";
+        TempData["Error"] = I18n.T("Bạn không có quyền với bản ghi này.");
         return RedirectToAction("Index", "Home");
     }
 }

@@ -1,4 +1,5 @@
 using CRM.Web.Data;
+using CRM.Web.Infrastructure;
 using CRM.Web.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,7 @@ public class ProductsController : CrmControllerBase
     public async Task<IActionResult> Save(Product model)
     {
         if (await Db.Products.AnyAsync(p => p.Code == model.Code && p.Id != model.Id))
-            ModelState.AddModelError(nameof(model.Code), "Mã sản phẩm đã tồn tại");
+            ModelState.AddModelError(nameof(model.Code), I18n.T("Mã sản phẩm đã tồn tại"));
         if (!ModelState.IsValid) return View("Form", model);
 
         if (model.Id == 0) Db.Products.Add(model);
@@ -47,7 +48,7 @@ public class ProductsController : CrmControllerBase
             p.UnitPrice = model.UnitPrice; p.IsActive = model.IsActive; p.Description = model.Description;
         }
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã lưu sản phẩm.";
+        TempData["Success"] = I18n.T("Đã lưu sản phẩm.");
         return RedirectToAction(nameof(Index));
     }
 

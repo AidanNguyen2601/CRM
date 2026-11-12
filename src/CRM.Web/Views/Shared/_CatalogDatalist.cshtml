@@ -1,0 +1,8 @@
+@* Gợi ý nhập từ danh mục (vẫn cho nhập tự do). Model: (string Id, CatalogGroup Group) *@
+@model (string Id, CatalogGroup Group)
+<datalist id="@Model.Id">
+    @foreach (var x in Catalogs.Items(Model.Group))
+    {
+        <option value="@x.Name">@(x.DisplayName != x.Name ? x.DisplayName : null)</option>
+    }
+</datalist>

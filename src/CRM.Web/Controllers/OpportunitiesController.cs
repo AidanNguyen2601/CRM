@@ -88,7 +88,7 @@ public class OpportunitiesController : CrmControllerBase
     public async Task<IActionResult> Save(Opportunity model)
     {
         if (model.Stage == OpportunityStage.ClosedLost && string.IsNullOrWhiteSpace(model.LostReason))
-            ModelState.AddModelError(nameof(model.LostReason), "Vui lòng nhập lý do thua");
+            ModelState.AddModelError(nameof(model.LostReason), I18n.T("Vui lòng nhập lý do thua"));
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);
@@ -116,7 +116,7 @@ public class OpportunitiesController : CrmControllerBase
         }
         ApplyStageRules(entity);
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã lưu cơ hội.";
+        TempData["Success"] = I18n.T("Đã lưu cơ hội.");
         return RedirectToAction(nameof(Details), new { id = entity.Id });
     }
 
@@ -130,7 +130,7 @@ public class OpportunitiesController : CrmControllerBase
 
         if (stage == OpportunityStage.ClosedLost && string.IsNullOrWhiteSpace(lostReason))
         {
-            TempData["Error"] = "Vui lòng nhập lý do thua.";
+            TempData["Error"] = I18n.T("Vui lòng nhập lý do thua.");
         }
         else
         {
@@ -139,7 +139,7 @@ public class OpportunitiesController : CrmControllerBase
             if (stage == OpportunityStage.ClosedLost) o.LostReason = lostReason;
             ApplyStageRules(o);
             await Db.SaveChangesAsync();
-            TempData["Success"] = $"Cơ hội \"{o.Name}\" chuyển sang: {stage.GetDisplayName()}.";
+            TempData["Success"] = I18n.T("Cơ hội \"{0}\" chuyển sang: {1}.", o.Name, stage.GetDisplayName());
         }
         return returnTo == "pipeline" ? RedirectToAction(nameof(Pipeline)) : RedirectToAction(nameof(Details), new { id });
     }
@@ -152,12 +152,12 @@ public class OpportunitiesController : CrmControllerBase
         if (!User.CanAccess(o)) return NotAllowed();
         if (await Db.Quotes.AnyAsync(q => q.OpportunityId == id) || await Db.Activities.AnyAsync(a => a.OpportunityId == id))
         {
-            TempData["Error"] = "Cơ hội đã có báo giá hoặc hoạt động. Hãy đóng cơ hội ở trạng thái 'Thua' thay vì xóa.";
+            TempData["Error"] = I18n.T("Cơ hội đã có báo giá hoặc hoạt động. Hãy đóng cơ hội ở trạng thái 'Thua' thay vì xóa.");
             return RedirectToAction(nameof(Details), new { id });
         }
         Db.Opportunities.Remove(o);
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã xóa cơ hội.";
+        TempData["Success"] = I18n.T("Đã xóa cơ hội.");
         return RedirectToAction(nameof(Index));
     }
 

@@ -1,0 +1,21 @@
+@model CatalogItem
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Thêm mục: {0}", Model.Group.GetDisplayName()) : T("Sửa mục: {0}", Model.Name);
+    ViewData["CatalogGroup"] = Model.Group;
+}
+<div class="card" style="max-width:720px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="Group" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="mb-3"><span class="badge bg-primary">@Model.Group.GetDisplayName()</span></div>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" autofocus /><span asp-validation-for="Name" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="NameEn" class="form-label"></label><input asp-for="NameEn" class="form-control" /><span asp-validation-for="NameEn" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" class="form-control" /><span asp-validation-for="SortOrder" class="text-danger small"></span></div>
+        <div class="col-md-5 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+    </div>
+    @if (Model.Id != 0) { <p class="small text-muted mt-3 mb-0">@T("Đổi tên tiếng Việt sẽ cập nhật luôn dữ liệu đang dùng tên cũ.")</p> }
+    <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" asp-route-group="@Model.Group" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

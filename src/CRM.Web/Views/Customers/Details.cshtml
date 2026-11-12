@@ -4,43 +4,43 @@
     ViewData["Title"] = c.Name;
 }
 <div class="toolbar">
-    <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@c.Id">Sửa</a>
-    <a class="btn btn-outline-secondary" asp-controller="Contacts" asp-action="Create" asp-route-customerId="@c.Id">+ Liên hệ</a>
-    <a class="btn btn-outline-secondary" asp-controller="Opportunities" asp-action="Create" asp-route-customerId="@c.Id">+ Cơ hội</a>
-    <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">+ Hoạt động</a>
-    <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-customerId="@c.Id">+ Báo giá</a>
-    <form asp-action="Delete" asp-route-id="@c.Id" method="post" data-confirm="Xóa khách hàng @c.Name?" class="ms-auto"><button class="btn btn-outline-danger">Xóa</button></form>
+    <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@c.Id">@T("Sửa")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Contacts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Liên hệ")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Opportunities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Cơ hội")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hoạt động")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Báo giá")</a>
+    <form asp-action="Delete" asp-route-id="@c.Id" method="post" data-confirm="@T("Xóa khách hàng {0}?", c.Name)" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
 </div>
 <div class="row g-3">
     <div class="col-lg-4">
         <div class="card mb-3"><div class="card-body">
             <h5 class="mb-0">@c.Name</h5>
-            <div class="text-muted mb-2">@c.Code · @c.Industry</div>
+            <div class="text-muted mb-2">@c.Code · @Catalogs.Text(CatalogGroup.Industry, c.Industry)</div>
             <partial name="_Badge" model="c.Type" />
             <div class="row text-center mt-3">
-                <div class="col"><div class="small text-muted">Đã thắng</div><div class="fw-bold text-success">@Model.WonTotal.ToShortMoney()</div></div>
-                <div class="col"><div class="small text-muted">Đang mở</div><div class="fw-bold">@Model.OpenTotal.ToShortMoney()</div></div>
+                <div class="col"><div class="small text-muted">@T("Đã thắng")</div><div class="fw-bold text-success">@Model.WonTotal.ToShortMoney()</div></div>
+                <div class="col"><div class="small text-muted">@T("Đang mở")</div><div class="fw-bold">@Model.OpenTotal.ToShortMoney()</div></div>
             </div>
             <hr />
             <dl class="row small mb-0 info">
                 <dt class="col-5">MST</dt><dd class="col-7">@c.TaxCode</dd>
-                <dt class="col-5">Điện thoại</dt><dd class="col-7">@c.Phone</dd>
+                <dt class="col-5">@T("Điện thoại")</dt><dd class="col-7">@c.Phone</dd>
                 <dt class="col-5">Email</dt><dd class="col-7">@c.Email</dd>
                 <dt class="col-5">Website</dt><dd class="col-7">@c.Website</dd>
-                <dt class="col-5">Địa chỉ</dt><dd class="col-7">@c.Address @c.City</dd>
-                <dt class="col-5">Số nhân sự</dt><dd class="col-7">@c.EmployeeCount</dd>
-                <dt class="col-5">Phụ trách</dt><dd class="col-7">@c.Owner?.FullName</dd>
-                <dt class="col-5">Ngày tạo</dt><dd class="col-7">@c.CreatedAt.ToDate()</dd>
+                <dt class="col-5">@T("Địa chỉ")</dt><dd class="col-7">@c.Address @Catalogs.Text(CatalogGroup.City, c.City)</dd>
+                <dt class="col-5">@T("Số nhân sự")</dt><dd class="col-7">@c.EmployeeCount</dd>
+                <dt class="col-5">@T("Phụ trách")</dt><dd class="col-7">@c.Owner?.FullName</dd>
+                <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@c.CreatedAt.ToDate()</dd>
             </dl>
             @if (!string.IsNullOrEmpty(c.Description)) { <hr /><div class="small pre">@c.Description</div> }
         </div></div>
-        <div class="card"><div class="card-header">Người liên hệ (@Model.Contacts.Count)</div>
+        <div class="card"><div class="card-header">@T("Người liên hệ ({0})", Model.Contacts.Count)</div>
             <ul class="list-group list-group-flush">
                 @foreach (var ct in Model.Contacts)
                 {
                     <li class="list-group-item small">
                         <a asp-controller="Contacts" asp-action="Edit" asp-route-id="@ct.Id" class="fw-semibold">@ct.FullName</a>
-                        @if (ct.IsPrimary) { <span class="badge bg-success">Chính</span> }
+                        @if (ct.IsPrimary) { <span class="badge bg-success">@T("Chính")</span> }
                         <div class="text-muted">@ct.JobTitle</div>
                         <div>@ct.Phone @(ct.Email != null ? "· " + ct.Email : "")</div>
                     </li>
@@ -49,33 +49,33 @@
         </div>
     </div>
     <div class="col-lg-8">
-        <div class="card mb-3"><div class="card-header">Cơ hội bán hàng</div>
+        <div class="card mb-3"><div class="card-header">@T("Cơ hội bán hàng")</div>
             <div class="card-body p-0"><table class="table mb-0">
-                <thead><tr><th>Cơ hội</th><th>Giai đoạn</th><th class="money">Giá trị</th><th>Dự kiến chốt</th><th>Phụ trách</th></tr></thead>
+                <thead><tr><th>@T("Cơ hội")</th><th>@T("Giai đoạn")</th><th class="money">@T("Giá trị")</th><th>@T("Dự kiến chốt")</th><th>@T("Phụ trách")</th></tr></thead>
                 <tbody>
                 @foreach (var o in Model.Opportunities)
                 {
                     <tr><td><a asp-controller="Opportunities" asp-action="Details" asp-route-id="@o.Id">@o.Name</a></td><td><partial name="_Badge" model="o.Stage" /></td>
                         <td class="money">@o.Amount.ToMoney()</td><td>@o.ExpectedCloseDate.ToDate()</td><td>@o.Owner?.FullName</td></tr>
                 }
-                @if (!Model.Opportunities.Any()) { <tr><td colspan="5" class="text-muted p-3">Chưa có cơ hội.</td></tr> }
+                @if (!Model.Opportunities.Any()) { <tr><td colspan="5" class="text-muted p-3">@T("Chưa có cơ hội.")</td></tr> }
                 </tbody>
             </table></div>
         </div>
-        <div class="card mb-3"><div class="card-header">Báo giá</div>
+        <div class="card mb-3"><div class="card-header">@T("Báo giá")</div>
             <div class="card-body p-0"><table class="table mb-0">
-                <thead><tr><th>Số báo giá</th><th>Ngày</th><th class="money">Tổng thanh toán</th><th>Trạng thái</th></tr></thead>
+                <thead><tr><th>@T("Số báo giá")</th><th>@T("Ngày")</th><th class="money">@T("Tổng thanh toán")</th><th>@T("Trạng thái")</th></tr></thead>
                 <tbody>
                 @foreach (var q in Model.Quotes)
                 {
                     <tr><td><a asp-controller="Quotes" asp-action="Details" asp-route-id="@q.Id">@q.Number</a></td><td>@q.QuoteDate.ToDate()</td>
                         <td class="money">@q.Total.ToMoney()</td><td><partial name="_Badge" model="q.Status" /></td></tr>
                 }
-                @if (!Model.Quotes.Any()) { <tr><td colspan="4" class="text-muted p-3">Chưa có báo giá.</td></tr> }
+                @if (!Model.Quotes.Any()) { <tr><td colspan="4" class="text-muted p-3">@T("Chưa có báo giá.")</td></tr> }
                 </tbody>
             </table></div>
         </div>
-        <div class="card"><div class="card-header">Lịch sử chăm sóc</div>
+        <div class="card"><div class="card-header">@T("Lịch sử chăm sóc")</div>
             <div class="card-body"><partial name="_ActivityList" model="Model.Activities" /></div>
         </div>
     </div>

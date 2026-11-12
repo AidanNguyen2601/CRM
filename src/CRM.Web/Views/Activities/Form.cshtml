@@ -1,6 +1,6 @@
 @model Activity
 @{
-    ViewData["Title"] = Model.Id == 0 ? "Thêm hoạt động" : $"Hoạt động: {Model.Subject}";
+    ViewData["Title"] = Model.Id == 0 ? T("Thêm hoạt động") : T("Hoạt động: {0}", Model.Subject);
     var returnUrl = Context.Request.Headers.Referer.ToString();
     if (!string.IsNullOrEmpty(returnUrl) && Uri.TryCreate(returnUrl, UriKind.Absolute, out var u)) returnUrl = u.PathAndQuery; else returnUrl = "";
 }
@@ -22,7 +22,7 @@
         @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
         <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="4"></textarea></div>
     </div>
-    <div class="mt-4"><button class="btn btn-primary">Lưu</button> <a asp-action="Index" class="btn btn-light">Hủy</a></div>
+    <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>
 </div></div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

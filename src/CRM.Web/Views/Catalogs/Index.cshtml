@@ -1,0 +1,56 @@
+@model List<CatalogItem>
+@{
+    var group = (CatalogGroup)ViewBag.Group;
+    var usage = (Dictionary<string, int>)ViewBag.Usage;
+    var counts = (Dictionary<CatalogGroup, int>)ViewBag.Counts;
+    ViewData["Title"] = T("Danh mục: {0}", group.GetDisplayName());
+    ViewData["CatalogGroup"] = group;
+}
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var g in Enum.GetValues<CatalogGroup>())
+    {
+        <li class="nav-item">
+            <a class="nav-link @(g == group ? "active" : "")" asp-action="Index" asp-route-group="@g">
+                @g.GetDisplayName() <span class="badge @(g == group ? "bg-light text-dark" : "bg-secondary")">@(counts.TryGetValue(g, out var n) ? n : 0)</span>
+            </a>
+        </li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="group" value="@group" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="keyword" value="@ViewBag.Keyword" class="form-control" placeholder="@T("Tên tiếng Việt / tiếng Anh")" /></div>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="showInactive" value="true" id="ina" @(ViewBag.ShowInactive == true ? "checked" : "") />
+        <input type="hidden" name="showInactive" value="false" />
+        <label for="ina" class="form-check-label">@T("Hiện cả mục ngừng sử dụng")</label>
+    </div>
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create" asp-route-group="@group">@T("+ Thêm mục")</a>
+</form>
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover mb-0">
+    <thead><tr><th style="width:80px" class="text-center">@T("Thứ tự")</th><th>@T("Tên (tiếng Việt)")</th><th>@T("Tên (tiếng Anh)")</th><th class="text-center">@T("Đang dùng")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var c in Model)
+    {
+        var used = usage.TryGetValue(c.Name, out var u) ? u : 0;
+        <tr class="@(c.IsActive ? "" : "text-muted")">
+            <td class="text-center">@c.SortOrder</td>
+            <td class="fw-semibold">@c.Name</td>
+            <td>@c.NameEn</td>
+            <td class="text-center">@(used > 0 ? used.ToString() : "–")</td>
+            <td>@(c.IsActive ? Html.Raw($"<span class='badge bg-success'>{T("Đang sử dụng")}</span>") : Html.Raw($"<span class='badge bg-secondary'>{T("Ngừng sử dụng")}</span>"))</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@c.Id">@T("Sửa")</a>
+                @if (used == 0)
+                {
+                    <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline" data-confirm="@T("Xóa mục {0}?", c.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form>
+                }
+            </td>
+        </tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="6" class="text-center text-muted p-4">@T("Danh mục trống.")</td></tr> }
+    </tbody>
+</table>
+</div></div>
+<p class="small text-muted mt-2">@T("Đổi tên một mục sẽ cập nhật luôn dữ liệu đang dùng tên cũ. Mục đã được dùng thì không xóa được — hãy chuyển sang ngừng sử dụng để ẩn khỏi danh sách chọn.")</p>

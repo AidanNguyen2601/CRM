@@ -1,40 +1,40 @@
 @model Quote
-@{ ViewData["Title"] = $"Báo giá {Model.Number}"; }
+@{ ViewData["Title"] = T("Báo giá {0}", Model.Number); }
 <div class="toolbar no-print">
-    @if (Model.Status == QuoteStatus.Draft) { <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Sửa</a> }
+    @if (Model.Status == QuoteStatus.Draft) { <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">@T("Sửa")</a> }
     @foreach (var st in new[] { QuoteStatus.Sent, QuoteStatus.Accepted, QuoteStatus.Rejected }.Where(s => s != Model.Status))
     {
         <form asp-action="SetStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="status" value="@((int)st)" />
-            <button class="btn @(st == QuoteStatus.Accepted ? "btn-success" : st == QuoteStatus.Rejected ? "btn-outline-danger" : "btn-outline-primary")">@(st == QuoteStatus.Sent ? "Đánh dấu đã gửi" : st.GetDisplayName())</button></form>
+            <button class="btn @(st == QuoteStatus.Accepted ? "btn-success" : st == QuoteStatus.Rejected ? "btn-outline-danger" : "btn-outline-primary")">@(st == QuoteStatus.Sent ? T("Đánh dấu đã gửi") : st.GetDisplayName())</button></form>
     }
-    <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">Nhân bản</button></form>
-    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">In / Lưu PDF</button>
+    <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@T("Nhân bản")</button></form>
+    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
 </div>
 <div class="card quote-paper"><div class="card-body p-4">
     <div class="d-flex justify-content-between mb-4">
-        <div><h3 class="mb-0">BÁO GIÁ</h3><div class="text-muted">Số: @Model.Number</div></div>
+        <div><h3 class="mb-0">@T("BÁO GIÁ")</h3><div class="text-muted">@T("Số: {0}", Model.Number)</div></div>
         <div class="text-end">
             <partial name="_Badge" model="Model.Status" />
-            <div class="small mt-1">Ngày: @Model.QuoteDate.ToDate()<br />Hiệu lực đến: @Model.ValidUntil.ToDate()</div>
+            <div class="small mt-1">@T("Ngày: {0}", Model.QuoteDate.ToDate())<br />@T("Hiệu lực đến: {0}", Model.ValidUntil.ToDate())</div>
         </div>
     </div>
     <div class="row small mb-3">
         <div class="col-6">
-            <div class="text-muted">Kính gửi</div>
+            <div class="text-muted">@T("Kính gửi")</div>
             <div class="fw-semibold">@Model.Customer?.Name</div>
             <div>@Model.Customer?.Address @Model.Customer?.City</div>
-            <div>MST: @Model.Customer?.TaxCode</div>
-            @if (Model.Contact != null) { <div>Người nhận: @Model.Contact.FullName – @Model.Contact.JobTitle</div> }
+            <div>@T("MST: {0}", Model.Customer?.TaxCode)</div>
+            @if (Model.Contact != null) { <div>@T("Người nhận:") @Model.Contact.FullName – @Model.Contact.JobTitle</div> }
         </div>
         <div class="col-6 text-end">
-            <div class="text-muted">Người phụ trách</div>
+            <div class="text-muted">@T("Người phụ trách")</div>
             <div class="fw-semibold">@Model.Owner?.FullName</div>
             <div>@Model.Owner?.Email</div>
-            @if (Model.Opportunity != null) { <div class="no-print">Cơ hội: <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@Model.OpportunityId">@Model.Opportunity.Name</a></div> }
+            @if (Model.Opportunity != null) { <div class="no-print">@T("Cơ hội:") <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@Model.OpportunityId">@Model.Opportunity.Name</a></div> }
         </div>
     </div>
     <table class="table table-bordered table-sm">
-        <thead><tr><th class="text-center">STT</th><th>Sản phẩm / dịch vụ</th><th>ĐVT</th><th class="money">SL</th><th class="money">Đơn giá</th><th class="money">CK %</th><th class="money">Thành tiền</th></tr></thead>
+        <thead><tr><th class="text-center">STT</th><th>@T("Sản phẩm / dịch vụ")</th><th>@T("ĐVT")</th><th class="money">SL</th><th class="money">@T("Đơn giá")</th><th class="money">CK %</th><th class="money">@T("Thành tiền")</th></tr></thead>
         <tbody>
         @{ var n = 1; }
         @foreach (var l in Model.Lines)
@@ -44,11 +44,11 @@
         }
         </tbody>
         <tfoot>
-            <tr><td colspan="6" class="text-end">Cộng tiền hàng</td><td class="money">@Model.SubTotal.ToMoney()</td></tr>
-            <tr><td colspan="6" class="text-end">Chiết khấu (@Model.DiscountPercent.ToString("0.##")%)</td><td class="money">-@Model.DiscountAmount.ToMoney()</td></tr>
-            <tr><td colspan="6" class="text-end">Thuế GTGT (@Model.VatPercent.ToString("0.##")%)</td><td class="money">@Model.VatAmount.ToMoney()</td></tr>
-            <tr class="fw-bold"><td colspan="6" class="text-end">TỔNG THANH TOÁN</td><td class="money">@Model.Total.ToMoney()</td></tr>
+            <tr><td colspan="6" class="text-end">@T("Cộng tiền hàng")</td><td class="money">@Model.SubTotal.ToMoney()</td></tr>
+            <tr><td colspan="6" class="text-end">@T("Chiết khấu ({0}%)", Model.DiscountPercent.ToString("0.##"))</td><td class="money">-@Model.DiscountAmount.ToMoney()</td></tr>
+            <tr><td colspan="6" class="text-end">@T("Thuế GTGT ({0}%)", Model.VatPercent.ToString("0.##"))</td><td class="money">@Model.VatAmount.ToMoney()</td></tr>
+            <tr class="fw-bold"><td colspan="6" class="text-end">@T("TỔNG THANH TOÁN")</td><td class="money">@Model.Total.ToMoney()</td></tr>
         </tfoot>
     </table>
-    @if (!string.IsNullOrEmpty(Model.Terms)) { <div class="small"><b>Điều khoản:</b><div class="pre">@Model.Terms</div></div> }
+    @if (!string.IsNullOrEmpty(Model.Terms)) { <div class="small"><b>@T("Điều khoản:")</b><div class="pre">@Model.Terms</div></div> }
 </div></div>

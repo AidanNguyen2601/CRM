@@ -77,3 +77,13 @@ public enum QuoteStatus
     [Display(Name = "Khách chấp nhận")] Accepted = 3,
     [Display(Name = "Khách từ chối")] Rejected = 4
 }
+
+/// <summary>Các nhóm danh mục dùng chung (bảng CatalogItems)</summary>
+public enum CatalogGroup
+{
+    [Display(Name = "Ngành nghề")] Industry = 1,
+    [Display(Name = "Tỉnh / Thành phố")] City = 2,
+    [Display(Name = "Nhóm sản phẩm")] ProductCategory = 3,
+    [Display(Name = "Đơn vị tính")] Unit = 4,
+    [Display(Name = "Lý do thua")] LossReason = 5
+}

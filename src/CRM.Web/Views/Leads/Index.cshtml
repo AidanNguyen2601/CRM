@@ -1,6 +1,6 @@
 @model PagedList<Lead>
 @{
-    ViewData["Title"] = "Lead – khách hàng tiềm năng";
+    ViewData["Title"] = T("Lead – khách hàng tiềm năng");
     var f = (LeadFilter)ViewBag.Filter;
     var statusItems = Html.GetEnumSelectList<LeadStatus>().ToList();
     foreach (var i in statusItems) i.Selected = f.Status.HasValue && i.Value == ((int)f.Status.Value).ToString();
@@ -9,16 +9,16 @@
     Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Status, f.Source, f.OwnerId, Page = p })!;
 }
 <form method="get" class="toolbar">
-    <div><label class="form-label small mb-1">Tìm kiếm</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="Tên, công ty, email, SĐT" /></div>
-    <div><label class="form-label small mb-1">Trạng thái</label><select name="Status" class="form-select" asp-items="statusItems"><option value="">Đang theo đuổi</option></select></div>
-    <div><label class="form-label small mb-1">Nguồn</label><select name="Source" class="form-select" asp-items="sourceItems"><option value="">-- Tất cả --</option></select></div>
-    @if (User.SeesAll()) { <div><label class="form-label small mb-1">Phụ trách</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">-- Tất cả --</option></select></div> }
-    <button class="btn btn-outline-primary">Lọc</button>
-    <a class="btn btn-primary ms-auto" asp-action="Create">+ Thêm lead</a>
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên, công ty, email, SĐT")" /></div>
+    <div><label class="form-label small mb-1">@T("Trạng thái")</label><select name="Status" class="form-select" asp-items="statusItems"><option value="">@T("Đang theo đuổi")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Nguồn")</label><select name="Source" class="form-select" asp-items="sourceItems"><option value="">@T("-- Tất cả --")</option></select></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create">@T("+ Thêm lead")</a>
 </form>
 <div class="card"><div class="card-body p-0">
 <table class="table table-hover mb-0">
-    <thead><tr><th>Họ tên</th><th>Công ty</th><th>Liên hệ</th><th>Nguồn</th><th>Mức độ</th><th class="money">Giá trị dự kiến</th><th>Trạng thái</th><th>Phụ trách</th><th>Ngày tạo</th></tr></thead>
+    <thead><tr><th>@T("Họ tên")</th><th>@T("Công ty")</th><th>@T("Liên hệ")</th><th>@T("Nguồn")</th><th>@T("Mức độ")</th><th class="money">@T("Giá trị dự kiến")</th><th>@T("Trạng thái")</th><th>@T("Phụ trách")</th><th>@T("Ngày tạo")</th></tr></thead>
     <tbody>
     @foreach (var l in Model.Items)
     {
@@ -34,11 +34,11 @@
             <td>@l.CreatedAt.ToDate()</td>
         </tr>
     }
-    @if (!Model.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">Không có lead.</td></tr> }
+    @if (!Model.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Không có lead.")</td></tr> }
     </tbody>
 </table>
 </div>
 <div class="card-footer bg-white d-flex justify-content-between align-items-center">
-    <span class="small text-muted">Tổng: @Model.TotalCount lead</span>
+    <span class="small text-muted">@T("Tổng: {0} lead", Model.TotalCount)</span>
     <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
 </div></div>

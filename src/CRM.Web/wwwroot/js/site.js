@@ -11,7 +11,7 @@ document.addEventListener('change', async function (e) {
     if (!target) return;
     const sel = document.querySelector(target);
     if (!sel) return;
-    sel.innerHTML = '<option value="">-- Chọn --</option>';
+    sel.innerHTML = '<option value="">' + (document.documentElement.lang === 'en' ? '-- Select --' : '-- Chọn --') + '</option>';
     if (!e.target.value) return;
     const res = await fetch('/Contacts/ByCustomer?customerId=' + encodeURIComponent(e.target.value));
     const items = await res.json();

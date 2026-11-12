@@ -77,9 +77,9 @@ public class CustomersController : CrmControllerBase
     public async Task<IActionResult> Save(Customer model)
     {
         if (await Db.Customers.AnyAsync(c => c.Code == model.Code && c.Id != model.Id))
-            ModelState.AddModelError(nameof(model.Code), "Mã khách hàng đã tồn tại");
+            ModelState.AddModelError(nameof(model.Code), I18n.T("Mã khách hàng đã tồn tại"));
         if (!string.IsNullOrWhiteSpace(model.TaxCode) && await Db.Customers.AnyAsync(c => c.TaxCode == model.TaxCode && c.Id != model.Id))
-            ModelState.AddModelError(nameof(model.TaxCode), "Mã số thuế đã thuộc về khách hàng khác");
+            ModelState.AddModelError(nameof(model.TaxCode), I18n.T("Mã số thuế đã thuộc về khách hàng khác"));
         if (!ModelState.IsValid)
         {
             await LoadOwnersAsync(model.OwnerId);
@@ -103,7 +103,7 @@ public class CustomersController : CrmControllerBase
             c.UpdatedAt = DateTime.Now;
         }
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã lưu khách hàng.";
+        TempData["Success"] = I18n.T("Đã lưu khách hàng.");
         return RedirectToAction(nameof(Details), new { id = model.Id });
     }
 
@@ -117,12 +117,12 @@ public class CustomersController : CrmControllerBase
                    || await Db.Quotes.AnyAsync(x => x.CustomerId == id) || await Db.Activities.AnyAsync(x => x.CustomerId == id);
         if (used)
         {
-            TempData["Error"] = "Khách hàng đã có dữ liệu liên quan (liên hệ, cơ hội, báo giá, hoạt động). Hãy chuyển phân loại sang 'Ngừng giao dịch'.";
+            TempData["Error"] = I18n.T("Khách hàng đã có dữ liệu liên quan (liên hệ, cơ hội, báo giá, hoạt động). Hãy chuyển phân loại sang 'Ngừng giao dịch'.");
             return RedirectToAction(nameof(Details), new { id });
         }
         Db.Customers.Remove(c);
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã xóa khách hàng.";
+        TempData["Success"] = I18n.T("Đã xóa khách hàng.");
         return RedirectToAction(nameof(Index));
     }
 }

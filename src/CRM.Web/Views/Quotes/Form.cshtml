@@ -1,13 +1,13 @@
 @model QuoteFormViewModel
-@{ ViewData["Title"] = Model.Id == 0 ? "Tạo báo giá" : $"Sửa báo giá {Model.Number}"; }
+@{ ViewData["Title"] = Model.Id == 0 ? T("Tạo báo giá") : T("Sửa báo giá {0}", Model.Number); }
 <form asp-action="Save" method="post" id="quoteForm">
     <input type="hidden" asp-for="Id" />
     <div asp-validation-summary="All" class="text-danger"></div>
     <div class="card mb-3"><div class="card-body row g-3">
         <div class="col-md-3"><label asp-for="Number" class="form-label"></label><input asp-for="Number" class="form-control" readonly /></div>
-        <div class="col-md-5"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers" data-contacts-for="#ContactId"><option value="">-- Chọn khách hàng --</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
-        <div class="col-md-4"><label asp-for="ContactId" class="form-label"></label><select asp-for="ContactId" class="form-select" asp-items="ViewBag.Contacts"><option value="">-- Chọn --</option></select></div>
-        <div class="col-md-4"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">-- Không --</option></select></div>
+        <div class="col-md-5"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers" data-contacts-for="#ContactId"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="ContactId" class="form-label"></label><select asp-for="ContactId" class="form-select" asp-items="ViewBag.Contacts"><option value="">@T("-- Chọn --")</option></select></div>
+        <div class="col-md-4"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">@T("-- Không --")</option></select></div>
         <div class="col-md-2"><label asp-for="QuoteDate" class="form-label"></label><input asp-for="QuoteDate" class="form-control" /></div>
         <div class="col-md-2"><label asp-for="ValidUntil" class="form-label"></label><input asp-for="ValidUntil" class="form-control" /><span asp-validation-for="ValidUntil" class="text-danger small"></span></div>
         <div class="col-md-2"><label asp-for="DiscountPercent" class="form-label"></label><input asp-for="DiscountPercent" class="form-control calc" /></div>
@@ -15,10 +15,10 @@
     </div></div>
 
     <div class="card mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">Chi tiết sản phẩm / dịch vụ <button type="button" class="btn btn-sm btn-outline-primary" id="addLine">+ Thêm dòng</button></div>
+        <div class="card-header d-flex justify-content-between align-items-center">@T("Chi tiết sản phẩm / dịch vụ") <button type="button" class="btn btn-sm btn-outline-primary" id="addLine">@T("+ Thêm dòng")</button></div>
         <div class="card-body p-0 table-responsive">
             <table class="table mb-0 quote-lines">
-                <thead><tr><th style="width:40px">#</th><th style="width:230px">Sản phẩm</th><th>Diễn giải</th><th style="width:100px">ĐVT</th><th style="width:90px">SL</th><th style="width:140px">Đơn giá</th><th style="width:80px">CK %</th><th class="money" style="width:140px">Thành tiền</th><th style="width:40px"></th></tr></thead>
+                <thead><tr><th style="width:40px">#</th><th style="width:230px">@T("Sản phẩm")</th><th>@T("Diễn giải")</th><th style="width:100px">@T("ĐVT")</th><th style="width:90px">SL</th><th style="width:140px">@T("Đơn giá")</th><th style="width:80px">CK %</th><th class="money" style="width:140px">@T("Thành tiền")</th><th style="width:40px"></th></tr></thead>
                 <tbody id="lines">
                 @for (var i = 0; i < Model.Lines.Count; i++)
                 {
@@ -27,7 +27,7 @@
                         <td class="idx">@(i + 1)</td>
                         <td><select data-f="ProductId" class="form-select form-select-sm product" data-value="@l.ProductId"></select></td>
                         <td><input data-f="Description" class="form-control form-control-sm" value="@l.Description" /></td>
-                        <td><input data-f="Unit" class="form-control form-control-sm" value="@l.Unit" /></td>
+                        <td><input data-f="Unit" list="units" class="form-control form-control-sm" value="@l.Unit" /></td>
                         <td><input data-f="Quantity" type="number" step="0.01" min="0" class="form-control form-control-sm calc" value="@l.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture)" /></td>
                         <td><input data-f="UnitPrice" type="number" step="1000" min="0" class="form-control form-control-sm calc" value="@l.UnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)" /></td>
                         <td><input data-f="DiscountPercent" type="number" step="0.5" min="0" max="100" class="form-control form-control-sm calc" value="@l.DiscountPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)" /></td>
@@ -41,17 +41,19 @@
         <div class="card-footer bg-white">
             <div class="row justify-content-end"><div class="col-md-5">
                 <table class="table table-sm mb-0">
-                    <tr><td>Cộng tiền hàng</td><td class="money" id="sub">0</td></tr>
-                    <tr><td>Chiết khấu chung</td><td class="money" id="disc">0</td></tr>
-                    <tr><td>Thuế GTGT</td><td class="money" id="vat">0</td></tr>
-                    <tr class="fw-bold fs-5"><td>Tổng thanh toán</td><td class="money" id="grand">0</td></tr>
+                    <tr><td>@T("Cộng tiền hàng")</td><td class="money" id="sub">0</td></tr>
+                    <tr><td>@T("Chiết khấu chung")</td><td class="money" id="disc">0</td></tr>
+                    <tr><td>@T("Thuế GTGT")</td><td class="money" id="vat">0</td></tr>
+                    <tr class="fw-bold fs-5"><td>@T("Tổng thanh toán")</td><td class="money" id="grand">0</td></tr>
                 </table>
             </div></div>
         </div>
     </div>
     <div class="card mb-3"><div class="card-body"><label asp-for="Terms" class="form-label"></label><textarea asp-for="Terms" class="form-control" rows="3"></textarea></div></div>
-    <button class="btn btn-primary">Lưu báo giá</button> <a asp-action="Index" class="btn btn-light">Hủy</a>
+    <button class="btn btn-primary">@T("Lưu báo giá")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a>
 </form>
+
+<partial name="_CatalogDatalist" model='("units", CatalogGroup.Unit)' />
 
 @section Scripts {
 <script>
@@ -63,7 +65,7 @@
 
     function fillProducts(sel) {
         const cur = sel.getAttribute('data-value') || sel.value;
-        sel.innerHTML = '<option value="">-- Tự nhập --</option>' +
+        sel.innerHTML = '<option value="">@T("-- Tự nhập --")</option>' +
             products.map(p => `<option value="${p.id}">${p.code} – ${p.name}</option>`).join('');
         if (cur) sel.value = cur;
     }

@@ -26,7 +26,7 @@ public static class FormatExtensions
     public static string GetDisplayName(this Enum value)
     {
         var member = value.GetType().GetMember(value.ToString()).FirstOrDefault();
-        return member?.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? value.ToString();
+        return I18n.T(member?.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? value.ToString());
     }
 }
 

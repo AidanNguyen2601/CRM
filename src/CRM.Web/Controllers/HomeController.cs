@@ -39,7 +39,7 @@ public class HomeController : CrmControllerBase
         for (var i = 5; i >= 0; i--)
         {
             var m = monthStart.AddMonths(-i);
-            vm.WonByMonth.Add(($"T{m.Month}/{m:yy}", won.Where(o => o.ClosedAt >= m && o.ClosedAt < m.AddMonths(1)).Sum(o => o.Amount)));
+            vm.WonByMonth.Add((I18n.IsEnglish ? m.ToString("MMM yy", System.Globalization.CultureInfo.GetCultureInfo("en-US")) : $"T{m.Month}/{m:yy}", won.Where(o => o.ClosedAt >= m && o.ClosedAt < m.AddMonths(1)).Sum(o => o.Amount)));
         }
 
         var leads = await Db.Leads.VisibleTo(User).AsNoTracking().ToListAsync();

@@ -42,7 +42,7 @@ public class AccountController : Controller
         if (user == null || !user.IsActive ||
             _hasher.VerifyHashedPassword(user, user.PasswordHash, vm.Password) == PasswordVerificationResult.Failed)
         {
-            ModelState.AddModelError(string.Empty, "Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.");
+            ModelState.AddModelError(string.Empty, I18n.T("Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa."));
             return View(vm);
         }
 
@@ -86,13 +86,13 @@ public class AccountController : Controller
 
         if (_hasher.VerifyHashedPassword(user, user.PasswordHash, vm.CurrentPassword) == PasswordVerificationResult.Failed)
         {
-            ModelState.AddModelError(nameof(vm.CurrentPassword), "Mật khẩu hiện tại không đúng");
+            ModelState.AddModelError(nameof(vm.CurrentPassword), I18n.T("Mật khẩu hiện tại không đúng"));
             return View(vm);
         }
 
         user.PasswordHash = _hasher.HashPassword(user, vm.NewPassword);
         await _db.SaveChangesAsync();
-        TempData["Success"] = "Đổi mật khẩu thành công.";
+        TempData["Success"] = I18n.T("Đổi mật khẩu thành công.");
         return RedirectToAction("Index", "Home");
     }
 

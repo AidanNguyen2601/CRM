@@ -1,11 +1,11 @@
 @model LoginViewModel
 @{
-    ViewData["Title"] = "Đăng nhập";
+    ViewData["Title"] = T("Đăng nhập");
     Layout = "_AuthLayout";
 }
 <div class="auth-card">
     <h3 class="mb-1 fw-bold">CRM System</h3>
-    <p class="text-muted mb-4">Đăng nhập để tiếp tục</p>
+    <p class="text-muted mb-4">@T("Đăng nhập để tiếp tục")</p>
     <form asp-action="Login" method="post">
         <input type="hidden" asp-for="ReturnUrl" />
         <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
@@ -23,10 +23,10 @@
             <input asp-for="RememberMe" class="form-check-input" />
             <label asp-for="RememberMe" class="form-check-label"></label>
         </div>
-        <button class="btn btn-primary w-100">Đăng nhập</button>
+        <button class="btn btn-primary w-100">@T("Đăng nhập")</button>
     </form>
     <div class="mt-4 small text-muted">
-        Tài khoản demo: <b>admin</b>/Admin@@123 · <b>manager</b>/Manager@@123 · <b>sales1</b>/Sales@@123 · <b>sales2</b>/Sales@@123
+        @T("Tài khoản demo:") <b>admin</b>/Admin@@123 · <b>manager</b>/Manager@@123 · <b>sales1</b>/Sales@@123 · <b>sales2</b>/Sales@@123
     </div>
 </div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

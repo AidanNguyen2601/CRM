@@ -88,7 +88,7 @@ public class ContactsController : CrmControllerBase
             others.ForEach(x => x.IsPrimary = false);
         }
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã lưu người liên hệ.";
+        TempData["Success"] = I18n.T("Đã lưu người liên hệ.");
         return entity.CustomerId.HasValue && returnTo == "customer"
             ? RedirectToAction("Details", "Customers", new { id = entity.CustomerId })
             : RedirectToAction(nameof(Index));
@@ -103,12 +103,12 @@ public class ContactsController : CrmControllerBase
         if (await Db.Opportunities.AnyAsync(o => o.ContactId == id) || await Db.Quotes.AnyAsync(q => q.ContactId == id)
             || await Db.Activities.AnyAsync(a => a.ContactId == id))
         {
-            TempData["Error"] = "Người liên hệ đang gắn với cơ hội, báo giá hoặc hoạt động nên không thể xóa.";
+            TempData["Error"] = I18n.T("Người liên hệ đang gắn với cơ hội, báo giá hoặc hoạt động nên không thể xóa.");
             return RedirectToAction(nameof(Index));
         }
         Db.Contacts.Remove(c);
         await Db.SaveChangesAsync();
-        TempData["Success"] = "Đã xóa người liên hệ.";
+        TempData["Success"] = I18n.T("Đã xóa người liên hệ.");
         return RedirectToAction(nameof(Index));
     }
 

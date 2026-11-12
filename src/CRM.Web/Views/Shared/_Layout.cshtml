@@ -5,7 +5,7 @@
     var role = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
 }
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="@Lang">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,25 +18,39 @@
     <aside class="sidebar">
         <a class="brand" asp-controller="Home" asp-action="Index">CRM<span>Sales</span></a>
         <nav>
-            <div class="nav-group">Tổng quan</div>
+            @* ===== NGHIỆP VỤ: các chức năng làm việc hằng ngày ===== *@
+            <div class="nav-section">@T("Nghiệp vụ")</div>
+            <div class="nav-group">@T("Tổng quan")</div>
             <a class="@Active("Home")" asp-controller="Home" asp-action="Index">Dashboard</a>
-            <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">Lịch làm việc</a>
+            <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@T("Lịch làm việc")</a>
 
-            <div class="nav-group">Bán hàng</div>
-            <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">Lead (KH tiềm năng)</a>
+            <div class="nav-group">@T("Bán hàng")</div>
+            <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">@T("Lead (KH tiềm năng)")</a>
             <a class="@Active("Opportunities","Pipeline")" asp-controller="Opportunities" asp-action="Pipeline">Pipeline</a>
-            <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">Cơ hội bán hàng</a>
-            <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">Báo giá</a>
+            <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">@T("Cơ hội bán hàng")</a>
+            <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">@L("Báo giá", "Quotes")</a>
 
-            <div class="nav-group">Khách hàng</div>
-            <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">Khách hàng</a>
-            <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">Người liên hệ</a>
+            <div class="nav-group">@L("Khách hàng", "Customers")</div>
+            <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@L("Khách hàng", "Customers")</a>
+            <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@L("Người liên hệ", "Contacts")</a>
 
-            <div class="nav-group">Danh mục</div>
-            <a class="@Active("Products")" asp-controller="Products" asp-action="Index">Sản phẩm / dịch vụ</a>
+            @* ===== DANH MỤC: dữ liệu dùng chung ===== *@
+            <div class="nav-section">@T("Danh mục")</div>
+            <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@T("Sản phẩm / dịch vụ")</a>
+            @if (User.SeesAll())
+            {
+                var curGroup = ctrl == "Catalogs" ? ViewData["CatalogGroup"] as CatalogGroup? : null;
+                foreach (var cg in Enum.GetValues<CatalogGroup>())
+                {
+                    <a class="@(curGroup == cg ? "active" : "")" asp-controller="Catalogs" asp-action="Index" asp-route-group="@cg">@cg.GetDisplayName()</a>
+                }
+            }
+
             @if (User.IsInRole(AppRoles.Admin))
             {
-                <a class="@Active("Users")" asp-controller="Users" asp-action="Index">Người dùng & phân quyền</a>
+                @* ===== HỆ THỐNG ===== *@
+                <div class="nav-section">@T("Hệ thống")</div>
+                <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@T("Người dùng & phân quyền")</a>
             }
         </nav>
     </aside>
@@ -45,14 +59,15 @@
         <header class="topbar">
             <h1 class="page-title">@ViewData["Title"]</h1>
             <div class="d-flex align-items-center gap-2">
+                <partial name="_LanguageSwitcher" />
                 <div class="dropdown">
-                    <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">+ Tạo nhanh</button>
+                    <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">@T("+ Tạo nhanh")</button>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" asp-controller="Leads" asp-action="Create">Lead</a></li>
-                        <li><a class="dropdown-item" asp-controller="Customers" asp-action="Create">Khách hàng</a></li>
-                        <li><a class="dropdown-item" asp-controller="Opportunities" asp-action="Create">Cơ hội</a></li>
-                        <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">Hoạt động</a></li>
-                        <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">Báo giá</a></li>
+                        <li><a class="dropdown-item" asp-controller="Customers" asp-action="Create">@T("Khách hàng")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Opportunities" asp-action="Create">@T("Cơ hội")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@T("Hoạt động")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@L("Báo giá", "Quote")</a></li>
                     </ul>
                 </div>
                 <div class="dropdown">
@@ -61,9 +76,9 @@
                         @User.GetFullName() <small class="text-muted">(@AppRoles.DisplayName(role))</small>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">Đổi mật khẩu</a></li>
+                        <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@T("Đổi mật khẩu")</a></li>
                         <li><hr class="dropdown-divider" /></li>
-                        <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">Đăng xuất</button></form></li>
+                        <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">@T("Đăng xuất")</button></form></li>
                     </ul>
                 </div>
             </div>
