@@ -1,0 +1,28 @@
+@model Activity
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Thêm hoạt động" : $"Hoạt động: {Model.Subject}";
+    var returnUrl = Context.Request.Headers.Referer.ToString();
+    if (!string.IsNullOrEmpty(returnUrl) && Uri.TryCreate(returnUrl, UriKind.Absolute, out var u)) returnUrl = u.PathAndQuery; else returnUrl = "";
+}
+<div class="card" style="max-width:960px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" /><input type="hidden" asp-for="CompletedAt" />
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-3"><label asp-for="Type" class="form-label"></label><select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<ActivityType>()"></select></div>
+        <div class="col-md-9"><label asp-for="Subject" class="form-label"></label><input asp-for="Subject" class="form-control" /><span asp-validation-for="Subject" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="DueDate" class="form-label"></label><input asp-for="DueDate" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="Priority" class="form-label"></label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<Priority>()"></select></div>
+        <div class="col-md-4"><label asp-for="Status" class="form-label"></label><select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<ActivityStatus>()"></select></div>
+        <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers" data-contacts-for="#ContactId"><option value="">--</option></select></div>
+        <div class="col-md-6"><label asp-for="ContactId" class="form-label"></label><select asp-for="ContactId" class="form-select" asp-items="ViewBag.Contacts"><option value="">--</option></select></div>
+        <div class="col-md-6"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">--</option></select></div>
+        <div class="col-md-6"><label asp-for="LeadId" class="form-label"></label><select asp-for="LeadId" class="form-select" asp-items="ViewBag.Leads"><option value="">--</option></select></div>
+        @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
+        <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="4"></textarea></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-primary">Lưu</button> <a asp-action="Index" class="btn btn-light">Hủy</a></div>
+</form>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

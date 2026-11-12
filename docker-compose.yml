@@ -1,0 +1,50 @@
+# Phương án A: CRM có SQL Server riêng.  Chạy: docker compose up -d --build
+name: crm
+
+services:
+  crm-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: crm-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${CRM_SA_PASSWORD}
+      MSSQL_PID: Developer
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${CRM_DB_PORT:-1435}:1433"
+    volumes:
+      - crm-sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [crm-net]
+    restart: unless-stopped
+
+  crm-web:
+    build: { context: ., dockerfile: Dockerfile }
+    image: crm-web:latest
+    container_name: crm-web
+    depends_on:
+      crm-db: { condition: service_healthy }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__CrmConnection: "Server=crm-db,1433;Database=CRM_DB;User Id=sa;Password=${CRM_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      DataProtection__KeysPath: /app/keys
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${CRM_WEB_PORT:-8100}:8080"
+    volumes:
+      - crm-keys:/app/keys
+    networks: [crm-net]
+    restart: unless-stopped
+
+volumes:
+  crm-sqldata:
+  crm-keys:
+
+networks:
+  crm-net:
+    name: crm-net

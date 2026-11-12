@@ -1,0 +1,33 @@
+@model List<AppUser>
+@{
+    ViewData["Title"] = "Người dùng & phân quyền";
+    var stats = (Dictionary<int, (int Leads, int Opps, int Customers)>)ViewBag.Stats;
+}
+<div class="toolbar"><a class="btn btn-primary" asp-action="Create">+ Thêm người dùng</a></div>
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover mb-0">
+    <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Email</th><th>Vai trò</th><th class="text-center">Lead</th><th class="text-center">Cơ hội mở</th><th class="text-center">Khách hàng</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var u in Model)
+    {
+        var s = stats[u.Id];
+        <tr>
+            <td><b>@u.Username</b></td><td>@u.FullName</td><td>@u.Email</td>
+            <td><span class="badge bg-primary">@AppRoles.DisplayName(u.Role)</span></td>
+            <td class="text-center">@s.Leads</td><td class="text-center">@s.Opps</td><td class="text-center">@s.Customers</td>
+            <td>@(u.IsActive ? Html.Raw("<span class='badge bg-success'>Hoạt động</span>") : Html.Raw("<span class='badge bg-secondary'>Đã khóa</span>"))</td>
+            <td>@u.LastLoginAt?.ToString("dd/MM/yyyy HH:mm")</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@u.Id">Sửa</a></td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>
+<div class="card mt-3"><div class="card-body small">
+    <b>Phân quyền:</b>
+    <ul class="mb-0">
+        <li><b>Quản trị hệ thống</b>: toàn quyền, quản lý người dùng.</li>
+        <li><b>Quản lý kinh doanh</b>: xem và chỉnh toàn bộ dữ liệu, phân công người phụ trách, quản lý danh mục sản phẩm.</li>
+        <li><b>Nhân viên kinh doanh</b>: chỉ xem và làm việc với lead, khách hàng, cơ hội, báo giá, hoạt động mình phụ trách.</li>
+    </ul>
+</div></div>

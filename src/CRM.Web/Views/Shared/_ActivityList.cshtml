@@ -1,0 +1,32 @@
+@* Danh sách hoạt động dùng ở trang chi tiết. ViewData["ReturnUrl"] = trang quay lại sau khi hoàn thành *@
+@model IEnumerable<Activity>
+@{ var returnUrl = ViewData["ReturnUrl"] as string ?? Context.Request.Path.Value; }
+@if (!Model.Any())
+{
+    <div class="text-muted p-3">Chưa có hoạt động.</div>
+}
+<ul class="timeline">
+@foreach (var a in Model)
+{
+    <li class="@(a.Status == ActivityStatus.Completed ? "done" : a.IsOverdue ? "overdue" : "")">
+        <div class="d-flex justify-content-between gap-2">
+            <div>
+                <span class="act-type">@a.Type.GetDisplayName()</span>
+                <a asp-controller="Activities" asp-action="Edit" asp-route-id="@a.Id" class="fw-semibold">@a.Subject</a>
+                <div class="small text-muted">@a.DueDate.ToDateTime() · @a.Owner?.FullName @if (a.IsOverdue) { <span class="text-danger fw-semibold">· Quá hạn</span> }</div>
+                @if (!string.IsNullOrEmpty(a.Description)) { <div class="small mt-1 pre">@a.Description</div> }
+            </div>
+            <div class="text-nowrap">
+                @if (a.Status == ActivityStatus.Planned)
+                {
+                    <form asp-controller="Activities" asp-action="Complete" asp-route-id="@a.Id" method="post">
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                        <button class="btn btn-sm btn-outline-success">✓ Xong</button>
+                    </form>
+                }
+                else { <partial name="_Badge" model="a.Status" /> }
+            </div>
+        </div>
+    </li>
+}
+</ul>

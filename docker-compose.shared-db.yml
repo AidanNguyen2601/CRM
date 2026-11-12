@@ -1,0 +1,28 @@
+# Phương án B: chỉ chạy web CRM, dùng chung SQL Server đang chạy (của Healthcare).
+# CRM tạo database riêng CRM_DB. Chạy: docker compose -f docker-compose.shared-db.yml up -d --build
+name: crm
+
+services:
+  crm-web:
+    build: { context: ., dockerfile: Dockerfile }
+    image: crm-web:latest
+    container_name: crm-web
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__CrmConnection: "Server=${SHARED_DB_HOST},1433;Database=CRM_DB;User Id=${SHARED_DB_USER};Password=${SHARED_DB_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      DataProtection__KeysPath: /app/keys
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${CRM_WEB_PORT:-8100}:8080"
+    volumes:
+      - crm-keys:/app/keys
+    networks: [shared-net]
+    restart: unless-stopped
+
+volumes:
+  crm-keys:
+
+networks:
+  shared-net:
+    external: true
+    name: ${SHARED_NETWORK}

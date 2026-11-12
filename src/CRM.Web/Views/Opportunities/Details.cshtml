@@ -1,0 +1,74 @@
+@model OpportunityDetailViewModel
+@{
+    var o = Model.Opportunity;
+    ViewData["Title"] = o.Name;
+    var openStages = new[] { OpportunityStage.Prospecting, OpportunityStage.Qualification, OpportunityStage.Proposal, OpportunityStage.Negotiation };
+}
+<div class="card mb-3"><div class="card-body">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        @foreach (var s in openStages)
+        {
+            var passed = !o.IsClosed && (int)o.Stage >= (int)s || o.Stage == OpportunityStage.ClosedWon;
+            <form asp-action="ChangeStage" asp-route-id="@o.Id" method="post">
+                <input type="hidden" name="stage" value="@((int)s)" />
+                <button class="btn btn-sm @(o.Stage == s ? "btn-primary" : passed ? "btn-outline-primary" : "btn-outline-secondary")">@s.GetDisplayName()</button>
+            </form>
+            <span class="text-muted">›</span>
+        }
+        <form asp-action="ChangeStage" asp-route-id="@o.Id" method="post" data-confirm="Đánh dấu THẮNG cơ hội này?">
+            <input type="hidden" name="stage" value="@((int)OpportunityStage.ClosedWon)" />
+            <button class="btn btn-sm @(o.Stage == OpportunityStage.ClosedWon ? "btn-success" : "btn-outline-success")">Thắng</button>
+        </form>
+        <form asp-action="ChangeStage" asp-route-id="@o.Id" method="post" class="d-flex gap-1">
+            <input type="hidden" name="stage" value="@((int)OpportunityStage.ClosedLost)" />
+            <input name="lostReason" class="form-control form-control-sm" placeholder="Lý do thua" value="@o.LostReason" style="width:180px" />
+            <button class="btn btn-sm @(o.Stage == OpportunityStage.ClosedLost ? "btn-danger" : "btn-outline-danger")">Thua</button>
+        </form>
+    </div>
+</div></div>
+<div class="toolbar">
+    <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@o.Id">Sửa</a>
+    <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-opportunityId="@o.Id">+ Hoạt động</a>
+    <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-opportunityId="@o.Id">+ Báo giá</a>
+    <form asp-action="Delete" asp-route-id="@o.Id" method="post" data-confirm="Xóa cơ hội này?" class="ms-auto"><button class="btn btn-outline-danger">Xóa</button></form>
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card"><div class="card-body">
+            <div class="small text-muted">Giá trị</div>
+            <div class="fs-3 fw-bold">@o.Amount.ToMoney() <small class="fs-6 text-muted">đ</small></div>
+            <div class="small text-muted mb-2">Xác suất @o.Probability% · trọng số @o.WeightedAmount.ToMoney()</div>
+            <partial name="_Badge" model="o.Stage" />
+            <hr />
+            <dl class="row small mb-0 info">
+                <dt class="col-5">Khách hàng</dt><dd class="col-7"><a asp-controller="Customers" asp-action="Details" asp-route-id="@o.CustomerId">@o.Customer?.Name</a></dd>
+                <dt class="col-5">Liên hệ</dt><dd class="col-7">@o.Contact?.FullName<br /><span class="text-muted">@o.Contact?.Phone</span></dd>
+                <dt class="col-5">Dự kiến chốt</dt><dd class="col-7">@o.ExpectedCloseDate.ToDate()</dd>
+                @if (o.IsClosed) { <dt class="col-5">Ngày chốt</dt><dd class="col-7">@o.ClosedAt.ToDate()</dd> }
+                @if (o.Stage == OpportunityStage.ClosedLost) { <dt class="col-5">Lý do thua</dt><dd class="col-7">@o.LostReason</dd> }
+                <dt class="col-5">Nguồn</dt><dd class="col-7">@o.Source?.GetDisplayName()</dd>
+                <dt class="col-5">Phụ trách</dt><dd class="col-7">@o.Owner?.FullName</dd>
+                <dt class="col-5">Ngày tạo</dt><dd class="col-7">@o.CreatedAt.ToDate()</dd>
+            </dl>
+            @if (!string.IsNullOrEmpty(o.Description)) { <hr /><div class="small pre">@o.Description</div> }
+        </div></div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-header">Báo giá</div>
+            <div class="card-body p-0"><table class="table mb-0">
+                <thead><tr><th>Số báo giá</th><th>Ngày</th><th class="money">Tổng thanh toán</th><th>Trạng thái</th></tr></thead>
+                <tbody>
+                @foreach (var q in Model.Quotes)
+                {
+                    <tr><td><a asp-controller="Quotes" asp-action="Details" asp-route-id="@q.Id">@q.Number</a></td><td>@q.QuoteDate.ToDate()</td>
+                        <td class="money">@q.Total.ToMoney()</td><td><partial name="_Badge" model="q.Status" /></td></tr>
+                }
+                @if (!Model.Quotes.Any()) { <tr><td colspan="4" class="text-muted p-3">Chưa có báo giá.</td></tr> }
+                </tbody>
+            </table></div>
+        </div>
+        <div class="card"><div class="card-header">Hoạt động</div>
+            <div class="card-body"><partial name="_ActivityList" model="Model.Activities" /></div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,48 @@
+@model PagedList<Opportunity>
+@{
+    ViewData["Title"] = "Cơ hội bán hàng";
+    var f = (OpportunityFilter)ViewBag.Filter;
+    var stageItems = Html.GetEnumSelectList<OpportunityStage>().ToList();
+    foreach (var i in stageItems) i.Selected = f.Stage.HasValue && i.Value == ((int)f.Stage.Value).ToString();
+    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Stage, f.Scope, f.OwnerId, Page = p })!;
+    string Tab(string s) => (f.Scope ?? "open") == s ? "active" : "";
+}
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link @Tab("open")" asp-route-Scope="open">Đang mở</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("won")" asp-route-Scope="won">Đã thắng</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("lost")" asp-route-Scope="lost">Đã thua</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("all")" asp-route-Scope="all">Tất cả</a></li>
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="Scope" value="@f.Scope" />
+    <div><label class="form-label small mb-1">Tìm kiếm</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="Tên cơ hội, khách hàng" /></div>
+    <div><label class="form-label small mb-1">Giai đoạn</label><select name="Stage" class="form-select" asp-items="stageItems"><option value="">-- Tất cả --</option></select></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">Phụ trách</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">-- Tất cả --</option></select></div> }
+    <button class="btn btn-outline-primary">Lọc</button>
+    <a class="btn btn-outline-secondary ms-auto" asp-action="Pipeline">Xem Kanban</a>
+    <a class="btn btn-primary" asp-action="Create">+ Thêm cơ hội</a>
+</form>
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover mb-0">
+    <thead><tr><th>Cơ hội</th><th>Khách hàng</th><th>Giai đoạn</th><th class="money">Giá trị</th><th class="text-center">Xác suất</th><th>Dự kiến chốt</th><th>Phụ trách</th></tr></thead>
+    <tbody>
+    @foreach (var o in Model.Items)
+    {
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@o.Id" class="fw-semibold">@o.Name</a></td>
+            <td>@o.Customer?.Name</td>
+            <td><partial name="_Badge" model="o.Stage" /></td>
+            <td class="money">@o.Amount.ToMoney()</td>
+            <td class="text-center">@o.Probability%</td>
+            <td class="@(!o.IsClosed && o.ExpectedCloseDate < DateTime.Today ? "text-danger" : "")">@(o.IsClosed ? o.ClosedAt.ToDate() : o.ExpectedCloseDate.ToDate())</td>
+            <td>@o.Owner?.FullName</td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="7" class="text-center text-muted p-4">Không có cơ hội.</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="small text-muted">@Model.TotalCount cơ hội · tổng giá trị <b>@(((decimal)ViewBag.TotalAmount).ToMoney())</b></span>
+    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+</div></div>

@@ -1,0 +1,23 @@
+@model Lead
+@{ ViewData["Title"] = Model.Id == 0 ? "Thêm lead" : $"Sửa lead: {Model.FullName}"; }
+<div class="card" style="max-width:900px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="JobTitle" class="form-label"></label><input asp-for="JobTitle" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="Company" class="form-label"></label><input asp-for="Company" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /><span asp-validation-for="Phone" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Source" class="form-label"></label><select asp-for="Source" class="form-select" asp-items="Html.GetEnumSelectList<LeadSource>()"></select></div>
+        <div class="col-md-3"><label asp-for="Rating" class="form-label"></label><select asp-for="Rating" class="form-select" asp-items="Html.GetEnumSelectList<LeadRating>()"></select></div>
+        <div class="col-md-3"><label asp-for="Status" class="form-label"></label><select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<LeadStatus>().Where(i => i.Value != ((int)LeadStatus.Converted).ToString())"></select></div>
+        <div class="col-md-3"><label asp-for="EstimatedValue" class="form-label"></label><input asp-for="EstimatedValue" class="form-control" /><span asp-validation-for="EstimatedValue" class="text-danger small"></span></div>
+        @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
+        <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="4"></textarea></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-primary">Lưu</button> <a asp-action="Index" class="btn btn-light">Hủy</a></div>
+</form>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

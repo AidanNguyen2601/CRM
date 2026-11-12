@@ -1,0 +1,58 @@
+@model List<Activity>
+@{
+    ViewData["Title"] = "Lịch làm việc & hoạt động";
+    var f = (ActivityFilter)ViewBag.Filter;
+    string Tab(string v) => f.View == v ? "active" : "";
+    var typeItems = Html.GetEnumSelectList<ActivityType>().ToList();
+    foreach (var i in typeItems) i.Selected = f.Type.HasValue && i.Value == ((int)f.Type.Value).ToString();
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+}
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link @Tab("upcoming")" asp-route-View="upcoming">Đang chờ <span class="badge bg-secondary">@ViewBag.CountPlanned</span></a></li>
+    <li class="nav-item"><a class="nav-link @Tab("today")" asp-route-View="today">Hôm nay <span class="badge bg-info text-dark">@ViewBag.CountToday</span></a></li>
+    <li class="nav-item"><a class="nav-link @Tab("overdue")" asp-route-View="overdue">Quá hạn <span class="badge bg-danger">@ViewBag.CountOverdue</span></a></li>
+    <li class="nav-item"><a class="nav-link @Tab("done")" asp-route-View="done">Đã hoàn thành</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("all")" asp-route-View="all">Tất cả</a></li>
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="View" value="@f.View" />
+    <div><label class="form-label small mb-1">Loại</label><select name="Type" class="form-select" asp-items="typeItems"><option value="">-- Tất cả --</option></select></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">Phụ trách</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">-- Tất cả --</option></select></div> }
+    <button class="btn btn-outline-primary">Lọc</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create">+ Thêm hoạt động</a>
+</form>
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover mb-0">
+    <thead><tr><th>Thời hạn</th><th>Loại</th><th>Tiêu đề</th><th>Liên quan</th><th>Ưu tiên</th><th>Phụ trách</th><th>Trạng thái</th><th style="min-width:260px"></th></tr></thead>
+    <tbody>
+    @foreach (var a in Model)
+    {
+        <tr class="@(a.IsOverdue ? "table-danger" : "")">
+            <td class="text-nowrap">@a.DueDate.ToDateTime()</td>
+            <td><span class="act-type">@a.Type.GetDisplayName()</span></td>
+            <td><a asp-action="Edit" asp-route-id="@a.Id" class="fw-semibold">@a.Subject</a>
+                @if (!string.IsNullOrEmpty(a.Description)) { <div class="small text-muted pre">@a.Description</div> }</td>
+            <td class="small">
+                @if (a.Customer != null) { <a asp-controller="Customers" asp-action="Details" asp-route-id="@a.CustomerId">@a.Customer.Name</a><br /> }
+                @if (a.Opportunity != null) { <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@a.OpportunityId" class="text-muted">@a.Opportunity.Name</a><br /> }
+                @if (a.Lead != null) { <a asp-controller="Leads" asp-action="Details" asp-route-id="@a.LeadId">Lead: @a.Lead.FullName</a> }
+            </td>
+            <td><partial name="_Badge" model="a.Priority" /></td>
+            <td>@a.Owner?.FullName</td>
+            <td><partial name="_Badge" model="a.Status" /></td>
+            <td>
+                @if (a.Status == ActivityStatus.Planned)
+                {
+                    <form asp-action="Complete" asp-route-id="@a.Id" method="post" class="d-flex gap-1">
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                        <input name="result" class="form-control form-control-sm" placeholder="Kết quả (tùy chọn)" />
+                        <button class="btn btn-sm btn-outline-success text-nowrap">✓ Xong</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="8" class="text-center text-muted p-4">Không có hoạt động.</td></tr> }
+    </tbody>
+</table>
+</div></div>

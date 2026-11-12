@@ -1,0 +1,40 @@
+@model PagedList<Contact>
+@{
+    ViewData["Title"] = "Người liên hệ";
+    var f = (ListFilter)ViewBag.Filter;
+    int? customerId = ViewBag.CustomerId;
+    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.OwnerId, customerId, Page = p })!;
+}
+<form method="get" class="toolbar">
+    <div><label class="form-label small mb-1">Tìm kiếm</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="Tên, email, SĐT, khách hàng" /></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">Phụ trách</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">-- Tất cả --</option></select></div> }
+    <button class="btn btn-outline-primary">Lọc</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create">+ Thêm liên hệ</a>
+</form>
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover mb-0">
+    <thead><tr><th>Họ tên</th><th>Chức vụ</th><th>Khách hàng</th><th>Điện thoại</th><th>Email</th><th>Phụ trách</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var c in Model.Items)
+    {
+        <tr>
+            <td class="fw-semibold">@c.FullName @if (c.IsPrimary) { <span class="badge bg-success">Chính</span> }</td>
+            <td>@c.JobTitle</td>
+            <td>@if (c.Customer != null) { <a asp-controller="Customers" asp-action="Details" asp-route-id="@c.CustomerId">@c.Customer.Name</a> }</td>
+            <td>@c.Phone</td>
+            <td>@c.Email</td>
+            <td>@c.Owner?.FullName</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@c.Id">Sửa</a>
+                <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline" data-confirm="Xóa liên hệ @c.FullName?"><button class="btn btn-sm btn-outline-danger">Xóa</button></form>
+            </td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="7" class="text-center text-muted p-4">Không có người liên hệ.</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="small text-muted">Tổng: @Model.TotalCount người liên hệ</span>
+    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+</div></div>

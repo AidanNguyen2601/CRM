@@ -1,0 +1,24 @@
+@model LeadConvertViewModel
+@{ ViewData["Title"] = $"Chuyển đổi lead: {Model.Lead?.FullName}"; }
+<div class="card" style="max-width:760px"><div class="card-body">
+<p class="text-muted">Hệ thống sẽ tạo (hoặc gắn vào) <b>khách hàng</b>, tạo <b>người liên hệ</b> từ thông tin lead và tạo <b>cơ hội bán hàng</b> ở giai đoạn "Đánh giá". Các hoạt động đã có của lead được chuyển sang khách hàng.</p>
+<form asp-action="Convert" method="post">
+    <input type="hidden" asp-for="LeadId" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <h6 class="mt-3">1. Khách hàng</h6>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="ExistingCustomerId" class="form-label"></label><select asp-for="ExistingCustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">-- Tạo khách hàng mới --</option></select></div>
+        <div class="col-md-6"><label asp-for="NewCustomerName" class="form-label"></label><input asp-for="NewCustomerName" class="form-control" /><span asp-validation-for="NewCustomerName" class="text-danger small"></span></div>
+    </div>
+    <h6 class="mt-4">2. Người liên hệ</h6>
+    <p class="small mb-0">@Model.Lead?.FullName · @Model.Lead?.JobTitle · @Model.Lead?.Phone · @Model.Lead?.Email</p>
+    <h6 class="mt-4">3. Cơ hội bán hàng</h6>
+    <div class="form-check mb-2"><input asp-for="CreateOpportunity" class="form-check-input" /><label asp-for="CreateOpportunity" class="form-check-label"></label></div>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="OpportunityName" class="form-label"></label><input asp-for="OpportunityName" class="form-control" /><span asp-validation-for="OpportunityName" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="OpportunityAmount" class="form-label"></label><input asp-for="OpportunityAmount" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="ExpectedCloseDate" class="form-label"></label><input asp-for="ExpectedCloseDate" class="form-control" /></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-primary">Chuyển đổi</button> <a asp-action="Details" asp-route-id="@Model.LeadId" class="btn btn-light">Hủy</a></div>
+</form>
+</div></div>
