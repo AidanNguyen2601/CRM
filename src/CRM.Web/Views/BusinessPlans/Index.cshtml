@@ -5,7 +5,6 @@
     var counts = (Dictionary<BusinessPlanStatus, int>)ViewBag.Counts;
     var sumRevenue = (decimal)ViewBag.SumRevenue;
     var sumProfit = (decimal)ViewBag.SumProfit;
-    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Status, f.OwnerId, Page = p })!;
     string Tab(BusinessPlanStatus? s) => f.Status == s ? "active" : "";
     int Count(BusinessPlanStatus s) => counts.TryGetValue(s, out var n) ? n : 0;
 }
@@ -54,5 +53,5 @@
         @T("{0} phương án", Model.TotalCount)
         · @T("Doanh thu") <b>@sumRevenue.ToMoney()</b> · @T("Lợi nhuận") <b class="@(sumProfit < 0 ? "text-danger" : "")">@sumProfit.ToMoney()</b>
     </span>
-    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+    <partial name="_Pager" model="Model" />
 </div></div>

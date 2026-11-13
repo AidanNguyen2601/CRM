@@ -5,7 +5,6 @@
     var counts = (Dictionary<string, int>)ViewBag.Counts;
     var outstanding = (decimal)ViewBag.Outstanding;
     var overdueAmount = (decimal)ViewBag.OverdueAmount;
-    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.View, f.OwnerId, f.CustomerId, Page = p })!;
     var tabs = new (string Key, string Label, string Badge)[]
     {
         ("open", T("Còn phải thu"), "bg-primary"), ("overdue", T("Quá hạn"), "bg-danger"), ("paid", T("Đã thanh toán"), "bg-success"),
@@ -57,5 +56,5 @@
 </div>
 <div class="card-footer bg-white d-flex justify-content-between align-items-center">
     <span class="small text-muted">@T("{0} hoá đơn", Model.TotalCount)</span>
-    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+    <partial name="_Pager" model="Model" />
 </div></div>

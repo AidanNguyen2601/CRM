@@ -4,7 +4,6 @@
     var f = (OpportunityFilter)ViewBag.Filter;
     var stageItems = Html.GetEnumSelectList<OpportunityStage>().ToList();
     foreach (var i in stageItems) i.Selected = f.Stage.HasValue && i.Value == ((int)f.Stage.Value).ToString();
-    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Stage, f.Scope, f.OwnerId, Page = p })!;
     string Tab(string s) => (f.Scope ?? "open") == s ? "active" : "";
 }
 <ul class="nav nav-pills mb-3">
@@ -44,5 +43,5 @@
 </div>
 <div class="card-footer bg-white d-flex justify-content-between align-items-center">
     <span class="small text-muted">@T("{0} cơ hội · tổng giá trị", Model.TotalCount) <b>@(((decimal)ViewBag.TotalAmount).ToMoney())</b></span>
-    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+    <partial name="_Pager" model="Model" />
 </div></div>

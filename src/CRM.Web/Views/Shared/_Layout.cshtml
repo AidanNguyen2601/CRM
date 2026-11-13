@@ -17,7 +17,7 @@
         try { if (localStorage.getItem('crm.nav.mini') === '1') document.documentElement.classList.add('sidebar-mini'); } catch (e) { }
     </script>
 </head>
-<body>
+<body data-page="@ctrl.@act">
 <div class="app">
     <aside class="sidebar" id="sidebar">
         <a class="brand" asp-controller="Home" asp-action="Index"><span class="brand-full">CRM<span>Sales</span></span><span class="brand-mini">C<span>S</span></span></a>

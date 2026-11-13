@@ -59,8 +59,28 @@ public static class QueryExtensions
         user.SeesAll() || item.OwnerId == user.GetUserId();
 }
 
-public class PagedList<T>
+public static class Paging
 {
+    /// <summary>Các lựa chọn số dòng mỗi trang</summary>
+    public static readonly int[] PageSizes = { 10, 15, 25, 50, 100 };
+    public const int DefaultPageSize = 15;
+
+    /// <summary>Giới hạn số dòng mỗi trang trong khoảng cho phép</summary>
+    public static int Clamp(int size) => size <= 0 ? DefaultPageSize : Math.Min(size, PageSizes[^1]);
+}
+
+/// <summary>Thông tin phân trang dùng cho partial _Pager</summary>
+public interface IPagedList
+{
+    int Page { get; }
+    int PageSize { get; }
+    int TotalCount { get; }
+    int TotalPages { get; }
+}
+
+public class PagedList<T> : IPagedList
+{
+
     public IReadOnlyList<T> Items { get; }
     public int Page { get; }
     public int PageSize { get; }

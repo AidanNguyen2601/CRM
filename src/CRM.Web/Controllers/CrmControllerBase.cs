@@ -15,6 +15,31 @@ public abstract class CrmControllerBase : Controller
 
     protected int CurrentUserId => User.GetUserId();
 
+    /// <summary>
+    /// Số dòng mỗi trang cho các danh sách (ListFilter): lấy từ URL (?PageSize=) và ghi nhớ vào cookie
+    /// theo từng danh sách; không có trên URL thì dùng giá trị đã nhớ.
+    /// </summary>
+    public override void OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext context)
+    {
+        var filter = context.ActionArguments.Values.OfType<ViewModels.ListFilter>().FirstOrDefault();
+        if (filter != null)
+        {
+            var cookie = $"crm.ps.{ControllerContext.ActionDescriptor.ControllerName}";
+            if (Request.Query.ContainsKey(nameof(filter.PageSize)))
+            {
+                filter.PageSize = Paging.Clamp(filter.PageSize);
+                Response.Cookies.Append(cookie, filter.PageSize.ToString(),
+                    new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true, SameSite = SameSiteMode.Lax, HttpOnly = true });
+            }
+            else if (int.TryParse(Request.Cookies[cookie], out var saved))
+                filter.PageSize = Paging.Clamp(saved);
+            else
+                filter.PageSize = Paging.Clamp(filter.PageSize);
+            if (filter.Page < 1) filter.Page = 1;
+        }
+        base.OnActionExecuting(context);
+    }
+
     /// <summary>Sales luôn là người phụ trách bản ghi họ tạo; Manager/Admin được chọn.</summary>
     protected int? ResolveOwner(int? requested) => User.SeesAll() ? (requested ?? CurrentUserId) : CurrentUserId;
 

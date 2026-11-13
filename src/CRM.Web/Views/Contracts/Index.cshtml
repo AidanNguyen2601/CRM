@@ -5,7 +5,6 @@
     var counts = (Dictionary<ContractStatus, int>)ViewBag.Counts;
     var paid = (Dictionary<int, decimal>)ViewBag.Paid;
     var sumTotal = (decimal)ViewBag.SumTotal;
-    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Status, f.OwnerId, Page = p })!;
     string Tab(ContractStatus? s) => f.Status == s ? "active" : "";
 }
 <ul class="nav nav-pills mb-3 flex-wrap">
@@ -47,5 +46,5 @@
 </div>
 <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
     <span class="small text-muted">@T("{0} hợp đồng", Model.TotalCount) · @T("Tổng giá trị") <b>@sumTotal.ToMoney()</b></span>
-    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+    <partial name="_Pager" model="Model" />
 </div></div>

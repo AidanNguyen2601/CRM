@@ -3,7 +3,6 @@
     ViewData["Title"] = T("Người liên hệ");
     var f = (ListFilter)ViewBag.Filter;
     int? customerId = ViewBag.CustomerId;
-    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.OwnerId, customerId, Page = p })!;
 }
 <form method="get" class="toolbar">
     <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên, email, SĐT, khách hàng")" /></div>
@@ -36,5 +35,5 @@
 </div>
 <div class="card-footer bg-white d-flex justify-content-between align-items-center">
     <span class="small text-muted">@T("Tổng: {0} người liên hệ", Model.TotalCount)</span>
-    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+    <partial name="_Pager" model="Model" />
 </div></div>

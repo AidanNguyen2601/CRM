@@ -144,3 +144,169 @@ document.addEventListener('change', async function (e) {
     window.crmFmt = n => (Math.round(n) || 0).toLocaleString('vi-VN');
     window.crmNum = el => parseFloat(el && el.value ? el.value : '0') || 0;
 })();
+
+// ---------- Lưới dữ liệu: kéo thả đổi thứ tự cột + kéo mép để đổi độ rộng ----------
+// Tự áp dụng cho các bảng danh sách (table.table-hover hoặc table[data-grid]); bỏ qua bảng có data-no-grid.
+// Bố cục lưu theo trình duyệt (localStorage), khóa = trang + vị trí bảng + số cột.
+(function () {
+    const en = document.documentElement.lang === 'en';
+    const TXT = {
+        reset: en ? 'Reset column layout' : 'Khôi phục bố cục cột',
+        hint: en ? 'Drag to move the column · drag the right edge to resize' : 'Kéo để đổi vị trí cột · kéo mép phải để đổi độ rộng'
+    };
+    const store = {
+        get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
+        set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } },
+        del(k) { try { localStorage.removeItem(k); } catch (e) { } }
+    };
+    const page = document.body.dataset.page || location.pathname;
+    const MIN_W = 48;
+
+    document.querySelectorAll('table.table-hover, table[data-grid]').forEach((table, gi) => {
+        const head = table.tHead && table.tHead.rows[0];
+        if (!head || table.hasAttribute('data-no-grid')) return;
+        const ths = Array.from(head.cells);
+        const n = ths.length;
+        if (n < 2 || ths.some(th => th.colSpan > 1)) return;
+        const key = 'crm.grid.' + page + '.' + gi + '.' + n;
+        ths.forEach((th, i) => { th.dataset.col = i; });
+        table.classList.add('grid');
+        if (table.parentElement) table.parentElement.classList.add('grid-scroll');
+
+        const cols = () => Array.from(head.cells);
+        // Chỉ di chuyển các dòng đủ ô (bỏ qua dòng thông báo "không có dữ liệu" dùng colspan)
+        const rows = () => Array.from(table.rows).filter(r => r.cells.length === n && !Array.from(r.cells).some(c => c.colSpan > 1));
+
+        function move(from, to) {
+            if (from === to) return;
+            rows().forEach(r => {
+                const cell = r.cells[from], ref = r.cells[to];
+                if (from < to) ref.after(cell); else ref.before(cell);
+            });
+        }
+        // Cố định độ rộng hiện tại của các cột (chuyển sang table-layout: fixed)
+        function freeze() {
+            if (table.classList.contains('grid-fixed')) return;
+            const ws = cols().map(th => th.getBoundingClientRect().width);
+            cols().forEach((th, i) => th.style.width = Math.max(MIN_W, Math.round(ws[i])) + 'px');
+            table.classList.add('grid-fixed');
+            syncWidth();
+        }
+        function syncWidth() {
+            table.style.width = cols().reduce((s, th) => s + parseFloat(th.style.width || th.offsetWidth), 0) + 'px';
+        }
+
+        // Nút khôi phục bố cục (hiện khi đã tùy chỉnh)
+        const host = table.closest('.card') || table.parentElement;
+        host.classList.add('grid-host');
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.className = 'grid-reset no-print';
+        reset.title = TXT.reset;
+        reset.setAttribute('aria-label', TXT.reset);
+        reset.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
+        reset.addEventListener('click', () => { store.del(key); location.reload(); });
+        host.appendChild(reset);
+
+        function save() {
+            const state = { order: cols().map(th => +th.dataset.col) };
+            if (table.classList.contains('grid-fixed')) {
+                state.widths = {};
+                cols().forEach(th => state.widths[th.dataset.col] = parseFloat(th.style.width));
+            }
+            store.set(key, state);
+            host.classList.add('grid-custom');
+        }
+
+        // Khôi phục bố cục đã lưu
+        const saved = store.get(key);
+        if (saved && Array.isArray(saved.order) && saved.order.length === n) {
+            saved.order.forEach((id, pos) => {
+                const cur = cols().findIndex(th => +th.dataset.col === id);
+                if (cur >= 0) move(cur, pos);
+            });
+            if (saved.widths) {
+                cols().forEach(th => { const w = saved.widths[th.dataset.col]; if (w) th.style.width = Math.max(MIN_W, w) + 'px'; });
+                table.classList.add('grid-fixed');
+                syncWidth();
+            }
+            host.classList.add('grid-custom');
+        }
+
+        // Ô bị cắt (…) → hiện nội dung đầy đủ khi rê chuột
+        table.addEventListener('mouseover', e => {
+            const td = e.target.closest('td');
+            if (td && table.classList.contains('grid-fixed') && !td.title && td.scrollWidth > td.clientWidth) td.title = td.innerText.trim();
+        });
+
+        let resizing = false, dragId = null;
+        ths.forEach(th => {
+            if (!th.title) th.title = TXT.hint;
+            th.draggable = true;
+
+            // --- Đổi độ rộng: kéo tay nắm ở mép phải tiêu đề ---
+            const grip = document.createElement('span');
+            grip.className = 'col-resizer';
+            grip.draggable = false;
+            th.appendChild(grip);
+            grip.addEventListener('pointerdown', e => {
+                e.preventDefault(); e.stopPropagation();
+                freeze();
+                resizing = true;
+                const startX = e.clientX, startW = parseFloat(th.style.width);
+                try { grip.setPointerCapture(e.pointerId); } catch (err) { /* thiết bị không hỗ trợ capture */ }
+                table.classList.add('grid-resizing');
+                const onMove = ev => { th.style.width = Math.max(MIN_W, startW + ev.clientX - startX) + 'px'; syncWidth(); };
+                const onUp = () => {
+                    grip.removeEventListener('pointermove', onMove);
+                    grip.removeEventListener('pointerup', onUp);
+                    grip.removeEventListener('pointercancel', onUp);
+                    table.classList.remove('grid-resizing');
+                    setTimeout(() => { resizing = false; });
+                    save();
+                };
+                grip.addEventListener('pointermove', onMove);
+                grip.addEventListener('pointerup', onUp);
+                grip.addEventListener('pointercancel', onUp);
+            });
+            grip.addEventListener('click', e => e.stopPropagation());
+
+            // --- Đổi thứ tự: kéo thả tiêu đề cột ---
+            th.addEventListener('dragstart', e => {
+                if (resizing) { e.preventDefault(); return; }
+                dragId = th.dataset.col;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', dragId);
+                th.classList.add('grid-dragging');
+            });
+            th.addEventListener('dragend', () => {
+                dragId = null;
+                cols().forEach(c => c.classList.remove('grid-dragging', 'drop-before', 'drop-after'));
+            });
+            th.addEventListener('dragover', e => {
+                if (dragId === null || th.dataset.col === dragId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const r = th.getBoundingClientRect(), after = e.clientX > r.left + r.width / 2;
+                th.classList.toggle('drop-after', after);
+                th.classList.toggle('drop-before', !after);
+            });
+            th.addEventListener('dragleave', () => th.classList.remove('drop-before', 'drop-after'));
+            th.addEventListener('drop', e => {
+                if (dragId === null) return;
+                e.preventDefault();
+                const after = th.classList.contains('drop-after');
+                th.classList.remove('drop-before', 'drop-after');
+                const list = cols();
+                const from = list.findIndex(c => c.dataset.col === dragId);
+                let to = list.indexOf(th);
+                if (from < 0 || to < 0 || from === to) return;
+                // Vị trí đích sau khi rút cột ra khỏi vị trí cũ
+                if (after && from > to) to++;
+                if (!after && from < to) to--;
+                move(from, to);
+                save();
+            });
+        });
+    });
+})();

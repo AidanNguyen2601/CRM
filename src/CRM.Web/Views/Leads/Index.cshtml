@@ -6,7 +6,6 @@
     foreach (var i in statusItems) i.Selected = f.Status.HasValue && i.Value == ((int)f.Status.Value).ToString();
     var sourceItems = Html.GetEnumSelectList<LeadSource>().ToList();
     foreach (var i in sourceItems) i.Selected = f.Source.HasValue && i.Value == ((int)f.Source.Value).ToString();
-    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Status, f.Source, f.OwnerId, Page = p })!;
 }
 <form method="get" class="toolbar">
     <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên, công ty, email, SĐT")" /></div>
@@ -40,5 +39,5 @@
 </div>
 <div class="card-footer bg-white d-flex justify-content-between align-items-center">
     <span class="small text-muted">@T("Tổng: {0} lead", Model.TotalCount)</span>
-    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+    <partial name="_Pager" model="Model" />
 </div></div>
