@@ -114,4 +114,15 @@ app.MapControllerRoute(
     }
 }
 
+// Lệnh nạp thêm dữ liệu mẫu rồi thoát (không mở web): dotnet CRM.Web.dll --seed-demo [số khách hàng]
+var seedArg = Array.IndexOf(args, "--seed-demo");
+if (seedArg >= 0)
+{
+    var count = seedArg + 1 < args.Length && int.TryParse(args[seedArg + 1], out var c) ? c : 100;
+    using var scope = app.Services.CreateScope();
+    var r = await DemoDataGenerator.GenerateAsync(scope.ServiceProvider.GetRequiredService<CrmDbContext>(), count);
+    app.Logger.LogInformation("Đã nạp dữ liệu mẫu: {Result}", r);
+    return;
+}
+
 app.Run();

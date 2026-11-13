@@ -106,6 +106,7 @@ public static class Icons
         "Products" => "product",
         "Catalogs" => "catalog",
         "Users" => "users",
+        "DemoData" => "receivable",
         "Account" => "key",
         _ => null
     };

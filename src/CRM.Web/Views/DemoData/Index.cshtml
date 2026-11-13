@@ -1,0 +1,33 @@
+@{
+    ViewData["Title"] = T("Dữ liệu mẫu");
+    var counts = ((string Label, string Icon, int Count)[])ViewBag.Counts;
+}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card h-100"><div class="card-header">@Icon("plus") @T("Nạp thêm dữ liệu mẫu")</div><div class="card-body">
+            <p class="small text-muted">@T("Sinh dữ liệu nhất quán theo cả chuỗi nghiệp vụ trong 12 tháng gần nhất: khách hàng, liên hệ, lead, cơ hội, hoạt động, báo giá, PAKD, hợp đồng, hoá đơn, thanh toán. Dữ liệu được NẠP THÊM, không xóa dữ liệu hiện có; người phụ trách chia đều cho nhân viên kinh doanh và quản lý.")</p>
+            <form asp-action="Generate" method="post" data-confirm="@T("Nạp thêm dữ liệu mẫu vào hệ thống? Thao tác này không hoàn tác tự động.")">
+                <label class="form-label">@T("Số khách hàng mới")</label>
+                <div class="d-flex gap-2">
+                    <select name="customers" class="form-select" style="max-width:160px">
+                        @foreach (var s in CRM.Web.Controllers.DemoDataController.Sizes) { <option value="@s" selected="@(s == 50)">@s</option> }
+                    </select>
+                    <button class="btn btn-primary">@T("Nạp dữ liệu")</button>
+                </div>
+                <div class="form-text">@T("Ước tính với 100 khách hàng: ~200 liên hệ, ~120 lead, ~200 cơ hội, ~700 hoạt động, ~100 hợp đồng.")</div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100"><div class="card-header">@T("Số bản ghi hiện có")</div>
+            <div class="card-body p-0"><table class="table mb-0" data-no-grid>
+                <tbody>
+                @foreach (var c in counts)
+                {
+                    <tr><td>@Icon(c.Icon) @c.Label</td><td class="money fw-semibold">@c.Count.ToString("N0")</td></tr>
+                }
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
