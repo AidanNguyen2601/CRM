@@ -144,6 +144,7 @@ public class OpportunityDetailViewModel
     public Opportunity Opportunity { get; set; } = null!;
     public List<Activity> Activities { get; set; } = new();
     public List<Quote> Quotes { get; set; } = new();
+    public List<BusinessPlan> Plans { get; set; } = new();
 }
 
 public class QuoteLineInput
@@ -237,4 +238,77 @@ public class UserFormViewModel
 
     [Display(Name = "Kích hoạt")]
     public bool IsActive { get; set; } = true;
+}
+
+// ---------- Phương án kinh doanh ----------
+public class BusinessPlanLineInput
+{
+    public int? ProductId { get; set; }
+
+    [Required(ErrorMessage = "Nhập diễn giải")]
+    [StringLength(300)]
+    public string Description { get; set; } = string.Empty;
+
+    [StringLength(30)]
+    public string? Unit { get; set; }
+
+    [Range(0.01, 1_000_000, ErrorMessage = "Số lượng > 0")]
+    public decimal Quantity { get; set; } = 1;
+
+    [Range(0, 100_000_000_000)]
+    public decimal CostPrice { get; set; }
+
+    [Range(0, 100_000_000_000)]
+    public decimal SalePrice { get; set; }
+}
+
+public class BusinessPlanCostInput
+{
+    [Required(ErrorMessage = "Chọn loại chi phí")]
+    [StringLength(200)]
+    public string Category { get; set; } = string.Empty;
+
+    [StringLength(300)]
+    public string? Description { get; set; }
+
+    [Range(0, 100_000_000_000)]
+    public decimal Amount { get; set; }
+}
+
+public class BusinessPlanFormViewModel
+{
+    public int Id { get; set; }
+
+    [Display(Name = "Số PAKD")]
+    public string Number { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng nhập tên phương án"), StringLength(200)]
+    [Display(Name = "Tên phương án")]
+    public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng chọn khách hàng")]
+    [Display(Name = "Khách hàng")]
+    public int? CustomerId { get; set; }
+
+    [Display(Name = "Cơ hội")]
+    public int? OpportunityId { get; set; }
+
+    public int? QuoteId { get; set; }
+    public string? QuoteNumber { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Ngày lập")]
+    public DateTime PlanDate { get; set; } = DateTime.Today;
+
+    [StringLength(2000)]
+    [Display(Name = "Thuyết minh / ghi chú")]
+    public string? Notes { get; set; }
+
+    public List<BusinessPlanLineInput> Lines { get; set; } = new();
+    public List<BusinessPlanCostInput> Costs { get; set; } = new();
+}
+
+public class BusinessPlanFilter : ListFilter
+{
+    public BusinessPlanStatus? Status { get; set; }
 }

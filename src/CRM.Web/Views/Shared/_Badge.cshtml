@@ -2,12 +2,12 @@
 @{
     var css = Model switch
     {
-        LeadStatus.New or QuoteStatus.Draft or ActivityStatus.Planned => "bg-secondary",
+        LeadStatus.New or QuoteStatus.Draft or ActivityStatus.Planned or BusinessPlanStatus.Draft => "bg-secondary",
         LeadStatus.Contacted or OpportunityStage.Qualification or QuoteStatus.Sent => "bg-info text-dark",
         LeadStatus.Qualified or OpportunityStage.Proposal => "bg-primary",
-        OpportunityStage.Negotiation or Priority.Normal => "bg-warning text-dark",
-        LeadStatus.Converted or OpportunityStage.ClosedWon or QuoteStatus.Accepted or ActivityStatus.Completed or CustomerType.Customer => "bg-success",
-        LeadStatus.Unqualified or OpportunityStage.ClosedLost or QuoteStatus.Rejected or ActivityStatus.Cancelled or CustomerType.Inactive or Priority.High => "bg-danger",
+        OpportunityStage.Negotiation or Priority.Normal or BusinessPlanStatus.Pending => "bg-warning text-dark",
+        LeadStatus.Converted or OpportunityStage.ClosedWon or QuoteStatus.Accepted or BusinessPlanStatus.Approved or ActivityStatus.Completed or CustomerType.Customer => "bg-success",
+        LeadStatus.Unqualified or OpportunityStage.ClosedLost or QuoteStatus.Rejected or BusinessPlanStatus.Rejected or ActivityStatus.Cancelled or CustomerType.Inactive or Priority.High => "bg-danger",
         LeadRating.Hot => "bg-danger", LeadRating.Warm => "bg-warning text-dark", LeadRating.Cold => "bg-info text-dark",
         CustomerType.Partner => "bg-primary",
         _ => "bg-light text-dark border"

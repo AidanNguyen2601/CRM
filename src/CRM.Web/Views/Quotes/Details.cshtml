@@ -8,6 +8,7 @@
             <button class="btn @(st == QuoteStatus.Accepted ? "btn-success" : st == QuoteStatus.Rejected ? "btn-outline-danger" : "btn-outline-primary")">@(st == QuoteStatus.Sent ? T("Đánh dấu đã gửi") : st.GetDisplayName())</button></form>
     }
     <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@T("Nhân bản")</button></form>
+    <a class="btn btn-outline-secondary" asp-controller="BusinessPlans" asp-action="Create" asp-route-quoteId="@Model.Id">@Icon("plan") @T("Lập phương án KD")</a>
     <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
 </div>
 <div class="card quote-paper"><div class="card-body p-4">

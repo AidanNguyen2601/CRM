@@ -15,7 +15,7 @@ public static class DbSeeder
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
 
         await db.Database.EnsureCreatedAsync();
-        await CatalogSeeder.EnsureTableAsync(db);
+        await SchemaUpgrader.EnsureAsync(db);
         if (seedSampleData && !await db.Users.AnyAsync()) await SeedSampleDataAsync(db, hasher);
         await CatalogSeeder.SeedAsync(db);
     }

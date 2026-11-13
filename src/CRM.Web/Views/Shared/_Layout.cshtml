@@ -44,6 +44,7 @@
                             <a class="@Active("Opportunities","Pipeline")" asp-controller="Opportunities" asp-action="Pipeline">@Icon("pipeline")<span>Pipeline</span></a>
                             <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">@Icon("opportunity")<span>@T("Cơ hội bán hàng")</span></a>
                             <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">@Icon("quote")<span>@L("Báo giá", "Quotes")</span></a>
+                            <a class="@Active("BusinessPlans")" asp-controller="BusinessPlans" asp-action="Index">@Icon("plan")<span>@T("Phương án kinh doanh")</span></a>
                         </div></div>
                     </div>
                     <div class="nav-block" data-nav="ops-customers">
@@ -118,6 +119,7 @@
                         <li><a class="dropdown-item" asp-controller="Opportunities" asp-action="Create">@Icon("opportunity")@T("Cơ hội")</a></li>
                         <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@Icon("calendar")@T("Hoạt động")</a></li>
                         <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@Icon("quote")@L("Báo giá", "Quote")</a></li>
+                        <li><a class="dropdown-item" asp-controller="BusinessPlans" asp-action="Create">@Icon("plan")@T("Phương án kinh doanh")</a></li>
                     </ul>
                 </div>
                 <div class="dropdown">

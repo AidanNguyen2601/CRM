@@ -31,6 +31,7 @@
     <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@o.Id">@T("Sửa")</a>
     <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Hoạt động")</a>
     <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Báo giá")</a>
+    <a class="btn btn-outline-secondary" asp-controller="BusinessPlans" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Phương án KD")</a>
     <form asp-action="Delete" asp-route-id="@o.Id" method="post" data-confirm="@T("Xóa cơ hội này?")" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
 </div>
 <div class="row g-3">
@@ -55,6 +56,20 @@
         </div></div>
     </div>
     <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-header">@Icon("plan") @T("Phương án kinh doanh")</div>
+            <div class="card-body p-0"><table class="table mb-0">
+                <thead><tr><th>@T("Số PAKD")</th><th>@T("Ngày lập")</th><th class="money">@T("Doanh thu")</th><th class="money">@T("Lợi nhuận")</th><th class="text-center">@T("Tỷ suất")</th><th>@T("Trạng thái")</th></tr></thead>
+                <tbody>
+                @foreach (var p in Model.Plans)
+                {
+                    <tr><td><a asp-controller="BusinessPlans" asp-action="Details" asp-route-id="@p.Id">@p.Number</a></td><td>@p.PlanDate.ToDate()</td>
+                        <td class="money">@p.Revenue.ToMoney()</td><td class="money">@p.Profit.ToMoney()</td>
+                        <td class="text-center"><span class="badge @BusinessPlan.MarginCss(p.MarginPercent)">@p.MarginPercent.ToString("0.#")%</span></td><td><partial name="_Badge" model="p.Status" /></td></tr>
+                }
+                @if (!Model.Plans.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có phương án kinh doanh.")</td></tr> }
+                </tbody>
+            </table></div>
+        </div>
         <div class="card mb-3"><div class="card-header">@T("Báo giá")</div>
             <div class="card-body p-0"><table class="table mb-0">
                 <thead><tr><th>@T("Số báo giá")</th><th>@T("Ngày")</th><th class="money">@T("Tổng thanh toán")</th><th>@T("Trạng thái")</th></tr></thead>

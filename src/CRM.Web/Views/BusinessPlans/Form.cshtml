@@ -1,0 +1,187 @@
+@model BusinessPlanFormViewModel
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Lập phương án kinh doanh") : T("Sửa phương án {0}", Model.Number);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var costs = Model.Costs.Count > 0 ? Model.Costs : new List<BusinessPlanCostInput> { new() };
+}
+<form asp-action="Save" method="post" id="planForm">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="QuoteId" />
+    <div asp-validation-summary="All" class="text-danger"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-3"><label asp-for="Number" class="form-label"></label><input asp-for="Number" class="form-control" readonly /></div>
+        <div class="col-md-6"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="PlanDate" class="form-label"></label><input asp-for="PlanDate" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">@T("-- Không --")</option></select></div>
+        @if (Model.QuoteId.HasValue) { <div class="col-12 small text-muted">@T("Lập từ báo giá") <b>@Model.QuoteNumber</b></div> }
+    </div></div>
+
+    @* ---------- I. Hàng hóa / dịch vụ ---------- *@
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">@T("I. Hàng hóa / dịch vụ") <button type="button" class="btn btn-sm btn-outline-primary" data-add="lines">@T("+ Thêm dòng")</button></div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table mb-0 quote-lines plan-lines">
+                <thead><tr>
+                    <th style="width:36px">#</th><th style="width:200px">@T("Sản phẩm")</th><th style="min-width:180px">@T("Diễn giải")</th><th style="width:90px">@T("ĐVT")</th>
+                    <th style="width:80px">SL</th><th style="width:130px">@T("Đơn giá vốn")</th><th style="width:130px">@T("Đơn giá bán")</th>
+                    <th class="money" style="width:120px">@T("Thành tiền bán")</th><th class="money" style="width:120px">@T("Lãi gộp")</th><th style="width:36px"></th>
+                </tr></thead>
+                <tbody id="lines">
+                @for (var i = 0; i < Model.Lines.Count; i++)
+                {
+                    var l = Model.Lines[i];
+                    <tr class="row-item">
+                        <td class="idx">@(i + 1)</td>
+                        <td><select data-f="ProductId" class="form-select form-select-sm product" data-value="@l.ProductId"></select></td>
+                        <td><input data-f="Description" class="form-control form-control-sm" value="@l.Description" /></td>
+                        <td><input data-f="Unit" list="units" class="form-control form-control-sm" value="@l.Unit" /></td>
+                        <td><input data-f="Quantity" type="number" step="0.01" min="0" class="form-control form-control-sm calc" value="@l.Quantity.ToString("0.##", inv)" /></td>
+                        <td><input data-f="CostPrice" type="number" step="1000" min="0" class="form-control form-control-sm calc" value="@l.CostPrice.ToString(inv)" /></td>
+                        <td><input data-f="SalePrice" type="number" step="1000" min="0" class="form-control form-control-sm calc" value="@l.SalePrice.ToString(inv)" /></td>
+                        <td class="money sale">0</td>
+                        <td class="money gp">0</td>
+                        <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="@T("Xóa")">✕</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ---------- II. Chi phí khác ---------- *@
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">@T("II. Chi phí khác") <button type="button" class="btn btn-sm btn-outline-primary" data-add="costs">@T("+ Thêm chi phí")</button></div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table mb-0 quote-lines">
+                <thead><tr><th style="width:36px">#</th><th style="width:260px">@T("Khoản chi phí")</th><th>@T("Diễn giải")</th><th style="width:160px">@T("Số tiền")</th><th class="money" style="width:110px">@T("% doanh thu")</th><th style="width:36px"></th></tr></thead>
+                <tbody id="costs">
+                @for (var i = 0; i < costs.Count; i++)
+                {
+                    var c = costs[i];
+                    <tr class="row-item">
+                        <td class="idx">@(i + 1)</td>
+                        <td><select data-f="Category" class="form-select form-select-sm" asp-items="Catalogs.Options(CatalogGroup.CostType, c.Category)"><option value="">--</option></select></td>
+                        <td><input data-f="Description" class="form-control form-control-sm" value="@c.Description" /></td>
+                        <td><input data-f="Amount" type="number" step="1000" min="0" class="form-control form-control-sm calc" value="@c.Amount.ToString(inv)" /></td>
+                        <td class="money pct"></td>
+                        <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="@T("Xóa")">✕</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ---------- III. Hiệu quả ---------- *@
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7"><div class="card h-100"><div class="card-body"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" class="form-control" rows="6" placeholder="@T("Căn cứ giá vốn, điều kiện thanh toán, rủi ro, tiến độ...")"></textarea></div></div></div>
+        <div class="col-lg-5"><div class="card h-100"><div class="card-header">@T("III. Hiệu quả phương án")</div><div class="card-body py-2">
+            <table class="table table-sm mb-0 plan-summary">
+                <tr><td>@T("Doanh thu (chưa VAT)")</td><td class="money" id="sRevenue">0</td></tr>
+                <tr><td>@T("Giá vốn hàng bán")</td><td class="money" id="sCogs">0</td></tr>
+                <tr class="fw-semibold"><td>@T("Lãi gộp")</td><td class="money" id="sGross">0</td></tr>
+                <tr><td>@T("Chi phí khác")</td><td class="money" id="sOther">0</td></tr>
+                <tr class="fw-bold fs-5"><td>@T("LỢI NHUẬN")</td><td class="money" id="sProfit">0</td></tr>
+                <tr><td>@T("Tỷ suất lợi nhuận")</td><td class="money"><span class="badge" id="sMargin">0%</span></td></tr>
+            </table>
+            <div id="costWarn" class="small text-warning-emphasis mt-2 d-none">⚠ @T("Có dòng chưa nhập giá vốn – tỷ suất lợi nhuận đang bị tính cao hơn thực tế.")</div>
+        </div></div></div>
+    </div>
+    <button class="btn btn-primary">@T("Lưu phương án")</button> <a asp-action="@(Model.Id == 0 ? "Index" : "Details")" asp-route-id="@(Model.Id == 0 ? null : Model.Id)" class="btn btn-light">@T("Hủy")</a>
+</form>
+<partial name="_CatalogDatalist" model='("units", CatalogGroup.Unit)' />
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+(function () {
+    const products = @Html.Raw(ViewBag.ProductsJson);
+    const LOW = @BusinessPlan.LowMargin.ToString(inv), GOOD = @BusinessPlan.GoodMargin.ToString(inv);
+    const fmt = n => (Math.round(n) || 0).toLocaleString('vi-VN');
+    const num = el => parseFloat(el && el.value ? el.value : '0') || 0;
+    const lines = document.getElementById('lines'), costs = document.getElementById('costs');
+
+    function fillProducts(sel) {
+        const cur = sel.getAttribute('data-value') || sel.value;
+        sel.innerHTML = '<option value="">@T("-- Tự nhập --")</option>' +
+            products.map(p => `<option value="${p.id}">${p.code} – ${p.name}</option>`).join('');
+        if (cur) sel.value = cur;
+    }
+    function setMoney(el, v) { v = Math.round(v) || 0; el.textContent = fmt(v); el.classList.toggle('text-danger', v < 0); }
+
+    function recalc() {
+        let revenue = 0, cogs = 0, other = 0, missing = 0;
+        lines.querySelectorAll('tr.row-item').forEach((tr, i) => {
+            tr.querySelector('.idx').textContent = i + 1;
+            const q = num(tr.querySelector('[data-f=Quantity]'));
+            const sale = Math.round(q * num(tr.querySelector('[data-f=SalePrice]')));
+            const cost = Math.round(q * num(tr.querySelector('[data-f=CostPrice]')));
+            setMoney(tr.querySelector('.sale'), sale);
+            setMoney(tr.querySelector('.gp'), sale - cost);
+            // Cảnh báo dòng có giá bán nhưng chưa nhập giá vốn (làm tỷ suất bị cao ảo)
+            const costEl = tr.querySelector('[data-f=CostPrice]');
+            const noCost = sale > 0 && cost === 0;
+            costEl.classList.toggle('is-missing', noCost);
+            costEl.title = noCost ? '@T("Chưa nhập giá vốn")' : '';
+            if (noCost) missing++;
+            revenue += sale; cogs += cost;
+        });
+        costs.querySelectorAll('tr.row-item').forEach((tr, i) => {
+            tr.querySelector('.idx').textContent = i + 1;
+            const a = num(tr.querySelector('[data-f=Amount]'));
+            other += a;
+            tr.querySelector('.pct').textContent = revenue ? (a * 100 / revenue).toFixed(1) + '%' : '';
+        });
+        const profit = revenue - cogs - other, margin = revenue ? profit * 100 / revenue : 0;
+        setMoney(document.getElementById('sRevenue'), revenue);
+        setMoney(document.getElementById('sCogs'), -cogs);
+        setMoney(document.getElementById('sGross'), revenue - cogs);
+        setMoney(document.getElementById('sOther'), -other);
+        setMoney(document.getElementById('sProfit'), profit);
+        const m = document.getElementById('sMargin');
+        m.textContent = margin.toFixed(2).replace(/\.?0+$/, '') + '%';
+        m.className = 'badge fs-6 ' + (margin < LOW ? 'bg-danger' : margin < GOOD ? 'bg-warning text-dark' : 'bg-success');
+        document.getElementById('costWarn').classList.toggle('d-none', missing === 0);
+    }
+
+    function addRow(tbody) {
+        const tpl = tbody.querySelector('tr.row-item');
+        if (!tpl) return;
+        const tr = tpl.cloneNode(true);
+        tr.querySelectorAll('input').forEach(i => i.value = i.getAttribute('data-f') === 'Quantity' ? '1' : (i.type === 'number' ? '0' : ''));
+        tr.querySelectorAll('select').forEach(s => { s.removeAttribute('data-value'); if (s.classList.contains('product')) fillProducts(s); s.value = ''; });
+        tbody.appendChild(tr);
+        recalc();
+        const first = tr.querySelector('select, input'); if (first) first.focus();
+    }
+
+    lines.querySelectorAll('select.product').forEach(fillProducts);
+    document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addRow(b.dataset.add === 'lines' ? lines : costs)));
+    [lines, costs].forEach(tbody => tbody.addEventListener('click', e => {
+        if (!e.target.classList.contains('remove')) return;
+        const tr = e.target.closest('tr');
+        if (tbody.querySelectorAll('tr.row-item').length > 1) tr.remove();
+        else tr.querySelectorAll('input, select').forEach(i => i.value = i.type === 'number' ? '0' : '');
+        recalc();
+    }));
+    lines.addEventListener('change', e => {
+        if (!e.target.classList.contains('product')) return;
+        const p = products.find(x => String(x.id) === e.target.value);
+        if (!p) return;
+        const tr = e.target.closest('tr');
+        tr.querySelector('[data-f=Description]').value = p.name;
+        tr.querySelector('[data-f=Unit]').value = p.unit;
+        tr.querySelector('[data-f=SalePrice]').value = p.price;
+        recalc();
+    });
+    document.addEventListener('input', e => { if (e.target.classList.contains('calc')) recalc(); });
+    // Đặt tên Lines[i].X / Costs[i].X liên tục trước khi gửi để model binding đọc đúng
+    document.getElementById('planForm').addEventListener('submit', () => {
+        [['Lines', lines], ['Costs', costs]].forEach(([name, tbody]) =>
+            tbody.querySelectorAll('tr.row-item').forEach((tr, i) =>
+                tr.querySelectorAll('[data-f]').forEach(el => el.name = `${name}[${i}].${el.getAttribute('data-f')}`)));
+    });
+    recalc();
+})();
+</script>
+}

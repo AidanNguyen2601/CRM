@@ -114,6 +114,8 @@ public class CatalogsController : CrmControllerBase
                 .ToList(),
             CatalogGroup.LossReason => await Db.Opportunities.Where(x => x.LostReason != null)
                 .GroupBy(x => x.LostReason!).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
+            CatalogGroup.CostType => await Db.BusinessPlanCosts
+                .GroupBy(x => x.Category).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
             _ => new()
         };
         return rows.GroupBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
@@ -126,7 +128,7 @@ public class CatalogsController : CrmControllerBase
         CatalogGroup.City => await Db.Customers.Where(x => x.City == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.City, newName)),
         CatalogGroup.ProductCategory => await Db.Products.Where(x => x.Category == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.Category, newName)),
         CatalogGroup.Unit => await Db.Products.Where(x => x.Unit == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.Unit, newName)),
-        // Đơn vị trên dòng báo giá và lý do thua của cơ hội là dữ liệu lịch sử → giữ nguyên chữ đã ghi
+        // Đơn vị trên dòng báo giá, lý do thua, loại chi phí của PAKD là dữ liệu lịch sử → giữ nguyên chữ đã ghi
         _ => 0
     };
 }

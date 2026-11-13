@@ -1,0 +1,148 @@
+@model BusinessPlan
+@{
+    ViewData["Title"] = T("Phương án kinh doanh {0}", Model.Number);
+    var canDecide = User.SeesAll() && Model.Status == BusinessPlanStatus.Pending;
+    string Pct(decimal part) => Model.Revenue == 0 ? "" : (part * 100m / Model.Revenue).ToString("0.#") + "%";
+}
+<div class="toolbar no-print">
+    @if (Model.IsEditable)
+    {
+        <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">@T("Sửa")</a>
+        <form asp-action="Submit" asp-route-id="@Model.Id" method="post" data-confirm="@T("Gửi phương án này cho quản lý duyệt?")">
+            <button class="btn btn-primary" @(Model.Lines.Any() ? "" : "disabled")>@Icon("send") @T("Gửi duyệt")</button>
+        </form>
+    }
+    @if (Model.Status == BusinessPlanStatus.Pending)
+    {
+        <form asp-action="Recall" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@Icon("undo") @T("Thu hồi")</button></form>
+    }
+    <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@T("Nhân bản")</button></form>
+    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+    @if (Model.IsEditable)
+    {
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" data-confirm="@T("Xóa phương án {0}?", Model.Number)"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
+    }
+</div>
+
+@if (canDecide)
+{
+    <div class="card mb-3 border-warning no-print"><div class="card-body">
+        <div class="fw-semibold mb-2">@Icon("check") @T("Phê duyệt phương án")</div>
+        <form asp-action="Decide" asp-route-id="@Model.Id" method="post" class="d-flex flex-wrap gap-2 align-items-start">
+            <textarea name="note" class="form-control" rows="2" style="max-width:560px" placeholder="@T("Ý kiến duyệt (bắt buộc khi từ chối)")"></textarea>
+            <button name="approve" value="true" class="btn btn-success">@Icon("check") @T("Duyệt")</button>
+            <button name="approve" value="false" class="btn btn-outline-danger">@Icon("x") @T("Từ chối")</button>
+        </form>
+    </div></div>
+}
+@if (Model.Status == BusinessPlanStatus.Rejected && !string.IsNullOrEmpty(Model.ApprovalNote))
+{
+    <div class="alert alert-danger no-print"><b>@T("Lý do từ chối:")</b> @Model.ApprovalNote <div class="small">@T("Hãy sửa phương án rồi gửi duyệt lại.")</div></div>
+}
+
+<div class="card quote-paper plan-paper"><div class="card-body p-4">
+    <div class="d-flex justify-content-between mb-4 gap-3">
+        <div>
+            <h3 class="mb-0">@T("PHƯƠNG ÁN KINH DOANH")</h3>
+            <div class="fw-semibold">@Model.Title</div>
+            <div class="text-muted small">@T("Số: {0}", Model.Number) · @T("Ngày: {0}", Model.PlanDate.ToDate())</div>
+        </div>
+        <div class="text-end">
+            <partial name="_Badge" model="Model.Status" />
+            <div class="mt-2"><span class="badge fs-6 @BusinessPlan.MarginCss(Model.MarginPercent)">@T("Tỷ suất LN {0}%", Model.MarginPercent.ToString("0.##"))</span></div>
+        </div>
+    </div>
+
+    <div class="row small mb-3">
+        <div class="col-sm-6">
+            <div class="text-muted">@T("Khách hàng")</div>
+            <div class="fw-semibold"><a asp-controller="Customers" asp-action="Details" asp-route-id="@Model.CustomerId">@Model.Customer?.Name</a></div>
+            @if (Model.Opportunity != null) { <div>@T("Cơ hội:") <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@Model.OpportunityId">@Model.Opportunity.Name</a></div> }
+            @if (Model.Quote != null) { <div>@T("Báo giá:") <a asp-controller="Quotes" asp-action="Details" asp-route-id="@Model.QuoteId">@Model.Quote.Number</a></div> }
+        </div>
+        <div class="col-sm-6 text-sm-end">
+            <div class="text-muted">@T("Người lập")</div>
+            <div class="fw-semibold">@Model.Owner?.FullName</div>
+            @if (Model.SubmittedAt.HasValue) { <div>@T("Gửi duyệt: {0}", Model.SubmittedAt.Value.ToDateTime())</div> }
+        </div>
+    </div>
+
+    <h6 class="mt-2">@T("I. Hàng hóa / dịch vụ")</h6>
+    <div class="table-responsive">
+    <table class="table table-bordered table-sm">
+        <thead><tr>
+            <th class="text-center">STT</th><th>@T("Hàng hóa / dịch vụ")</th><th>@T("ĐVT")</th><th class="money">SL</th>
+            <th class="money">@T("Đơn giá vốn")</th><th class="money">@T("Thành tiền vốn")</th>
+            <th class="money">@T("Đơn giá bán")</th><th class="money">@T("Thành tiền bán")</th>
+            <th class="money">@T("Lãi gộp")</th><th class="money">%</th>
+        </tr></thead>
+        <tbody>
+        @{ var n = 1; }
+        @foreach (var l in Model.Lines)
+        {
+            <tr>
+                <td class="text-center">@(n++)</td><td>@l.Description</td><td>@Catalogs.Text(CatalogGroup.Unit, l.Unit)</td><td class="money">@l.Quantity.ToString("0.##")</td>
+                <td class="money">@l.CostPrice.ToMoney()</td><td class="money">@l.CostTotal.ToMoney()</td>
+                <td class="money">@l.SalePrice.ToMoney()</td><td class="money">@l.SaleTotal.ToMoney()</td>
+                <td class="money @(l.GrossProfit < 0 ? "text-danger" : "")">@l.GrossProfit.ToMoney()</td><td class="money">@l.GrossMargin.ToString("0.#")</td>
+            </tr>
+        }
+        </tbody>
+        <tfoot class="fw-semibold">
+            <tr><td colspan="5" class="text-end">@T("Cộng")</td><td class="money">@Model.CostOfGoods.ToMoney()</td><td></td><td class="money">@Model.Revenue.ToMoney()</td>
+                <td class="money">@Model.GrossProfit.ToMoney()</td><td class="money">@Pct(Model.GrossProfit)</td></tr>
+        </tfoot>
+    </table>
+    </div>
+
+    <h6 class="mt-3">@T("II. Chi phí khác")</h6>
+    <table class="table table-bordered table-sm">
+        <thead><tr><th class="text-center">STT</th><th>@T("Khoản chi phí")</th><th>@T("Diễn giải")</th><th class="money">@T("Số tiền")</th><th class="money">@T("% doanh thu")</th></tr></thead>
+        <tbody>
+        @{ n = 1; }
+        @foreach (var c in Model.Costs)
+        {
+            <tr><td class="text-center">@(n++)</td><td>@Catalogs.Text(CatalogGroup.CostType, c.Category)</td><td>@c.Description</td><td class="money">@c.Amount.ToMoney()</td><td class="money">@Pct(c.Amount)</td></tr>
+        }
+        @if (!Model.Costs.Any()) { <tr><td colspan="5" class="text-muted">@T("Không có chi phí khác.")</td></tr> }
+        </tbody>
+    </table>
+
+    <h6 class="mt-3">@T("III. Hiệu quả phương án")</h6>
+    <div class="row">
+        <div class="col-lg-6">
+            <table class="table table-sm plan-summary">
+                <tr><td>@T("Doanh thu (chưa VAT)")</td><td class="money">@Model.Revenue.ToMoney()</td><td class="money text-muted">100%</td></tr>
+                <tr><td>@T("Giá vốn hàng bán")</td><td class="money">-@Model.CostOfGoods.ToMoney()</td><td class="money text-muted">@Pct(Model.CostOfGoods)</td></tr>
+                <tr class="fw-semibold"><td>@T("Lãi gộp")</td><td class="money">@Model.GrossProfit.ToMoney()</td><td class="money text-muted">@Pct(Model.GrossProfit)</td></tr>
+                <tr><td>@T("Chi phí khác")</td><td class="money">-@Model.OtherCosts.ToMoney()</td><td class="money text-muted">@Pct(Model.OtherCosts)</td></tr>
+                <tr class="fw-bold fs-5 @(Model.Profit < 0 ? "text-danger" : "")"><td>@T("LỢI NHUẬN")</td><td class="money">@Model.Profit.ToMoney()</td><td class="money">@Model.MarginPercent.ToString("0.##")%</td></tr>
+            </table>
+        </div>
+        <div class="col-lg-6 small text-muted">
+            @T("Ngưỡng tham khảo: tỷ suất lợi nhuận dưới {0}% là thấp, từ {1}% trở lên là tốt.", BusinessPlan.LowMargin, BusinessPlan.GoodMargin)
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Notes)) { <div class="small mt-2"><b>@T("Thuyết minh:")</b><div class="pre">@Model.Notes</div></div> }
+
+    <div class="row text-center small mt-5 sign-row">
+        <div class="col-6">
+            <div class="fw-semibold">@T("NGƯỜI LẬP")</div>
+            <div class="sign-space"></div>
+            <div>@Model.Owner?.FullName</div>
+        </div>
+        <div class="col-6">
+            <div class="fw-semibold">@T("NGƯỜI DUYỆT")</div>
+            <div class="sign-space">
+                @if (Model.Status is BusinessPlanStatus.Approved or BusinessPlanStatus.Rejected)
+                {
+                    <partial name="_Badge" model="Model.Status" />
+                    <div class="text-muted">@Model.ApprovedAt?.ToDateTime()</div>
+                    @if (!string.IsNullOrEmpty(Model.ApprovalNote)) { <div class="fst-italic">“@Model.ApprovalNote”</div> }
+                }
+            </div>
+            <div>@Model.ApprovedBy?.FullName</div>
+        </div>
+    </div>
+</div></div>

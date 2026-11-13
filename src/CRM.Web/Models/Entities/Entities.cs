@@ -485,3 +485,143 @@ public class CatalogItem
 
     [NotMapped] public string DisplayName => CRM.Web.Infrastructure.I18n.IsEnglish && !string.IsNullOrWhiteSpace(NameEn) ? NameEn! : Name;
 }
+
+/// <summary>
+/// Phương án kinh doanh (PAKD) của một thương vụ: giá vốn – giá bán – chi phí – lợi nhuận,
+/// được quản lý duyệt trước khi ký hợp đồng. Số tiền tính trước thuế GTGT.
+/// </summary>
+public class BusinessPlan : IOwned
+{
+    /// <summary>Ngưỡng cảnh báo tỷ suất lợi nhuận (%)</summary>
+    public const decimal LowMargin = 10m, GoodMargin = 20m;
+
+    public int Id { get; set; }
+
+    [Required, StringLength(30)]
+    [Display(Name = "Số PAKD")]
+    public string Number { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng nhập tên phương án"), StringLength(200)]
+    [Display(Name = "Tên phương án")]
+    public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng chọn khách hàng")]
+    [Display(Name = "Khách hàng")]
+    public int? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+
+    [Display(Name = "Cơ hội")]
+    public int? OpportunityId { get; set; }
+    public Opportunity? Opportunity { get; set; }
+
+    [Display(Name = "Báo giá")]
+    public int? QuoteId { get; set; }
+    public Quote? Quote { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Ngày lập")]
+    public DateTime PlanDate { get; set; } = DateTime.Today;
+
+    [Display(Name = "Trạng thái")]
+    public BusinessPlanStatus Status { get; set; } = BusinessPlanStatus.Draft;
+
+    [Column(TypeName = "decimal(18,0)")][Display(Name = "Doanh thu")] public decimal Revenue { get; set; }
+    [Column(TypeName = "decimal(18,0)")][Display(Name = "Giá vốn")] public decimal CostOfGoods { get; set; }
+    [Column(TypeName = "decimal(18,0)")][Display(Name = "Chi phí khác")] public decimal OtherCosts { get; set; }
+    [Column(TypeName = "decimal(18,0)")][Display(Name = "Lợi nhuận")] public decimal Profit { get; set; }
+    [Column(TypeName = "decimal(9,2)")][Display(Name = "Tỷ suất lợi nhuận (%)")] public decimal MarginPercent { get; set; }
+
+    [StringLength(2000)]
+    [Display(Name = "Thuyết minh / ghi chú")]
+    public string? Notes { get; set; }
+
+    [Display(Name = "Phụ trách")]
+    public int? OwnerId { get; set; }
+    public AppUser? Owner { get; set; }
+
+    public DateTime? SubmittedAt { get; set; }
+
+    [Display(Name = "Người duyệt")]
+    public int? ApprovedById { get; set; }
+    public AppUser? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+
+    [StringLength(1000)]
+    [Display(Name = "Ý kiến duyệt")]
+    public string? ApprovalNote { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? UpdatedAt { get; set; }
+
+    public ICollection<BusinessPlanLine> Lines { get; set; } = new List<BusinessPlanLine>();
+    public ICollection<BusinessPlanCost> Costs { get; set; } = new List<BusinessPlanCost>();
+
+    [NotMapped] public decimal GrossProfit => Revenue - CostOfGoods;
+    [NotMapped] public bool IsEditable => Status is BusinessPlanStatus.Draft or BusinessPlanStatus.Rejected;
+
+    public void Recalculate()
+    {
+        foreach (var l in Lines) l.Recalculate();
+        Revenue = Lines.Sum(l => l.SaleTotal);
+        CostOfGoods = Lines.Sum(l => l.CostTotal);
+        OtherCosts = Costs.Sum(c => c.Amount);
+        Profit = Revenue - CostOfGoods - OtherCosts;
+        MarginPercent = Revenue == 0 ? 0 : Math.Round(Profit * 100m / Revenue, 2);
+    }
+
+    /// <summary>Lớp màu theo tỷ suất: thấp (đỏ) / trung bình (vàng) / tốt (xanh)</summary>
+    public static string MarginCss(decimal margin) =>
+        margin < LowMargin ? "bg-danger" : margin < GoodMargin ? "bg-warning text-dark" : "bg-success";
+}
+
+/// <summary>Dòng hàng hóa / dịch vụ của PAKD</summary>
+public class BusinessPlanLine
+{
+    public int Id { get; set; }
+    public int BusinessPlanId { get; set; }
+    public BusinessPlan? BusinessPlan { get; set; }
+
+    public int? ProductId { get; set; }
+    public Product? Product { get; set; }
+
+    [Required, StringLength(300)]
+    public string Description { get; set; } = string.Empty;
+
+    [StringLength(30)]
+    public string? Unit { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")] public decimal Quantity { get; set; } = 1;
+    [Column(TypeName = "decimal(18,0)")] public decimal CostPrice { get; set; }
+    [Column(TypeName = "decimal(18,0)")] public decimal SalePrice { get; set; }
+    [Column(TypeName = "decimal(18,0)")] public decimal CostTotal { get; set; }
+    [Column(TypeName = "decimal(18,0)")] public decimal SaleTotal { get; set; }
+
+    public int SortOrder { get; set; }
+
+    [NotMapped] public decimal GrossProfit => SaleTotal - CostTotal;
+    [NotMapped] public decimal GrossMargin => SaleTotal == 0 ? 0 : Math.Round(GrossProfit * 100m / SaleTotal, 1);
+
+    public void Recalculate()
+    {
+        CostTotal = Math.Round(Quantity * CostPrice, 0);
+        SaleTotal = Math.Round(Quantity * SalePrice, 0);
+    }
+}
+
+/// <summary>Khoản chi phí khác của PAKD (vận chuyển, lắp đặt, hoa hồng...) – loại chi phí lấy từ danh mục</summary>
+public class BusinessPlanCost
+{
+    public int Id { get; set; }
+    public int BusinessPlanId { get; set; }
+    public BusinessPlan? BusinessPlan { get; set; }
+
+    [Required, StringLength(200)]
+    public string Category { get; set; } = string.Empty;
+
+    [StringLength(300)]
+    public string? Description { get; set; }
+
+    [Column(TypeName = "decimal(18,0)")] public decimal Amount { get; set; }
+
+    public int SortOrder { get; set; }
+}

@@ -38,6 +38,12 @@ public static class Icons
         ["email"] = "<rect x='2' y='4' width='20' height='16' rx='2'/><path d='M22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/>",
         ["task"] = "<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M9 12l2 2 4-4'/>",
         ["catalog"] = "<path d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/>",
+        ["plan"] = "<rect x='4' y='2' width='16' height='20' rx='2'/><path d='M8 6h8M16 14v4M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01'/>",
+        ["coins"] = "<circle cx='8' cy='8' r='6'/><path d='M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82'/>",
+        ["send"] = "<path d='M14.54 21.69a.5.5 0 0 0 .94-.03l6.5-19a.5.5 0 0 0-.64-.64l-19 6.5a.5.5 0 0 0-.03.94l7.93 3.18a2 2 0 0 1 1.11 1.11zM21.85 2.15 10.91 13.09'/>",
+        ["check"] = "<path d='M20 6 9 17l-5-5'/>",
+        ["x"] = "<path d='M18 6 6 18M6 6l12 12'/>",
+        ["undo"] = "<path d='M9 14 4 9l5-5'/><path d='M4 9h10.5a5.5 5.5 0 0 1 0 11H11'/>",
         ["menu"] = "<path d='M4 6h16M4 12h16M4 18h16'/>",
         ["chevron"] = "<path d='M6 9l6 6 6-6'/>",
         ["panel"] = "<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M9 3v18M16 15l-3-3 3-3'/>",
@@ -61,6 +67,7 @@ public static class Icons
         CatalogGroup.ProductCategory => "category",
         CatalogGroup.Unit => "unit",
         CatalogGroup.LossReason => "loss",
+        CatalogGroup.CostType => "coins",
         _ => "catalog"
     };
 
@@ -80,6 +87,7 @@ public static class Icons
         "Leads" => "lead",
         "Opportunities" => action == "Pipeline" ? "pipeline" : "opportunity",
         "Quotes" => "quote",
+        "BusinessPlans" => "plan",
         "Customers" => "customer",
         "Contacts" => "contact",
         "Products" => "product",

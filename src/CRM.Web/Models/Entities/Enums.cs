@@ -85,5 +85,15 @@ public enum CatalogGroup
     [Display(Name = "Tỉnh / Thành phố")] City = 2,
     [Display(Name = "Nhóm sản phẩm")] ProductCategory = 3,
     [Display(Name = "Đơn vị tính")] Unit = 4,
-    [Display(Name = "Lý do thua")] LossReason = 5
+    [Display(Name = "Lý do thua")] LossReason = 5,
+    [Display(Name = "Loại chi phí")] CostType = 6
+}
+
+/// <summary>Trạng thái phương án kinh doanh (quy trình duyệt)</summary>
+public enum BusinessPlanStatus
+{
+    [Display(Name = "Nháp")] Draft = 1,
+    [Display(Name = "Chờ duyệt")] Pending = 2,
+    [Display(Name = "Đã duyệt")] Approved = 3,
+    [Display(Name = "Bị từ chối")] Rejected = 4
 }

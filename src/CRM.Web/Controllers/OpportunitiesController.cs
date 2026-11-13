@@ -60,7 +60,8 @@ public class OpportunitiesController : CrmControllerBase
         {
             Opportunity = o,
             Activities = await Db.Activities.Include(a => a.Owner).Where(a => a.OpportunityId == id).OrderByDescending(a => a.DueDate).ToListAsync(),
-            Quotes = await Db.Quotes.Where(q => q.OpportunityId == id).OrderByDescending(q => q.QuoteDate).ToListAsync()
+            Quotes = await Db.Quotes.Where(q => q.OpportunityId == id).OrderByDescending(q => q.QuoteDate).ToListAsync(),
+            Plans = await Db.BusinessPlans.Where(p => p.OpportunityId == id).OrderByDescending(p => p.PlanDate).ThenByDescending(p => p.Id).ToListAsync()
         });
     }
 

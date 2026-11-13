@@ -17,6 +17,9 @@ public class CrmDbContext : DbContext
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<QuoteLine> QuoteLines => Set<QuoteLine>();
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
+    public DbSet<BusinessPlan> BusinessPlans => Set<BusinessPlan>();
+    public DbSet<BusinessPlanLine> BusinessPlanLines => Set<BusinessPlanLine>();
+    public DbSet<BusinessPlanCost> BusinessPlanCosts => Set<BusinessPlanCost>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +30,10 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Product>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<Quote>().HasIndex(x => x.Number).IsUnique();
         modelBuilder.Entity<CatalogItem>().HasIndex(x => new { x.Group, x.Name }).IsUnique();
+        modelBuilder.Entity<BusinessPlan>().HasIndex(x => x.Number).IsUnique();
+        modelBuilder.Entity<BusinessPlan>().HasIndex(x => x.Status);
+        modelBuilder.Entity<BusinessPlan>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
+        modelBuilder.Entity<BusinessPlan>().HasOne(x => x.ApprovedBy).WithMany().HasForeignKey(x => x.ApprovedById);
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });
 

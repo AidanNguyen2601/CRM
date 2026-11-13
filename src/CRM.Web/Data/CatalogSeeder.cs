@@ -4,30 +4,11 @@ using Microsoft.EntityFrameworkCore;
 namespace CRM.Web.Data;
 
 /// <summary>
-/// Đảm bảo bảng CatalogItems tồn tại (kể cả với database đã tạo trước đó bằng EnsureCreated)
-/// và nạp danh mục mặc định + các giá trị đang được dùng trong dữ liệu nghiệp vụ.
+/// Nạp danh mục mặc định + các giá trị đang được dùng trong dữ liệu nghiệp vụ.
 /// Chạy lại nhiều lần an toàn.
 /// </summary>
 public static class CatalogSeeder
 {
-    public static async Task EnsureTableAsync(CrmDbContext db)
-    {
-        await db.Database.ExecuteSqlRawAsync("""
-            IF OBJECT_ID(N'[dbo].[CatalogItems]', N'U') IS NULL
-            BEGIN
-                CREATE TABLE [dbo].[CatalogItems] (
-                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_CatalogItems] PRIMARY KEY,
-                    [Group] int NOT NULL,
-                    [Name] nvarchar(200) NOT NULL,
-                    [NameEn] nvarchar(200) NULL,
-                    [SortOrder] int NOT NULL,
-                    [IsActive] bit NOT NULL
-                );
-                CREATE UNIQUE INDEX [IX_CatalogItems_Group_Name] ON [dbo].[CatalogItems] ([Group], [Name]);
-            END
-            """);
-    }
-
     public static async Task SeedAsync(CrmDbContext db)
     {
         var existing = await db.CatalogItems.Select(x => new { x.Group, x.Name }).ToListAsync();
@@ -102,6 +83,13 @@ public static class CatalogSeeder
             ("Khách hoãn / hủy dự án", "Customer postponed / cancelled the project"),
             ("Mất liên lạc với khách hàng", "Lost contact with the customer"),
             ("Khác", "Other"),
+        }),
+        (CatalogGroup.CostType, new[]
+        {
+            ("Vận chuyển", "Shipping"), ("Lắp đặt – triển khai", "Installation – deployment"), ("Đào tạo", "Training"),
+            ("Hoa hồng – môi giới", "Commission – brokerage"), ("Bảo hành – bảo trì", "Warranty – maintenance"),
+            ("Chi phí tài chính", "Financial costs"), ("Tiếp khách – công tác", "Entertainment – travel"),
+            ("Thuê ngoài", "Outsourcing"), ("Khác", "Other"),
         }),
     };
 }
