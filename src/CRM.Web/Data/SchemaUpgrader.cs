@@ -12,6 +12,47 @@ public static class SchemaUpgrader
     public static async Task EnsureAsync(CrmDbContext db)
     {
         foreach (var sql in Steps) await db.Database.ExecuteSqlRawAsync(sql);
+        await EnsureCatalogCodesAsync(db);
+    }
+
+    private sealed class CatalogCodeRow
+    {
+        public int Id { get; set; }
+        public int Group { get; set; }
+        public string Name { get; set; } = "";
+        public string? Code { get; set; }
+    }
+
+    /// <summary>
+    /// Cột Mã cho danh mục: thêm cột (nếu chưa có), tự cấp mã từ tên cho các mục chưa có mã,
+    /// rồi đặt NOT NULL + duy nhất theo (Group, Code).
+    /// </summary>
+    private static async Task EnsureCatalogCodesAsync(CrmDbContext db)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            IF COL_LENGTH(N'dbo.CatalogItems', N'Code') IS NULL
+                ALTER TABLE [dbo].[CatalogItems] ADD [Code] nvarchar(30) NULL;
+            """);
+
+        var rows = await db.Database.SqlQueryRaw<CatalogCodeRow>(
+            "SELECT [Id], [Group], [Name], [Code] FROM [dbo].[CatalogItems] ORDER BY [Group], [SortOrder], [Id]").ToListAsync();
+        foreach (var grp in rows.GroupBy(r => r.Group))
+        {
+            var used = grp.Where(r => !string.IsNullOrWhiteSpace(r.Code)).Select(r => r.Code!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in grp.Where(r => string.IsNullOrWhiteSpace(r.Code)))
+            {
+                var code = Infrastructure.CatalogCode.Suggest(r.Name, used);
+                used.Add(code);
+                await db.Database.ExecuteSqlRawAsync("UPDATE [dbo].[CatalogItems] SET [Code] = {0} WHERE [Id] = {1}", code, r.Id);
+            }
+        }
+
+        await db.Database.ExecuteSqlRawAsync("""
+            IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.CatalogItems') AND name = N'Code' AND is_nullable = 1)
+                ALTER TABLE [dbo].[CatalogItems] ALTER COLUMN [Code] nvarchar(30) NOT NULL;
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.CatalogItems') AND name = N'IX_CatalogItems_Group_Code')
+                CREATE UNIQUE INDEX [IX_CatalogItems_Group_Code] ON [dbo].[CatalogItems] ([Group], [Code]);
+            """);
     }
 
     private static readonly string[] Steps =
@@ -23,6 +64,7 @@ public static class SchemaUpgrader
             CREATE TABLE [dbo].[CatalogItems] (
                 [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_CatalogItems] PRIMARY KEY,
                 [Group] int NOT NULL,
+                [Code] nvarchar(30) NULL,
                 [Name] nvarchar(200) NOT NULL,
                 [NameEn] nvarchar(200) NULL,
                 [SortOrder] int NOT NULL,

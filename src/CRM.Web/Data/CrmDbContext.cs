@@ -36,6 +36,8 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Product>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<Quote>().HasIndex(x => x.Number).IsUnique();
         modelBuilder.Entity<CatalogItem>().HasIndex(x => new { x.Group, x.Name }).IsUnique();
+        modelBuilder.Entity<CatalogItem>().HasIndex(x => new { x.Group, x.Code }).IsUnique();
+        modelBuilder.Entity<CatalogItem>().Property(x => x.Code).IsRequired();
         modelBuilder.Entity<BusinessPlan>().HasIndex(x => x.Number).IsUnique();
         modelBuilder.Entity<BusinessPlan>().HasIndex(x => x.Status);
         modelBuilder.Entity<BusinessPlan>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);

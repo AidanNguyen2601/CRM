@@ -19,7 +19,7 @@
 </ul>
 <form method="get" class="toolbar">
     <input type="hidden" name="group" value="@group" />
-    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="keyword" value="@ViewBag.Keyword" class="form-control" placeholder="@T("Tên tiếng Việt / tiếng Anh")" /></div>
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="keyword" value="@ViewBag.Keyword" class="form-control" placeholder="@T("Mã, tên tiếng Việt / tiếng Anh")" /></div>
     <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" name="showInactive" value="true" id="ina" @(ViewBag.ShowInactive == true ? "checked" : "") />
         <input type="hidden" name="showInactive" value="false" />
@@ -30,13 +30,14 @@
 </form>
 <div class="card"><div class="card-body p-0">
 <table class="table table-hover mb-0">
-    <thead><tr><th style="width:80px" class="text-center">@T("Thứ tự")</th><th>@T("Tên (tiếng Việt)")</th><th>@T("Tên (tiếng Anh)")</th><th class="text-center">@T("Đang dùng")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+    <thead><tr><th style="width:80px" class="text-center">@T("Thứ tự")</th><th style="width:120px">@T("Mã")</th><th>@T("Tên (tiếng Việt)")</th><th>@T("Tên (tiếng Anh)")</th><th class="text-center">@T("Đang dùng")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
     <tbody>
     @foreach (var c in Model)
     {
         var used = usage.TryGetValue(c.Name, out var u) ? u : 0;
         <tr class="@(c.IsActive ? "" : "text-muted")">
             <td class="text-center">@c.SortOrder</td>
+            <td><code class="cat-code">@c.Code</code></td>
             <td class="fw-semibold">@c.Name</td>
             <td>@c.NameEn</td>
             <td class="text-center">@(used > 0 ? used.ToString() : "–")</td>
@@ -50,7 +51,7 @@
             </td>
         </tr>
     }
-    @if (!Model.Any()) { <tr><td colspan="6" class="text-center text-muted p-4">@T("Danh mục trống.")</td></tr> }
+    @if (!Model.Any()) { <tr><td colspan="7" class="text-center text-muted p-4">@T("Danh mục trống.")</td></tr> }
     </tbody>
 </table>
 </div></div>

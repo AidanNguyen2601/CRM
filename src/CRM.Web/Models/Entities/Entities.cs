@@ -500,6 +500,12 @@ public class CatalogItem
     [Display(Name = "Nhóm danh mục")]
     public CatalogGroup Group { get; set; }
 
+    /// <summary>Mã ngắn, duy nhất trong nhóm (VD: HN, TPHCM). Để trống khi nhập → tự sinh từ tên.</summary>
+    [StringLength(30)]
+    [RegularExpression(@"^[A-Za-z0-9_.\-]+$", ErrorMessage = "Mã chỉ gồm chữ không dấu, số, dấu chấm, gạch ngang, gạch dưới")]
+    [Display(Name = "Mã")]
+    public string? Code { get; set; }   // DB: NOT NULL (cấu hình trong CrmDbContext); form để trống → tự sinh
+
     [Required(ErrorMessage = "Vui lòng nhập tên"), StringLength(200)]
     [Display(Name = "Tên (tiếng Việt)")]
     public string Name { get; set; } = string.Empty;

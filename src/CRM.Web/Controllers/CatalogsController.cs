@@ -19,7 +19,7 @@ public class CatalogsController : CrmControllerBase
     {
         var q = Db.CatalogItems.AsNoTracking().Where(x => x.Group == group);
         if (!showInactive) q = q.Where(x => x.IsActive);
-        if (!string.IsNullOrWhiteSpace(keyword)) q = q.Where(x => x.Name.Contains(keyword) || (x.NameEn != null && x.NameEn.Contains(keyword)));
+        if (!string.IsNullOrWhiteSpace(keyword)) q = q.Where(x => x.Name.Contains(keyword) || x.Code!.Contains(keyword) || (x.NameEn != null && x.NameEn.Contains(keyword)));
 
         ViewBag.Group = group;
         ViewBag.Keyword = keyword;
@@ -46,6 +46,12 @@ public class CatalogsController : CrmControllerBase
     public async Task<IActionResult> Save(CatalogItem model)
     {
         model.Name = model.Name?.Trim() ?? "";
+        // Mã: chuẩn hoá viết hoa; để trống → tự sinh từ tên; phải duy nhất trong nhóm
+        model.Code = CatalogCode.Normalize(model.Code);
+        var groupCodes = await Db.CatalogItems.Where(x => x.Group == model.Group && x.Id != model.Id).Select(x => x.Code!).ToListAsync();
+        if (model.Code.Length == 0) model.Code = CatalogCode.Suggest(model.Name, groupCodes);
+        else if (groupCodes.Contains(model.Code, StringComparer.OrdinalIgnoreCase))
+            ModelState.AddModelError(nameof(model.Code), I18n.T("Mã đã tồn tại trong danh mục này"));
         model.NameEn = string.IsNullOrWhiteSpace(model.NameEn) ? null : model.NameEn.Trim();
         if (!Enum.IsDefined(model.Group)) ModelState.AddModelError(nameof(model.Group), I18n.T("Nhóm danh mục không hợp lệ"));
         if (await Db.CatalogItems.AnyAsync(x => x.Group == model.Group && x.Name == model.Name && x.Id != model.Id))
@@ -66,7 +72,7 @@ public class CatalogsController : CrmControllerBase
             if (!string.Equals(item.Name, model.Name, StringComparison.Ordinal))
                 renamed = await RenameUsagesAsync(item.Group, item.Name, model.Name);
 
-            item.Name = model.Name; item.NameEn = model.NameEn; item.SortOrder = model.SortOrder; item.IsActive = model.IsActive;
+            item.Code = model.Code; item.Name = model.Name; item.NameEn = model.NameEn; item.SortOrder = model.SortOrder; item.IsActive = model.IsActive;
         }
         await Db.SaveChangesAsync();
         await tx.CommitAsync();

@@ -9,8 +9,9 @@
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <div class="mb-3"><span class="badge bg-primary">@Model.Group.GetDisplayName()</span></div>
     <div class="row g-3">
-        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" autofocus /><span asp-validation-for="Name" class="text-danger small"></span></div>
-        <div class="col-md-6"><label asp-for="NameEn" class="form-label"></label><input asp-for="NameEn" class="form-control" /><span asp-validation-for="NameEn" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" maxlength="30" placeholder="@T("Tự sinh từ tên")" /><span asp-validation-for="Code" class="text-danger small"></span></div>
+        <div class="col-md-5"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" autofocus /><span asp-validation-for="Name" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="NameEn" class="form-label"></label><input asp-for="NameEn" class="form-control" /><span asp-validation-for="NameEn" class="text-danger small"></span></div>
         <div class="col-md-3"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" class="form-control" /><span asp-validation-for="SortOrder" class="text-danger small"></span></div>
         <div class="col-md-5 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
     </div>
@@ -18,4 +19,23 @@
     <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" asp-route-group="@Model.Group" class="btn btn-light">@T("Hủy")</a></div>
 </form>
 </div></div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+    // Gợi ý mã từ tên (cùng quy tắc với máy chủ: chữ cái đầu mỗi từ, bỏ dấu, viết hoa) – chỉ khi người dùng chưa tự nhập mã
+    (function () {
+        const name = document.getElementById('Name'), code = document.getElementById('Code');
+        let auto = code.value === '';
+        function suggest(s) {
+            const words = s.replace(/đ/g, 'd').replace(/Đ/g, 'D').normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .split(/[^A-Za-z0-9]+/).filter(w => w);
+            if (!words.length) return '';
+            const c = words.length === 1 ? words[0].slice(0, 10)
+                : words.map(w => /^\d/.test(w) || (w.length <= 4 && w === w.toUpperCase()) ? w : w[0]).join('');
+            return c.toUpperCase().slice(0, 27);
+        }
+        name.addEventListener('input', () => { if (auto) code.value = suggest(name.value); });
+        code.addEventListener('input', () => { auto = code.value === ''; code.value = code.value.toUpperCase(); });
+    })();
+</script>
+}

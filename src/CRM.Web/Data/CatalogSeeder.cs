@@ -11,7 +11,8 @@ public static class CatalogSeeder
 {
     public static async Task SeedAsync(CrmDbContext db)
     {
-        var existing = await db.CatalogItems.Select(x => new { x.Group, x.Name }).ToListAsync();
+        var existing = await db.CatalogItems.Select(x => new { x.Group, x.Name, x.Code }).ToListAsync();
+        var codes = existing.GroupBy(x => x.Group).ToDictionary(x => x.Key, x => (ICollection<string>)x.Select(i => i.Code ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase));
         var known = existing.Select(x => (x.Group, x.Name.ToLowerInvariant())).ToHashSet();
         var groupsWithData = existing.Select(x => x.Group).ToHashSet();
 
@@ -19,7 +20,10 @@ public static class CatalogSeeder
         {
             name = name.Trim();
             if (name.Length == 0 || name.Length > 200 || !known.Add((g, name.ToLowerInvariant()))) return;
-            db.CatalogItems.Add(new CatalogItem { Group = g, Name = name, NameEn = en, SortOrder = order });
+            if (!codes.TryGetValue(g, out var used)) codes[g] = used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var code = CRM.Web.Infrastructure.CatalogCode.Suggest(name, used);
+            used.Add(code);
+            db.CatalogItems.Add(new CatalogItem { Group = g, Code = code, Name = name, NameEn = en, SortOrder = order });
         }
 
         // Danh mục mặc định: chỉ nạp cho nhóm chưa có mục nào (không ghi đè chỉnh sửa của người dùng)

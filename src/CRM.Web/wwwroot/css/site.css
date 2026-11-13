@@ -199,3 +199,4 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .grid-reset:hover { color: var(--accent); border-color: var(--accent); }
 .grid-custom > .grid-reset { display: inline-flex; }
 @media print { .col-resizer, .grid-reset { display: none !important; } table.grid-fixed { width: 100% !important; } }
+.cat-code { font-size: .85em; color: #0f766e; background: #ecfdf5; padding: 1px 6px; border-radius: 4px; }
