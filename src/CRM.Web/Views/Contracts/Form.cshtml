@@ -1,0 +1,82 @@
+@model ContractFormViewModel
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Lập hợp đồng") : T("Sửa hợp đồng {0}", Model.Number);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var milestones = Model.Milestones.Count > 0 ? Model.Milestones : new List<MilestoneInput> { new() };
+}
+<script>window.crmProducts = @Html.Raw(ViewBag.ProductsJson);</script>
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="QuoteId" /><input type="hidden" asp-for="BusinessPlanId" />
+    <div asp-validation-summary="All" class="text-danger"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-3"><label asp-for="Number" class="form-label"></label><input asp-for="Number" class="form-control" readonly /></div>
+        <div class="col-md-9"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger small"></span></div>
+        <div class="col-md-5"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers" data-contacts-for="#ContactId"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="ContactId" class="form-label"></label><select asp-for="ContactId" class="form-select" asp-items="ViewBag.Contacts"><option value="">@T("-- Chọn --")</option></select></div>
+        <div class="col-md-4"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">@T("-- Không --")</option></select></div>
+        <div class="col-md-3"><label asp-for="StartDate" class="form-label"></label><input asp-for="StartDate" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="EndDate" class="form-label"></label><input asp-for="EndDate" class="form-control" /><span asp-validation-for="EndDate" class="text-danger small"></span></div>
+        <div class="col-md-2"><label asp-for="VatPercent" class="form-label"></label>
+            <select asp-for="VatPercent" class="form-select">@foreach (var v in new[] { 0m, 5m, 8m, 10m }) { <option value="@v" selected="@(Model.VatPercent == v)">@v%</option> }</select></div>
+        @if (!string.IsNullOrEmpty(Model.SourceText)) { <div class="col-md-4 d-flex align-items-end small text-muted">@Model.SourceText</div> }
+    </div></div>
+
+    <partial name="_SalesLinesEditor" model="Model.Lines" />
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>@Icon("calendar") @T("Lịch thanh toán")</span>
+            <span class="d-flex align-items-center gap-2"><span class="small" id="msTotal"></span><button type="button" class="btn btn-sm btn-outline-primary" data-add-row="#milestones">@T("+ Thêm đợt")</button></span>
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table mb-0 quote-lines">
+                <thead><tr><th style="width:36px">#</th><th style="min-width:200px">@T("Đợt thanh toán")</th><th style="width:100px">@T("Tỷ lệ %")</th><th class="money" style="width:150px">@T("Số tiền (gồm VAT)")</th><th style="width:160px">@T("Hạn thanh toán")</th><th style="min-width:200px">@T("Điều kiện")</th><th style="width:36px"></th></tr></thead>
+                <tbody id="milestones" data-rows="Milestones">
+                @for (var i = 0; i < milestones.Count; i++)
+                {
+                    var m = milestones[i];
+                    <tr class="row-item">
+                        <td class="idx">@(i + 1)</td>
+                        <td><input data-f="Name" class="form-control form-control-sm" value="@m.Name" /></td>
+                        <td><input data-f="Percent" type="number" step="0.01" min="0" max="100" data-default="0" class="form-control form-control-sm" value="@m.Percent.ToString("0.##", inv)" /></td>
+                        <td class="money ms-amount">0</td>
+                        <td><input data-f="DueDate" type="date" class="form-control form-control-sm" value="@m.DueDate?.ToString("yyyy-MM-dd")" /></td>
+                        <td><input data-f="Condition" class="form-control form-control-sm" value="@m.Condition" /></td>
+                        <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="@T("Xóa")">✕</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-6"><label asp-for="PaymentTerms" class="form-label"></label><textarea asp-for="PaymentTerms" class="form-control" rows="3"></textarea></div>
+        <div class="col-md-6"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" class="form-control" rows="3"></textarea></div>
+    </div></div>
+    <button class="btn btn-primary">@T("Lưu hợp đồng")</button> <a asp-action="@(Model.Id == 0 ? "Index" : "Details")" asp-route-id="@(Model.Id == 0 ? null : Model.Id)" class="btn btn-light">@T("Hủy")</a>
+</form>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+    // Số tiền từng đợt = tỷ lệ × tổng giá trị hợp đồng (gồm VAT); cảnh báo khi tổng tỷ lệ ≠ 100%
+    (function () {
+        function recalcMilestones() {
+            const total = (window.crmSalesTotals || {}).total || 0;
+            let pct = 0;
+            document.querySelectorAll('#milestones tr.row-item').forEach(tr => {
+                const p = crmNum(tr.querySelector('[data-f=Percent]'));
+                pct += p;
+                tr.querySelector('.ms-amount').textContent = crmFmt(total * p / 100);
+            });
+            const out = document.getElementById('msTotal');
+            out.textContent = '@T("Tổng tỷ lệ:") ' + (Math.round(pct * 100) / 100) + '%';
+            out.className = 'small fw-semibold ' + (Math.abs(pct - 100) < 0.001 ? 'text-success' : 'text-danger');
+        }
+        document.addEventListener('totals:changed', recalcMilestones);
+        document.addEventListener('rows:changed', recalcMilestones);
+        recalcMilestones();
+    })();
+</script>
+}

@@ -1,0 +1,55 @@
+@model PagedList<Payment>
+@{
+    ViewData["Title"] = T("Thanh toán");
+    var f = (PaymentFilter)ViewBag.Filter;
+    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.From, f.To, f.Method, f.CustomerId, f.OwnerId, Page = p })!;
+    var sum = (decimal)ViewBag.SumAmount;
+}
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("wallet", "stat-ico")@T("Đã thu tháng này")</div><div class="value text-success">@(((decimal)ViewBag.ThisMonth).ToMoney())</div></div></div>
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("receivable", "stat-ico")@T("Công nợ phải thu")</div><div class="value">@(((decimal)ViewBag.Receivable).ToMoney())</div><a class="small" asp-controller="Invoices" asp-action="Index" asp-route-View="open">@T("Xem hoá đơn còn nợ →")</a></div></div>
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("alert", "stat-ico")@T("Nợ quá hạn")</div><div class="value @(((decimal)ViewBag.Overdue) > 0 ? "text-danger" : "")">@(((decimal)ViewBag.Overdue).ToMoney())</div><a class="small" asp-controller="Invoices" asp-action="Index" asp-route-View="overdue">@T("Xem hoá đơn quá hạn →")</a></div></div>
+    <div class="col-md-3 d-flex align-items-center justify-content-md-end"><a class="btn btn-success" asp-action="Create">@Icon("plus") @T("Ghi nhận thanh toán")</a></div>
+</div>
+<form method="get" class="toolbar">
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Số phiếu, UNC, khách hàng, số HĐ")" /></div>
+    <div><label class="form-label small mb-1">@T("Từ ngày")</label><input type="date" name="From" value="@f.From?.ToString("yyyy-MM-dd")" class="form-control" /></div>
+    <div><label class="form-label small mb-1">@T("Đến ngày")</label><input type="date" name="To" value="@f.To?.ToString("yyyy-MM-dd")" class="form-control" /></div>
+    <div><label class="form-label small mb-1">@T("Phương thức")</label><select name="Method" class="form-select" asp-items="Catalogs.Options(CatalogGroup.PaymentMethod, f.Method)"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Khách hàng")</label><select name="CustomerId" class="form-select" asp-items="ViewBag.Customers" style="max-width:260px"><option value="">@T("-- Tất cả --")</option></select></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Người thu")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+</form>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Số phiếu thu")</th><th>@T("Ngày thu")</th><th>@T("Khách hàng")</th><th>@T("Hoá đơn / hợp đồng")</th><th>@T("Phương thức")</th><th>@T("Số chứng từ / UNC")</th><th class="money">@T("Số tiền")</th><th>@T("Người thu")</th>@if (User.SeesAll()) { <th></th> }</tr></thead>
+    <tbody>
+    @foreach (var p in Model.Items)
+    {
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold text-nowrap">@p.Number</a></td>
+            <td>@p.PaymentDate.ToDate()</td>
+            <td>@p.Customer?.Name</td>
+            <td class="small">
+                @if (p.Invoice != null) { <a asp-controller="Invoices" asp-action="Details" asp-route-id="@p.InvoiceId">@p.Invoice.FullNumber</a><br /> }
+                @if (p.Contract != null) { <a asp-controller="Contracts" asp-action="Details" asp-route-id="@p.ContractId" class="text-muted">@p.Contract.Number</a> }
+                @if (p.Invoice == null && p.Contract == null) { <span class="text-muted">@T("Tạm ứng / chưa phân bổ")</span> }
+            </td>
+            <td>@Catalogs.Text(CatalogGroup.PaymentMethod, p.Method)</td>
+            <td>@p.Reference</td>
+            <td class="money fw-semibold">@p.Amount.ToMoney()</td>
+            <td>@p.Owner?.FullName</td>
+            @if (User.SeesAll())
+            {
+                <td class="text-end"><form asp-action="Delete" asp-route-id="@p.Id" method="post" data-confirm="@T("Xóa phiếu thu {0}? Số đã thu của hoá đơn sẽ được tính lại.", p.Number)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form></td>
+            }
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Chưa có thanh toán.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="small text-muted">@T("{0} phiếu thu", Model.TotalCount) · @T("Tổng") <b>@sum.ToMoney()</b></span>
+    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+</div></div>

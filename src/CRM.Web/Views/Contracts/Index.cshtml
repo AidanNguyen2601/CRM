@@ -1,0 +1,51 @@
+@model PagedList<Contract>
+@{
+    ViewData["Title"] = L("Hợp đồng", "Contracts");
+    var f = (ContractFilter)ViewBag.Filter;
+    var counts = (Dictionary<ContractStatus, int>)ViewBag.Counts;
+    var paid = (Dictionary<int, decimal>)ViewBag.Paid;
+    var sumTotal = (decimal)ViewBag.SumTotal;
+    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.Status, f.OwnerId, Page = p })!;
+    string Tab(ContractStatus? s) => f.Status == s ? "active" : "";
+}
+<ul class="nav nav-pills mb-3 flex-wrap">
+    <li class="nav-item"><a class="nav-link @Tab(null)" asp-route-Keyword="@f.Keyword" asp-route-OwnerId="@f.OwnerId">@T("Tất cả") <span class="badge bg-secondary">@counts.Values.Sum()</span></a></li>
+    @foreach (var s in Enum.GetValues<ContractStatus>())
+    {
+        <li class="nav-item"><a class="nav-link @Tab(s)" asp-route-Status="@s" asp-route-Keyword="@f.Keyword" asp-route-OwnerId="@f.OwnerId">@s.GetDisplayName() <span class="badge bg-secondary">@(counts.TryGetValue(s, out var n) ? n : 0)</span></a></li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="Status" value="@f.Status" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Số, tên hợp đồng, khách hàng")" /></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create">@Icon("plus") @T("Lập hợp đồng")</a>
+</form>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Số hợp đồng")</th><th>@T("Tên hợp đồng")</th><th>@T("Khách hàng")</th><th>@T("Ngày ký")</th><th class="money">@T("Giá trị")</th><th style="width:170px">@T("Đã thu")</th><th>@T("Trạng thái")</th><th>@T("Phụ trách")</th></tr></thead>
+    <tbody>
+    @foreach (var c in Model.Items)
+    {
+        var p = paid.TryGetValue(c.Id, out var v) ? v : 0;
+        var pct = c.Total == 0 ? 0 : (int)Math.Min(100, Math.Round(p * 100m / c.Total));
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@c.Id" class="fw-semibold text-nowrap">@c.Number</a></td>
+            <td>@c.Title</td>
+            <td>@c.Customer?.Name</td>
+            <td>@c.SignDate.ToDate()</td>
+            <td class="money">@c.Total.ToMoney()</td>
+            <td>@if (c.IsSigned) { <div class="small d-flex justify-content-between"><span>@p.ToShortMoney()</span><span class="text-muted">@pct%</span></div><div class="progress" style="height:5px"><div class="progress-bar bg-success" style="width:@pct%"></div></div> } else { <span class="text-muted">–</span> }</td>
+            <td><partial name="_Badge" model="c.Status" /></td>
+            <td>@c.Owner?.FullName</td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="8" class="text-center text-muted p-4">@T("Chưa có hợp đồng.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-muted">@T("{0} hợp đồng", Model.TotalCount) · @T("Tổng giá trị") <b>@sumTotal.ToMoney()</b></span>
+    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+</div></div>

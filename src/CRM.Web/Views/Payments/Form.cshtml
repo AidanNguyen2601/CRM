@@ -1,0 +1,57 @@
+@model Payment
+@{ ViewData["Title"] = T("Ghi nhận thanh toán"); }
+<div class="card" style="max-width:900px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="InvoiceId" class="form-label"></label>
+            <select asp-for="InvoiceId" class="form-select" asp-items="ViewBag.Invoices"><option value="">@T("-- Không gắn hoá đơn (tạm ứng) --")</option></select>
+            <span asp-validation-for="InvoiceId" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="ContractId" class="form-label"></label><select asp-for="ContractId" class="form-select" asp-items="ViewBag.Contracts"><option value="">@T("-- Không --")</option></select><span asp-validation-for="ContractId" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="PaymentDate" class="form-label"></label><input asp-for="PaymentDate" class="form-control" /></div>
+        <div class="col-md-3"><label asp-for="Amount" class="form-label"></label><input asp-for="Amount" type="number" step="1" min="1" class="form-control fw-semibold" /><span asp-validation-for="Amount" class="text-danger small"></span>
+            <div class="small text-muted" id="outstandingHint"></div></div>
+        <div class="col-md-4"><label asp-for="Method" class="form-label"></label><select asp-for="Method" class="form-select" asp-items="Catalogs.Options(CatalogGroup.PaymentMethod, Model.Method)"></select><span asp-validation-for="Method" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="Reference" class="form-label"></label><input asp-for="Reference" class="form-control" /></div>
+        <div class="col-12"><label asp-for="Notes" class="form-label"></label><input asp-for="Notes" class="form-control" /></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-success">@Icon("check") @T("Lưu phiếu thu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+</div></div>
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+    // Chọn khách hàng → nạp hoá đơn còn nợ; chọn hoá đơn → điền sẵn số còn phải thu
+    (function () {
+        const cust = document.getElementById('CustomerId'), invSel = document.getElementById('InvoiceId'),
+              amount = document.getElementById('Amount'), contract = document.getElementById('ContractId'), hint = document.getElementById('outstandingHint');
+        let open = [];
+        const blank = invSel.options[0].outerHTML;
+        async function loadInvoices(keep) {
+            open = [];
+            if (cust.value) {
+                const res = await fetch('@Url.Action("Open", "Invoices")?customerId=' + encodeURIComponent(cust.value));
+                open = await res.json();
+            }
+            const cur = keep ? invSel.value : '';
+            invSel.innerHTML = blank + open.map(i => '<option value="' + i.id + '">' + i.name + ' (@T("còn") ' + crmFmt(i.outstanding) + ')</option>').join('');
+            invSel.value = cur;
+            showHint();
+        }
+        function showHint() {
+            const i = open.find(x => String(x.id) === invSel.value);
+            hint.textContent = i ? '@T("Còn phải thu:") ' + crmFmt(i.outstanding) : '';
+            return i;
+        }
+        cust.addEventListener('change', () => loadInvoices(false));
+        invSel.addEventListener('change', () => {
+            const i = showHint();
+            if (!i) return;
+            amount.value = i.outstanding;
+            if (i.contractId && contract.querySelector('option[value="' + i.contractId + '"]')) contract.value = i.contractId;
+        });
+        if (cust.value) loadInvoices(true);
+    })();
+</script>
+}

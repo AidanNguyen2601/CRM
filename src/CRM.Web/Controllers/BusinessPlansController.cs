@@ -75,6 +75,11 @@ public class BusinessPlansController : CrmControllerBase
                     ProductId = l.ProductId, Description = l.Description, Unit = l.Unit, Quantity = l.Quantity,
                     SalePrice = Math.Round(l.UnitPrice * (1 - l.DiscountPercent / 100m) * factor, 0)
                 }).ToList();
+                // Giá vốn lấy từ danh mục hàng hoá
+                var ids = vm.Lines.Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value).ToList();
+                var costs = await Db.Products.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.CostPrice);
+                foreach (var l in vm.Lines)
+                    if (l.ProductId.HasValue && costs.TryGetValue(l.ProductId.Value, out var c)) l.CostPrice = c;
             }
         }
         if (vm.OpportunityId.HasValue && string.IsNullOrEmpty(vm.Title))
@@ -290,6 +295,6 @@ public class BusinessPlansController : CrmControllerBase
         await LoadCustomersAsync(vm.CustomerId);
         await LoadOpportunitiesAsync(vm.CustomerId, vm.OpportunityId);
         ViewBag.ProductsJson = JsonSerializer.Serialize(await Db.Products.Where(p => p.IsActive).OrderBy(p => p.Code)
-            .Select(p => new { id = p.Id, code = p.Code, name = p.Name, unit = p.Unit, price = p.UnitPrice }).ToListAsync());
+            .Select(p => new { id = p.Id, code = p.Code, name = p.Name, unit = p.Unit, price = p.UnitPrice, cost = p.CostPrice }).ToListAsync());
     }
 }

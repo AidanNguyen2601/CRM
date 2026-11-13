@@ -1,0 +1,87 @@
+@model Invoice
+@{
+    ViewData["Title"] = T("Hoá đơn {0}", Model.FullNumber);
+    var payments = (List<Payment>)ViewBag.Payments;
+}
+<div class="toolbar no-print">
+    @if (Model.IsEditable)
+    {
+        <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">@T("Sửa")</a>
+        <form asp-action="Issue" asp-route-id="@Model.Id" method="post" data-confirm="@T("Phát hành hoá đơn? Sau khi phát hành không sửa được nội dung.")"><button class="btn btn-primary">@Icon("send") @T("Phát hành")</button></form>
+    }
+    @if (Model.CanReceivePayment)
+    {
+        <a class="btn btn-success" asp-controller="Payments" asp-action="Create" asp-route-invoiceId="@Model.Id">@Icon("wallet") @T("Ghi nhận thanh toán")</a>
+    }
+    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+    @if (User.SeesAll() && Model.IsBillable && !payments.Any())
+    {
+        <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" data-confirm="@T("Hủy hoá đơn {0}?", Model.FullNumber)"><button class="btn btn-outline-danger">@T("Hủy hoá đơn")</button></form>
+    }
+    @if (Model.IsEditable)
+    {
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" data-confirm="@T("Xóa hoá đơn nháp {0}?", Model.FullNumber)"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
+    }
+</div>
+@if (Model.IsOverdue)
+{
+    <div class="alert alert-danger no-print">@Icon("alert") @T("Hoá đơn quá hạn {0} ngày, còn nợ {1}.", (DateTime.Today - Model.DueDate!.Value.Date).Days, Model.Outstanding.ToMoney())</div>
+}
+
+<div class="card quote-paper mb-3"><div class="card-body p-4">
+    <div class="d-flex justify-content-between mb-4">
+        <div><h3 class="mb-0">@T("HOÁ ĐƠN GIÁ TRỊ GIA TĂNG")</h3>
+            <div class="text-muted">@T("Ký hiệu: {0}", Model.Symbol) · @T("Số: {0}", Model.Number)</div></div>
+        <div class="text-end">
+            <partial name="_Badge" model="Model.Status" />
+            <div class="small mt-1">@T("Ngày: {0}", Model.InvoiceDate.ToDate())@if (Model.DueDate.HasValue) { <br />@T("Hạn thanh toán: {0}", Model.DueDate.ToDate()) }</div>
+        </div>
+    </div>
+    <div class="row small mb-3">
+        <div class="col-sm-7">
+            <div class="text-muted">@T("Đơn vị mua hàng")</div>
+            <div class="fw-semibold">@Model.Customer?.Name</div>
+            <div>@T("MST: {0}", Model.Customer?.TaxCode)</div>
+            <div>@T("Địa chỉ:") @Model.Customer?.Address @Catalogs.Text(CatalogGroup.City, Model.Customer?.City)</div>
+        </div>
+        <div class="col-sm-5 text-sm-end">
+            @if (Model.Contract != null) { <div>@T("Hợp đồng:") <a asp-controller="Contracts" asp-action="Details" asp-route-id="@Model.ContractId">@Model.Contract.Number</a></div> }
+            @if (Model.Milestone != null) { <div>@T("Đợt:") @Model.Milestone.Name</div> }
+            <div>@T("Người lập:") @Model.Owner?.FullName</div>
+        </div>
+    </div>
+    <table class="table table-bordered table-sm">
+        <thead><tr><th class="text-center">STT</th><th>@T("Tên hàng hoá, dịch vụ")</th><th>@T("ĐVT")</th><th class="money">SL</th><th class="money">@T("Đơn giá")</th><th class="money">@T("Thành tiền")</th></tr></thead>
+        <tbody>
+        @{ var n = 1; }
+        @foreach (var l in Model.Lines)
+        {
+            <tr><td class="text-center">@(n++)</td><td>@l.Description</td><td>@Catalogs.Text(CatalogGroup.Unit, l.Unit)</td><td class="money">@l.Quantity.ToString("0.##")</td><td class="money">@l.UnitPrice.ToMoney()</td><td class="money">@l.LineTotal.ToMoney()</td></tr>
+        }
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5" class="text-end">@T("Cộng tiền hàng")</td><td class="money">@Model.SubTotal.ToMoney()</td></tr>
+            <tr><td colspan="5" class="text-end">@T("Thuế GTGT ({0}%)", Model.VatPercent.ToString("0.##"))</td><td class="money">@Model.VatAmount.ToMoney()</td></tr>
+            <tr class="fw-bold"><td colspan="5" class="text-end">@T("TỔNG THANH TOÁN")</td><td class="money">@Model.Total.ToMoney()</td></tr>
+            @if (Model.IsBillable)
+            {
+                <tr class="no-print"><td colspan="5" class="text-end">@T("Đã thu")</td><td class="money text-success">@Model.PaidAmount.ToMoney()</td></tr>
+                <tr class="no-print fw-semibold"><td colspan="5" class="text-end">@T("Còn phải thu")</td><td class="money @(Model.Outstanding > 0 ? "text-danger" : "")">@Model.Outstanding.ToMoney()</td></tr>
+            }
+        </tfoot>
+    </table>
+    @if (!string.IsNullOrEmpty(Model.Notes)) { <div class="small"><b>@T("Ghi chú:")</b> @Model.Notes</div> }
+</div></div>
+
+<div class="card no-print"><div class="card-header">@Icon("wallet") @T("Lịch sử thanh toán")</div>
+    <div class="card-body p-0"><table class="table mb-0">
+        <thead><tr><th>@T("Số phiếu thu")</th><th>@T("Ngày thu")</th><th>@T("Phương thức")</th><th>@T("Số chứng từ / UNC")</th><th>@T("Người thu")</th><th class="money">@T("Số tiền")</th></tr></thead>
+        <tbody>
+        @foreach (var p in payments)
+        {
+            <tr><td><a asp-controller="Payments" asp-action="Details" asp-route-id="@p.Id">@p.Number</a></td><td>@p.PaymentDate.ToDate()</td><td>@Catalogs.Text(CatalogGroup.PaymentMethod, p.Method)</td><td>@p.Reference</td><td>@p.Owner?.FullName</td><td class="money">@p.Amount.ToMoney()</td></tr>
+        }
+        @if (!payments.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có thanh toán.")</td></tr> }
+        </tbody>
+    </table></div>
+</div>

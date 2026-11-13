@@ -16,6 +16,10 @@
     {
         <form asp-action="Recall" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@Icon("undo") @T("Thu hồi")</button></form>
     }
+    @if (Model.Status == BusinessPlanStatus.Approved)
+    {
+        <a class="btn btn-success" asp-controller="Contracts" asp-action="Create" asp-route-businessPlanId="@Model.Id">@Icon("contract") @T("Lập hợp đồng")</a>
+    }
     <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@T("Nhân bản")</button></form>
     <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
     @if (Model.IsEditable)

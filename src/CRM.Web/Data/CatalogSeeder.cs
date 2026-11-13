@@ -91,5 +91,19 @@ public static class CatalogSeeder
             ("Chi phí tài chính", "Financial costs"), ("Tiếp khách – công tác", "Entertainment – travel"),
             ("Thuê ngoài", "Outsourcing"), ("Khác", "Other"),
         }),
+        (CatalogGroup.Brand, new[]
+        {
+            ("Microsoft", "Microsoft"), ("Oracle", "Oracle"), ("SAP", "SAP"), ("Dell", "Dell"), ("HP", "HP"), ("Lenovo", "Lenovo"),
+            ("Cisco", "Cisco"), ("Tự phát triển", "In-house"),
+        }),
+        (CatalogGroup.Origin, new[]
+        {
+            ("Việt Nam", "Vietnam"), ("Mỹ", "United States"), ("Nhật Bản", "Japan"), ("Hàn Quốc", "South Korea"),
+            ("Trung Quốc", "China"), ("Đức", "Germany"), ("Singapore", "Singapore"), ("Đài Loan", "Taiwan"),
+        }),
+        (CatalogGroup.PaymentMethod, new[]
+        {
+            ("Chuyển khoản", "Bank transfer"), ("Tiền mặt", "Cash"), ("Thẻ", "Card"), ("Bù trừ công nợ", "Debt offset"),
+        }),
     };
 }

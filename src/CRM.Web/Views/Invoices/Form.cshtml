@@ -1,0 +1,26 @@
+@model InvoiceFormViewModel
+@{ ViewData["Title"] = Model.Id == 0 ? T("Lập hoá đơn") : T("Sửa hoá đơn {0} – {1}", Model.Symbol, Model.Number); }
+<script>window.crmProducts = @Html.Raw(ViewBag.ProductsJson);</script>
+@if (ViewBag.Warning is string w) { <div class="alert alert-warning">@w</div> }
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="MilestoneId" />
+    <div asp-validation-summary="All" class="text-danger"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-2"><label asp-for="Symbol" class="form-label"></label><input asp-for="Symbol" class="form-control text-uppercase" /><span asp-validation-for="Symbol" class="text-danger small"></span></div>
+        <div class="col-md-2"><label asp-for="Number" class="form-label"></label><input asp-for="Number" class="form-control" readonly placeholder="@T("Tự cấp")" /></div>
+        <div class="col-md-2"><label asp-for="InvoiceDate" class="form-label"></label><input asp-for="InvoiceDate" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="DueDate" class="form-label"></label><input asp-for="DueDate" class="form-control" /><span asp-validation-for="DueDate" class="text-danger small"></span></div>
+        <div class="col-md-2"><label asp-for="VatPercent" class="form-label"></label>
+            <select asp-for="VatPercent" class="form-select">@foreach (var v in new[] { 0m, 5m, 8m, 10m }) { <option value="@v" selected="@(Model.VatPercent == v)">@v%</option> }</select></div>
+        <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="ContractId" class="form-label"></label><select asp-for="ContractId" class="form-select" asp-items="ViewBag.Contracts"><option value="">@T("-- Không --")</option></select><span asp-validation-for="ContractId" class="text-danger small"></span></div>
+        @if (!string.IsNullOrEmpty(Model.MilestoneName)) { <div class="col-12 small text-muted">@T("Xuất cho đợt thanh toán:") <b>@Model.MilestoneName</b></div> }
+    </div></div>
+
+    <partial name="_SalesLinesEditor" model="Model.Lines" />
+
+    <div class="card mb-3"><div class="card-body"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" class="form-control" rows="2"></textarea></div></div>
+    <button class="btn btn-primary">@T("Lưu hoá đơn")</button> <a asp-action="@(Model.Id == 0 ? "Index" : "Details")" asp-route-id="@(Model.Id == 0 ? null : Model.Id)" class="btn btn-light">@T("Hủy")</a>
+    <span class="small text-muted ms-2">@T("Hoá đơn được lưu ở trạng thái Nháp; bấm Phát hành để ghi nhận công nợ.")</span>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -116,6 +116,12 @@ public class CatalogsController : CrmControllerBase
                 .GroupBy(x => x.LostReason!).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
             CatalogGroup.CostType => await Db.BusinessPlanCosts
                 .GroupBy(x => x.Category).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
+            CatalogGroup.Brand => await Db.Products.Where(x => x.Brand != null)
+                .GroupBy(x => x.Brand!).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
+            CatalogGroup.Origin => await Db.Products.Where(x => x.Origin != null)
+                .GroupBy(x => x.Origin!).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
+            CatalogGroup.PaymentMethod => await Db.Payments
+                .GroupBy(x => x.Method).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(),
             _ => new()
         };
         return rows.GroupBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
@@ -128,6 +134,8 @@ public class CatalogsController : CrmControllerBase
         CatalogGroup.City => await Db.Customers.Where(x => x.City == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.City, newName)),
         CatalogGroup.ProductCategory => await Db.Products.Where(x => x.Category == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.Category, newName)),
         CatalogGroup.Unit => await Db.Products.Where(x => x.Unit == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.Unit, newName)),
+        CatalogGroup.Brand => await Db.Products.Where(x => x.Brand == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.Brand, newName)),
+        CatalogGroup.Origin => await Db.Products.Where(x => x.Origin == oldName).ExecuteUpdateAsync(s => s.SetProperty(x => x.Origin, newName)),
         // Đơn vị trên dòng báo giá, lý do thua, loại chi phí của PAKD là dữ liệu lịch sử → giữ nguyên chữ đã ghi
         _ => 0
     };

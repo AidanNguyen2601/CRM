@@ -332,6 +332,9 @@ public class Product
     [Display(Name = "Tên sản phẩm / dịch vụ")]
     public string Name { get; set; } = string.Empty;
 
+    [Display(Name = "Loại")]
+    public ProductType Type { get; set; } = ProductType.Goods;
+
     [StringLength(100)]
     [Display(Name = "Nhóm")]
     public string? Category { get; set; }
@@ -342,8 +345,37 @@ public class Product
 
     [Column(TypeName = "decimal(18,0)")]
     [Range(0, 100_000_000_000)]
-    [Display(Name = "Đơn giá")]
+    [Display(Name = "Giá bán")]
     public decimal UnitPrice { get; set; }
+
+    [Column(TypeName = "decimal(18,0)")]
+    [Range(0, 100_000_000_000)]
+    [Display(Name = "Giá vốn")]
+    public decimal CostPrice { get; set; }
+
+    [Column(TypeName = "decimal(5,2)")]
+    [Range(0, 100)]
+    [Display(Name = "Thuế GTGT (%)")]
+    public decimal VatPercent { get; set; } = 10;
+
+    [StringLength(100)]
+    [Display(Name = "Hãng sản xuất")]
+    public string? Brand { get; set; }
+
+    [StringLength(100)]
+    [Display(Name = "Xuất xứ")]
+    public string? Origin { get; set; }
+
+    [Range(0, 600)]
+    [Display(Name = "Bảo hành (tháng)")]
+    public int? WarrantyMonths { get; set; }
+
+    [StringLength(1000)]
+    [Display(Name = "Quy cách / thông số")]
+    public string? Specification { get; set; }
+
+    /// <summary>Biên lãi gộp trên giá bán (%)</summary>
+    [NotMapped] public decimal GrossMargin => UnitPrice == 0 || CostPrice == 0 ? 0 : Math.Round((UnitPrice - CostPrice) * 100m / UnitPrice, 1);
 
     [Display(Name = "Đang kinh doanh")]
     public bool IsActive { get; set; } = true;

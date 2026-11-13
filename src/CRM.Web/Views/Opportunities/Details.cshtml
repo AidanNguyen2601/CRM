@@ -32,6 +32,7 @@
     <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Hoạt động")</a>
     <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Báo giá")</a>
     <a class="btn btn-outline-secondary" asp-controller="BusinessPlans" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Phương án KD")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Create" asp-route-opportunityId="@o.Id">@T("+ Hợp đồng")</a>
     <form asp-action="Delete" asp-route-id="@o.Id" method="post" data-confirm="@T("Xóa cơ hội này?")" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
 </div>
 <div class="row g-3">

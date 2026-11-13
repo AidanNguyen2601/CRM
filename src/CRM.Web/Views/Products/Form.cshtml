@@ -1,18 +1,54 @@
 @model Product
-@{ ViewData["Title"] = Model.Id == 0 ? T("Thêm sản phẩm / dịch vụ") : T("Sửa: {0}", Model.Name); }
-<div class="card" style="max-width:760px"><div class="card-body">
+@{ ViewData["Title"] = Model.Id == 0 ? T("Thêm hàng hoá / dịch vụ") : T("Sửa: {0}", Model.Name); }
+<div class="card" style="max-width:980px"><div class="card-body">
 <form asp-action="Save" method="post">
     <input type="hidden" asp-for="Id" />
+    <h6 class="text-muted mb-3">@T("Thông tin chung")</h6>
     <div class="row g-3">
-        <div class="col-md-4"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" /><span asp-validation-for="Code" class="text-danger small"></span></div>
-        <div class="col-md-8"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" /><span asp-validation-for="Code" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Type" class="form-label"></label><select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<ProductType>()"></select></div>
         <div class="col-md-4"><label asp-for="Category" class="form-label"></label><select asp-for="Category" class="form-select" asp-items="Catalogs.Options(CatalogGroup.ProductCategory, Model.Category)"><option value="">--</option></select></div>
-        <div class="col-md-4"><label asp-for="Unit" class="form-label"></label><select asp-for="Unit" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Unit, Model.Unit)"></select><span asp-validation-for="Unit" class="text-danger small"></span></div>
-        <div class="col-md-4"><label asp-for="UnitPrice" class="form-label"></label><input asp-for="UnitPrice" class="form-control" /><span asp-validation-for="UnitPrice" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="Brand" class="form-label"></label><select asp-for="Brand" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Brand, Model.Brand)"><option value="">--</option></select></div>
+        <div class="col-md-4"><label asp-for="Origin" class="form-label"></label><select asp-for="Origin" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Origin, Model.Origin)"><option value="">--</option></select></div>
+    </div>
+
+    <h6 class="text-muted mt-4 mb-3">@T("Giá & thuế")</h6>
+    <div class="row g-3">
+        <div class="col-md-3"><label asp-for="Unit" class="form-label"></label><select asp-for="Unit" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Unit, Model.Unit)"></select><span asp-validation-for="Unit" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="CostPrice" class="form-label"></label><input asp-for="CostPrice" class="form-control price-calc" /><span asp-validation-for="CostPrice" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="UnitPrice" class="form-label"></label><input asp-for="UnitPrice" class="form-control price-calc" /><span asp-validation-for="UnitPrice" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="VatPercent" class="form-label"></label>
+            <select asp-for="VatPercent" class="form-select">
+                @foreach (var v in new[] { 0m, 5m, 8m, 10m }) { <option value="@v" selected="@(Model.VatPercent == v)">@v%</option> }
+            </select></div>
+        <div class="col-12 small text-muted">@T("Biên lãi gộp:") <b id="margin">–</b></div>
+    </div>
+
+    <h6 class="text-muted mt-4 mb-3">@T("Mô tả & bảo hành")</h6>
+    <div class="row g-3">
+        <div class="col-md-3"><label asp-for="WarrantyMonths" class="form-label"></label><input asp-for="WarrantyMonths" class="form-control" /><span asp-validation-for="WarrantyMonths" class="text-danger small"></span></div>
+        <div class="col-md-9"><label asp-for="Specification" class="form-label"></label><input asp-for="Specification" class="form-control" /></div>
         <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
         <div class="col-12 form-check ms-2"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
     </div>
     <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>
 </div></div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const cost = document.getElementById('CostPrice'), price = document.getElementById('UnitPrice'), out = document.getElementById('margin');
+            function calc() {
+                const c = parseFloat(cost.value) || 0, p = parseFloat(price.value) || 0;
+                if (!p || !c) { out.textContent = '–'; out.className = ''; return; }
+                const m = (p - c) * 100 / p;
+                out.textContent = m.toFixed(1) + '%';
+                out.className = m < @BusinessPlan.LowMargin ? 'text-danger' : m < @BusinessPlan.GoodMargin ? 'text-warning' : 'text-success';
+            }
+            document.querySelectorAll('.price-calc').forEach(i => i.addEventListener('input', calc));
+            calc();
+        })();
+    </script>
+}

@@ -47,6 +47,14 @@
                             <a class="@Active("BusinessPlans")" asp-controller="BusinessPlans" asp-action="Index">@Icon("plan")<span>@T("Phương án kinh doanh")</span></a>
                         </div></div>
                     </div>
+                    <div class="nav-block" data-nav="ops-finance">
+                        <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Hợp đồng & công nợ")</span>@Icon("chevron", "chev")</button>
+                        <div class="nav-items"><div class="nav-inner">
+                            <a class="@Active("Contracts")" asp-controller="Contracts" asp-action="Index">@Icon("contract")<span>@L("Hợp đồng", "Contracts")</span></a>
+                            <a class="@Active("Invoices")" asp-controller="Invoices" asp-action="Index">@Icon("invoice")<span>@L("Hoá đơn", "Invoices")</span></a>
+                            <a class="@Active("Payments")" asp-controller="Payments" asp-action="Index">@Icon("wallet")<span>@T("Thanh toán")</span></a>
+                        </div></div>
+                    </div>
                     <div class="nav-block" data-nav="ops-customers">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@L("Khách hàng", "Customers")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
@@ -61,7 +69,7 @@
             <div class="nav-block" data-nav="catalog">
                 <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Danh mục")</span>@Icon("chevron", "chev")</button>
                 <div class="nav-items"><div class="nav-inner">
-                    <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("product")<span>@T("Sản phẩm / dịch vụ")</span></a>
+                    <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("product")<span>@T("Hàng hoá / dịch vụ")</span></a>
                     @if (User.SeesAll())
                     {
                         var curGroup = ctrl == "Catalogs" ? ViewData["CatalogGroup"] as CatalogGroup? : null;
@@ -120,6 +128,10 @@
                         <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@Icon("calendar")@T("Hoạt động")</a></li>
                         <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@Icon("quote")@L("Báo giá", "Quote")</a></li>
                         <li><a class="dropdown-item" asp-controller="BusinessPlans" asp-action="Create">@Icon("plan")@T("Phương án kinh doanh")</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" asp-controller="Contracts" asp-action="Create">@Icon("contract")@T("Hợp đồng")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Invoices" asp-action="Create">@Icon("invoice")@T("Hoá đơn")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Payments" asp-action="Create">@Icon("wallet")@T("Phiếu thu")</a></li>
                     </ul>
                 </div>
                 <div class="dropdown">

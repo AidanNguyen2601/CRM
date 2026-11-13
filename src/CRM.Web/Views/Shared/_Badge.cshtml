@@ -2,14 +2,16 @@
 @{
     var css = Model switch
     {
-        LeadStatus.New or QuoteStatus.Draft or ActivityStatus.Planned or BusinessPlanStatus.Draft => "bg-secondary",
+        LeadStatus.New or QuoteStatus.Draft or ActivityStatus.Planned or BusinessPlanStatus.Draft or ContractStatus.Draft or InvoiceStatus.Draft => "bg-secondary",
         LeadStatus.Contacted or OpportunityStage.Qualification or QuoteStatus.Sent => "bg-info text-dark",
         LeadStatus.Qualified or OpportunityStage.Proposal => "bg-primary",
-        OpportunityStage.Negotiation or Priority.Normal or BusinessPlanStatus.Pending => "bg-warning text-dark",
-        LeadStatus.Converted or OpportunityStage.ClosedWon or QuoteStatus.Accepted or BusinessPlanStatus.Approved or ActivityStatus.Completed or CustomerType.Customer => "bg-success",
-        LeadStatus.Unqualified or OpportunityStage.ClosedLost or QuoteStatus.Rejected or BusinessPlanStatus.Rejected or ActivityStatus.Cancelled or CustomerType.Inactive or Priority.High => "bg-danger",
+        OpportunityStage.Negotiation or Priority.Normal or BusinessPlanStatus.Pending or InvoiceStatus.PartiallyPaid => "bg-warning text-dark",
+        LeadStatus.Converted or OpportunityStage.ClosedWon or QuoteStatus.Accepted or BusinessPlanStatus.Approved or ContractStatus.Completed or InvoiceStatus.Paid or ActivityStatus.Completed or CustomerType.Customer => "bg-success",
+        LeadStatus.Unqualified or OpportunityStage.ClosedLost or QuoteStatus.Rejected or BusinessPlanStatus.Rejected or ContractStatus.Cancelled or InvoiceStatus.Cancelled or ActivityStatus.Cancelled or CustomerType.Inactive or Priority.High => "bg-danger",
         LeadRating.Hot => "bg-danger", LeadRating.Warm => "bg-warning text-dark", LeadRating.Cold => "bg-info text-dark",
         CustomerType.Partner => "bg-primary",
+        ContractStatus.Active or InvoiceStatus.Issued => "bg-primary",
+        ContractStatus.Liquidated => "bg-dark",
         _ => "bg-light text-dark border"
     };
 }

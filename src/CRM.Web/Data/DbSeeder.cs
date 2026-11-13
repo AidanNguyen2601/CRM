@@ -46,11 +46,17 @@ public static class DbSeeder
             new() { Code = "HRM-PRO", Name = "Phần mềm HRM – gói Professional (≤500 nhân sự/năm)", Category = "Phần mềm", Unit = "Gói/năm", UnitPrice = 120_000_000 },
             new() { Code = "CRM-USER", Name = "Bản quyền CRM theo người dùng", Category = "Phần mềm", Unit = "User/năm", UnitPrice = 3_600_000 },
             new() { Code = "ERP-CORE", Name = "ERP – phân hệ Tài chính kế toán", Category = "Phần mềm", Unit = "Gói", UnitPrice = 350_000_000 },
-            new() { Code = "SV-IMPL", Name = "Dịch vụ triển khai, cấu hình hệ thống", Category = "Dịch vụ", Unit = "Ngày công", UnitPrice = 4_500_000 },
-            new() { Code = "SV-TRAIN", Name = "Đào tạo người dùng cuối", Category = "Dịch vụ", Unit = "Buổi", UnitPrice = 6_000_000 },
-            new() { Code = "SV-DATA", Name = "Chuyển đổi dữ liệu", Category = "Dịch vụ", Unit = "Gói", UnitPrice = 25_000_000 },
-            new() { Code = "SV-SUP", Name = "Hỗ trợ vận hành 12 tháng", Category = "Dịch vụ", Unit = "Năm", UnitPrice = 36_000_000 },
+            new() { Code = "SV-IMPL", Name = "Dịch vụ triển khai, cấu hình hệ thống", Category = "Dịch vụ", Type = ProductType.Service, Unit = "Ngày công", UnitPrice = 4_500_000 },
+            new() { Code = "SV-TRAIN", Name = "Đào tạo người dùng cuối", Category = "Dịch vụ", Type = ProductType.Service, Unit = "Buổi", UnitPrice = 6_000_000 },
+            new() { Code = "SV-DATA", Name = "Chuyển đổi dữ liệu", Category = "Dịch vụ", Type = ProductType.Service, Unit = "Gói", UnitPrice = 25_000_000 },
+            new() { Code = "SV-SUP", Name = "Hỗ trợ vận hành 12 tháng", Category = "Dịch vụ", Type = ProductType.Service, Unit = "Năm", UnitPrice = 36_000_000 },
         };
+        // Giá vốn tham khảo: phần mềm ~60%, dịch vụ ~45% giá bán
+        foreach (var p in products)
+        {
+            p.CostPrice = Math.Round(p.UnitPrice * (p.Type == ProductType.Service ? 0.45m : 0.6m) / 1000m) * 1000m;
+            if (p.Type == ProductType.Goods) { p.Brand = "Tự phát triển"; p.Origin = "Việt Nam"; p.WarrantyMonths = 12; }
+        }
         db.Products.AddRange(products);
         await db.SaveChangesAsync();
 

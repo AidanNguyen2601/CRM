@@ -44,9 +44,16 @@ public class CustomersController : CrmControllerBase
         var c = await Db.Customers.Include(x => x.Owner).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (c == null) return NotFound();
         if (!User.CanAccess(c)) return NotAllowed();
+        var billable = Db.Invoices.Where(i => i.CustomerId == id && (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.PartiallyPaid || i.Status == InvoiceStatus.Paid));
+        var open = billable.Where(i => i.Status != InvoiceStatus.Paid);
         return View(new CustomerDetailViewModel
         {
             Customer = c,
+            Contracts = await Db.Contracts.Where(x => x.CustomerId == id).OrderByDescending(x => x.SignDate ?? x.CreatedAt).ToListAsync(),
+            Invoiced = await billable.SumAsync(i => (decimal?)i.Total) ?? 0,
+            Paid = await Db.Payments.Where(p => p.CustomerId == id).SumAsync(p => (decimal?)p.Amount) ?? 0,
+            Receivable = await open.SumAsync(i => (decimal?)(i.Total - i.PaidAmount)) ?? 0,
+            Overdue = await open.Where(i => i.DueDate != null && i.DueDate < DateTime.Today).SumAsync(i => (decimal?)(i.Total - i.PaidAmount)) ?? 0,
             Contacts = await Db.Contacts.Where(x => x.CustomerId == id).OrderByDescending(x => x.IsPrimary).ThenBy(x => x.FullName).ToListAsync(),
             Opportunities = await Db.Opportunities.Include(o => o.Owner).Where(o => o.CustomerId == id).OrderByDescending(o => o.CreatedAt).ToListAsync(),
             Quotes = await Db.Quotes.Where(q => q.CustomerId == id).OrderByDescending(q => q.QuoteDate).ToListAsync(),

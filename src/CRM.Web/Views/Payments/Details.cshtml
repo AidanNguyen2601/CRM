@@ -1,0 +1,26 @@
+@model Payment
+@{ ViewData["Title"] = T("Phiếu thu {0}", Model.Number); }
+<div class="toolbar no-print">
+    @if (Model.InvoiceId.HasValue) { <a class="btn btn-outline-secondary" asp-controller="Invoices" asp-action="Details" asp-route-id="@Model.InvoiceId">@Icon("invoice") @T("Xem hoá đơn")</a> }
+    @if (Model.ContractId.HasValue) { <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Details" asp-route-id="@Model.ContractId">@Icon("contract") @T("Xem hợp đồng")</a> }
+    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+</div>
+<div class="card quote-paper" style="max-width:760px"><div class="card-body p-4">
+    <div class="d-flex justify-content-between mb-4">
+        <div><h3 class="mb-0">@T("PHIẾU THU")</h3><div class="text-muted">@T("Số: {0}", Model.Number)</div></div>
+        <div class="text-end small">@T("Ngày: {0}", Model.PaymentDate.ToDate())</div>
+    </div>
+    <dl class="row mb-0">
+        <dt class="col-sm-4">@T("Khách hàng")</dt><dd class="col-sm-8">@Model.Customer?.Name</dd>
+        <dt class="col-sm-4">@T("Số tiền")</dt><dd class="col-sm-8 fs-4 fw-bold">@Model.Amount.ToMoney() <small class="fs-6 text-muted">@L("đ", "VND")</small></dd>
+        <dt class="col-sm-4">@T("Phương thức")</dt><dd class="col-sm-8">@Catalogs.Text(CatalogGroup.PaymentMethod, Model.Method)</dd>
+        @if (!string.IsNullOrEmpty(Model.Reference)) { <dt class="col-sm-4">@T("Số chứng từ / UNC")</dt><dd class="col-sm-8">@Model.Reference</dd> }
+        @if (Model.Invoice != null) { <dt class="col-sm-4">@T("Hoá đơn")</dt><dd class="col-sm-8">@Model.Invoice.FullNumber</dd> }
+        @if (Model.Contract != null) { <dt class="col-sm-4">@T("Hợp đồng")</dt><dd class="col-sm-8">@Model.Contract.Number – @Model.Contract.Title</dd> }
+        @if (!string.IsNullOrEmpty(Model.Notes)) { <dt class="col-sm-4">@T("Nội dung")</dt><dd class="col-sm-8">@Model.Notes</dd> }
+    </dl>
+    <div class="row text-center small mt-5">
+        <div class="col-6"><div class="fw-semibold">@T("NGƯỜI NỘP TIỀN")</div><div class="sign-space"></div></div>
+        <div class="col-6"><div class="fw-semibold">@T("NGƯỜI THU TIỀN")</div><div class="sign-space"></div><div>@Model.Owner?.FullName</div></div>
+    </div>
+</div></div>

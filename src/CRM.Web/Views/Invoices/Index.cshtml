@@ -1,0 +1,61 @@
+@model PagedList<Invoice>
+@{
+    ViewData["Title"] = L("Hoá đơn", "Invoices");
+    var f = (InvoiceFilter)ViewBag.Filter;
+    var counts = (Dictionary<string, int>)ViewBag.Counts;
+    var outstanding = (decimal)ViewBag.Outstanding;
+    var overdueAmount = (decimal)ViewBag.OverdueAmount;
+    Func<int, string> pageUrl = p => Url.Action("Index", new { f.Keyword, f.View, f.OwnerId, f.CustomerId, Page = p })!;
+    var tabs = new (string Key, string Label, string Badge)[]
+    {
+        ("open", T("Còn phải thu"), "bg-primary"), ("overdue", T("Quá hạn"), "bg-danger"), ("paid", T("Đã thanh toán"), "bg-success"),
+        ("draft", T("Nháp"), "bg-secondary"), ("cancelled", T("Đã hủy"), "bg-secondary"), ("all", T("Tất cả"), "bg-secondary")
+    };
+}
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card stat"><div class="label">@Icon("receivable", "stat-ico")@T("Công nợ phải thu")</div><div class="value">@outstanding.ToMoney()</div><div class="small text-muted">@T("{0} hoá đơn chưa thu đủ", counts["open"])</div></div></div>
+    <div class="col-md-4"><div class="card stat"><div class="label">@Icon("alert", "stat-ico")@T("Nợ quá hạn")</div><div class="value @(overdueAmount > 0 ? "text-danger" : "")">@overdueAmount.ToMoney()</div><div class="small text-muted">@T("{0} hoá đơn quá hạn", counts["overdue"])</div></div></div>
+    <div class="col-md-4 d-flex align-items-center justify-content-md-end gap-2">
+        <a class="btn btn-outline-success" asp-controller="Payments" asp-action="Create">@Icon("wallet") @T("Ghi nhận thanh toán")</a>
+        <a class="btn btn-primary" asp-action="Create">@Icon("plus") @T("Lập hoá đơn")</a>
+    </div>
+</div>
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var t in tabs)
+    {
+        <li class="nav-item"><a class="nav-link @(f.View == t.Key ? "active" : "")" asp-route-View="@t.Key" asp-route-Keyword="@f.Keyword" asp-route-OwnerId="@f.OwnerId" asp-route-CustomerId="@f.CustomerId">@t.Label <span class="badge @(counts[t.Key] > 0 ? t.Badge : "bg-secondary")">@counts[t.Key]</span></a></li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="View" value="@f.View" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Ký hiệu, số HĐ, khách hàng")" /></div>
+    <div><label class="form-label small mb-1">@T("Khách hàng")</label><select name="CustomerId" class="form-select" asp-items="ViewBag.Customers" style="max-width:280px"><option value="">@T("-- Tất cả --")</option></select></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+</form>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Ký hiệu – Số")</th><th>@T("Ngày")</th><th>@T("Khách hàng")</th><th>@T("Hợp đồng")</th><th class="money">@T("Tổng tiền")</th><th class="money">@T("Đã thu")</th><th class="money">@T("Còn nợ")</th><th>@T("Hạn thanh toán")</th><th>@T("Trạng thái")</th></tr></thead>
+    <tbody>
+    @foreach (var i in Model.Items)
+    {
+        <tr class="@(i.IsOverdue ? "table-danger" : "")">
+            <td><a asp-action="Details" asp-route-id="@i.Id" class="fw-semibold text-nowrap">@i.FullNumber</a></td>
+            <td>@i.InvoiceDate.ToDate()</td>
+            <td>@i.Customer?.Name</td>
+            <td>@if (i.Contract != null) { <a asp-controller="Contracts" asp-action="Details" asp-route-id="@i.ContractId" class="text-nowrap">@i.Contract.Number</a> }</td>
+            <td class="money">@i.Total.ToMoney()</td>
+            <td class="money">@(i.PaidAmount > 0 ? i.PaidAmount.ToMoney() : "–")</td>
+            <td class="money fw-semibold">@(i.Outstanding > 0 ? i.Outstanding.ToMoney() : "–")</td>
+            <td class="text-nowrap">@i.DueDate.ToDate() @if (i.IsOverdue) { <div class="small text-danger">@T("Quá hạn {0} ngày", (DateTime.Today - i.DueDate!.Value.Date).Days)</div> }</td>
+            <td><partial name="_Badge" model="i.Status" /></td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Không có hoá đơn.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="small text-muted">@T("{0} hoá đơn", Model.TotalCount)</span>
+    <partial name="_Pager" model="(Model.Page, Model.TotalPages, pageUrl)" />
+</div></div>

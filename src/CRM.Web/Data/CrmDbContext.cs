@@ -20,6 +20,12 @@ public class CrmDbContext : DbContext
     public DbSet<BusinessPlan> BusinessPlans => Set<BusinessPlan>();
     public DbSet<BusinessPlanLine> BusinessPlanLines => Set<BusinessPlanLine>();
     public DbSet<BusinessPlanCost> BusinessPlanCosts => Set<BusinessPlanCost>();
+    public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<ContractLine> ContractLines => Set<ContractLine>();
+    public DbSet<ContractMilestone> ContractMilestones => Set<ContractMilestone>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +40,11 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<BusinessPlan>().HasIndex(x => x.Status);
         modelBuilder.Entity<BusinessPlan>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
         modelBuilder.Entity<BusinessPlan>().HasOne(x => x.ApprovedBy).WithMany().HasForeignKey(x => x.ApprovedById);
+        modelBuilder.Entity<Contract>().HasIndex(x => x.Number).IsUnique();
+        modelBuilder.Entity<Contract>().HasIndex(x => x.Status);
+        modelBuilder.Entity<Invoice>().HasIndex(x => new { x.Symbol, x.Number }).IsUnique();
+        modelBuilder.Entity<Invoice>().HasIndex(x => x.Status);
+        modelBuilder.Entity<Payment>().HasIndex(x => x.Number).IsUnique();
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });
 

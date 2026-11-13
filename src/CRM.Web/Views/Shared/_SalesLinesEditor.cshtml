@@ -1,0 +1,66 @@
+@* Bảng dòng hàng hoá dùng chung (hợp đồng, hoá đơn). Cần ô #VatPercent trong form; dùng JS chung ở site.js. *@
+@model List<SalesLineInput>
+@{ var inv = System.Globalization.CultureInfo.InvariantCulture; }
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">@T("Hàng hoá / dịch vụ") <button type="button" class="btn btn-sm btn-outline-primary" data-add-row="#lines">@T("+ Thêm dòng")</button></div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table mb-0 quote-lines">
+            <thead><tr>
+                <th style="width:36px">#</th><th style="width:230px">@T("Hàng hoá")</th><th style="min-width:200px">@T("Diễn giải")</th><th style="width:100px">@T("ĐVT")</th>
+                <th style="width:90px">SL</th><th style="width:150px">@T("Đơn giá")</th><th class="money" style="width:150px">@T("Thành tiền")</th><th style="width:36px"></th>
+            </tr></thead>
+            <tbody id="lines" data-rows="Lines">
+            @for (var i = 0; i < Model.Count; i++)
+            {
+                var l = Model[i];
+                <tr class="row-item">
+                    <td class="idx">@(i + 1)</td>
+                    <td><select data-f="ProductId" class="form-select form-select-sm product" data-value="@l.ProductId" data-blank="@T("-- Tự nhập --")"></select></td>
+                    <td><input data-f="Description" class="form-control form-control-sm" value="@l.Description" /></td>
+                    <td><input data-f="Unit" list="units" class="form-control form-control-sm" value="@l.Unit" /></td>
+                    <td><input data-f="Quantity" type="number" step="0.01" min="0" data-default="1" class="form-control form-control-sm" value="@l.Quantity.ToString("0.##", inv)" /></td>
+                    <td><input data-f="UnitPrice" type="number" step="1000" min="0" data-default="0" class="form-control form-control-sm" value="@l.UnitPrice.ToString(inv)" /></td>
+                    <td class="money line-total">0</td>
+                    <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="@T("Xóa")">✕</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white">
+        <div class="row justify-content-end"><div class="col-md-5">
+            <table class="table table-sm mb-0">
+                <tr><td>@T("Cộng tiền hàng")</td><td class="money" id="sumSub">0</td></tr>
+                <tr><td>@T("Thuế GTGT") (<span id="vatLabel">0</span>%)</td><td class="money" id="sumVat">0</td></tr>
+                <tr class="fw-bold fs-5"><td>@T("Tổng thanh toán")</td><td class="money" id="sumTotal">0</td></tr>
+            </table>
+        </div></div>
+    </div>
+</div>
+<partial name="_CatalogDatalist" model='("units", CatalogGroup.Unit)' />
+<script>
+    // Tính thành tiền từng dòng + tổng (gọi lại khi bảng thay đổi). window.crmSalesTotals dùng cho các phần khác của trang.
+    (function () {
+        function recalc() {
+            let sub = 0;
+            document.querySelectorAll('#lines tr.row-item').forEach(tr => {
+                const t = Math.round(crmNum(tr.querySelector('[data-f=Quantity]')) * crmNum(tr.querySelector('[data-f=UnitPrice]')));
+                tr.querySelector('.line-total').textContent = crmFmt(t);
+                sub += t;
+            });
+            const vatPct = crmNum(document.getElementById('VatPercent'));
+            const vat = Math.round(sub * vatPct / 100);
+            document.getElementById('vatLabel').textContent = vatPct;
+            document.getElementById('sumSub').textContent = crmFmt(sub);
+            document.getElementById('sumVat').textContent = crmFmt(vat);
+            document.getElementById('sumTotal').textContent = crmFmt(sub + vat);
+            window.crmSalesTotals = { sub: sub, vat: vat, total: sub + vat };
+            document.dispatchEvent(new CustomEvent('totals:changed'));
+        }
+        document.addEventListener('rows:changed', recalc);
+        document.addEventListener('DOMContentLoaded', () => {
+            const v = document.getElementById('VatPercent'); if (v) v.addEventListener('change', recalc);
+            recalc();
+        });
+    })();
+</script>

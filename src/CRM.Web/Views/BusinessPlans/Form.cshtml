@@ -172,6 +172,7 @@
         tr.querySelector('[data-f=Description]').value = p.name;
         tr.querySelector('[data-f=Unit]').value = p.unit;
         tr.querySelector('[data-f=SalePrice]').value = p.price;
+        if (p.cost) tr.querySelector('[data-f=CostPrice]').value = p.cost;
         recalc();
     });
     document.addEventListener('input', e => { if (e.target.classList.contains('calc')) recalc(); });

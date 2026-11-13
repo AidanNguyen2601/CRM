@@ -9,6 +9,7 @@
     }
     <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@T("Nhân bản")</button></form>
     <a class="btn btn-outline-secondary" asp-controller="BusinessPlans" asp-action="Create" asp-route-quoteId="@Model.Id">@Icon("plan") @T("Lập phương án KD")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Create" asp-route-quoteId="@Model.Id">@Icon("contract") @T("Lập hợp đồng")</a>
     <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
 </div>
 <div class="card quote-paper"><div class="card-body p-4">

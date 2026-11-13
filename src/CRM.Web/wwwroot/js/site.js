@@ -80,3 +80,67 @@ document.addEventListener('change', async function (e) {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') root.classList.remove('sidebar-open'); });
     syncMiniLabel();
 })();
+
+// ---------- Bảng nhiều dòng dùng chung (hợp đồng, hoá đơn) ----------
+// <tbody data-rows="Lines"> chứa các <tr class="row-item">, ô nhập có data-f="TênTrường".
+// Nút thêm: <button data-add-row="#idTbody">. Nút xóa trong dòng: .remove.
+// Chọn hàng hoá: <select class="product"> (danh sách từ window.crmProducts) → tự điền Description/Unit/UnitPrice.
+// Khi lưu: đặt name = Lines[i].Field liên tục. Mỗi thay đổi phát sự kiện 'rows:changed' để trang tự tính lại.
+(function () {
+    const fire = () => document.dispatchEvent(new CustomEvent('rows:changed'));
+    const fillProducts = sel => {
+        const list = window.crmProducts || [];
+        const cur = sel.getAttribute('data-value') || sel.value;
+        const blank = sel.getAttribute('data-blank') || '--';
+        sel.innerHTML = '<option value="">' + blank + '</option>' +
+            list.map(p => '<option value="' + p.id + '">' + p.code + ' – ' + p.name.replace(/</g, '&lt;') + '</option>').join('');
+        if (cur) sel.value = cur;
+    };
+    const renumber = tbody => tbody.querySelectorAll('tr.row-item').forEach((tr, i) => { const c = tr.querySelector('.idx'); if (c) c.textContent = i + 1; });
+
+    document.querySelectorAll('tbody[data-rows] select.product').forEach(fillProducts);
+
+    document.addEventListener('click', e => {
+        const add = e.target.closest('[data-add-row]');
+        if (add) {
+            const tbody = document.querySelector(add.getAttribute('data-add-row'));
+            const tpl = tbody && tbody.querySelector('tr.row-item');
+            if (!tpl) return;
+            const tr = tpl.cloneNode(true);
+            tr.querySelectorAll('input, textarea').forEach(i => i.value = i.hasAttribute('data-default') ? i.getAttribute('data-default') : '');
+            tr.querySelectorAll('select').forEach(s => { s.removeAttribute('data-value'); if (s.classList.contains('product')) fillProducts(s); s.value = ''; });
+            tbody.appendChild(tr);
+            renumber(tbody); fire();
+            const first = tr.querySelector('select, input'); if (first) first.focus();
+            return;
+        }
+        const rm = e.target.closest('tbody[data-rows] .remove');
+        if (rm) {
+            const tbody = rm.closest('tbody'), tr = rm.closest('tr');
+            if (tbody.querySelectorAll('tr.row-item').length > 1) tr.remove();
+            else tr.querySelectorAll('input, select, textarea').forEach(i => i.value = i.hasAttribute('data-default') ? i.getAttribute('data-default') : '');
+            renumber(tbody); fire();
+        }
+    });
+
+    document.addEventListener('change', e => {
+        if (!e.target.matches('tbody[data-rows] select.product')) return;
+        const p = (window.crmProducts || []).find(x => String(x.id) === e.target.value);
+        if (!p) return;
+        const tr = e.target.closest('tr'), set = (f, v) => { const el = tr.querySelector('[data-f=' + f + ']'); if (el && v != null) el.value = v; };
+        set('Description', p.name); set('Unit', p.unit); set('UnitPrice', p.price);
+        fire();
+    });
+    document.addEventListener('input', e => { if (e.target.closest('tbody[data-rows]')) fire(); });
+
+    document.addEventListener('submit', e => {
+        e.target.querySelectorAll('tbody[data-rows]').forEach(tbody => {
+            const name = tbody.getAttribute('data-rows');
+            tbody.querySelectorAll('tr.row-item').forEach((tr, i) =>
+                tr.querySelectorAll('[data-f]').forEach(el => el.name = name + '[' + i + '].' + el.getAttribute('data-f')));
+        });
+    }, true);
+
+    window.crmFmt = n => (Math.round(n) || 0).toLocaleString('vi-VN');
+    window.crmNum = el => parseFloat(el && el.value ? el.value : '0') || 0;
+})();

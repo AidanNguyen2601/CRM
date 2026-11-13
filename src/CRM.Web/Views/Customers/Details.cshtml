@@ -9,6 +9,7 @@
     <a class="btn btn-outline-secondary" asp-controller="Opportunities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Cơ hội")</a>
     <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hoạt động")</a>
     <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Báo giá")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hợp đồng")</a>
     <form asp-action="Delete" asp-route-id="@c.Id" method="post" data-confirm="@T("Xóa khách hàng {0}?", c.Name)" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
 </div>
 <div class="row g-3">
@@ -59,6 +60,28 @@
                         <td class="money">@o.Amount.ToMoney()</td><td>@o.ExpectedCloseDate.ToDate()</td><td>@o.Owner?.FullName</td></tr>
                 }
                 @if (!Model.Opportunities.Any()) { <tr><td colspan="5" class="text-muted p-3">@T("Chưa có cơ hội.")</td></tr> }
+                </tbody>
+            </table></div>
+        </div>
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("contract") @T("Hợp đồng & công nợ")</span>
+            <a class="small fw-normal" asp-controller="Invoices" asp-action="Index" asp-route-CustomerId="@c.Id" asp-route-View="all">@T("Xem hoá đơn")</a></div>
+            <div class="card-body pb-0">
+                <div class="row text-center g-2 mb-3">
+                    <div class="col"><div class="small text-muted">@T("Đã xuất hoá đơn")</div><div class="fw-bold">@Model.Invoiced.ToShortMoney()</div></div>
+                    <div class="col"><div class="small text-muted">@T("Đã thu")</div><div class="fw-bold text-success">@Model.Paid.ToShortMoney()</div></div>
+                    <div class="col"><div class="small text-muted">@T("Còn phải thu")</div><div class="fw-bold">@Model.Receivable.ToShortMoney()</div></div>
+                    <div class="col"><div class="small text-muted">@T("Nợ quá hạn")</div><div class="fw-bold @(Model.Overdue > 0 ? "text-danger" : "")">@Model.Overdue.ToShortMoney()</div></div>
+                </div>
+            </div>
+            <div class="card-body p-0"><table class="table mb-0">
+                <thead><tr><th>@T("Số hợp đồng")</th><th>@T("Tên hợp đồng")</th><th>@T("Ngày ký")</th><th class="money">@T("Giá trị")</th><th>@T("Trạng thái")</th></tr></thead>
+                <tbody>
+                @foreach (var k in Model.Contracts)
+                {
+                    <tr><td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@k.Id">@k.Number</a></td><td>@k.Title</td><td>@k.SignDate.ToDate()</td>
+                        <td class="money">@k.Total.ToMoney()</td><td><partial name="_Badge" model="k.Status" /></td></tr>
+                }
+                @if (!Model.Contracts.Any()) { <tr><td colspan="5" class="text-muted p-3">@T("Chưa có hợp đồng.")</td></tr> }
                 </tbody>
             </table></div>
         </div>

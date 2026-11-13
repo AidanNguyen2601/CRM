@@ -86,7 +86,10 @@ public enum CatalogGroup
     [Display(Name = "Nhóm sản phẩm")] ProductCategory = 3,
     [Display(Name = "Đơn vị tính")] Unit = 4,
     [Display(Name = "Lý do thua")] LossReason = 5,
-    [Display(Name = "Loại chi phí")] CostType = 6
+    [Display(Name = "Loại chi phí")] CostType = 6,
+    [Display(Name = "Hãng sản xuất")] Brand = 7,
+    [Display(Name = "Xuất xứ")] Origin = 8,
+    [Display(Name = "Phương thức thanh toán")] PaymentMethod = 9
 }
 
 /// <summary>Trạng thái phương án kinh doanh (quy trình duyệt)</summary>
@@ -96,4 +99,28 @@ public enum BusinessPlanStatus
     [Display(Name = "Chờ duyệt")] Pending = 2,
     [Display(Name = "Đã duyệt")] Approved = 3,
     [Display(Name = "Bị từ chối")] Rejected = 4
+}
+
+public enum ProductType
+{
+    [Display(Name = "Hàng hoá")] Goods = 1,
+    [Display(Name = "Dịch vụ")] Service = 2
+}
+
+public enum ContractStatus
+{
+    [Display(Name = "Nháp")] Draft = 1,
+    [Display(Name = "Đang thực hiện")] Active = 2,
+    [Display(Name = "Hoàn thành")] Completed = 3,
+    [Display(Name = "Đã thanh lý")] Liquidated = 4,
+    [Display(Name = "Đã hủy")] Cancelled = 5
+}
+
+public enum InvoiceStatus
+{
+    [Display(Name = "Nháp")] Draft = 1,
+    [Display(Name = "Đã phát hành")] Issued = 2,
+    [Display(Name = "Thanh toán một phần")] PartiallyPaid = 3,
+    [Display(Name = "Đã thanh toán")] Paid = 4,
+    [Display(Name = "Đã hủy")] Cancelled = 5
 }

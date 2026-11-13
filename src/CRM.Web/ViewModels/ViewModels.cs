@@ -134,6 +134,11 @@ public class CustomerDetailViewModel
     public List<Contact> Contacts { get; set; } = new();
     public List<Opportunity> Opportunities { get; set; } = new();
     public List<Quote> Quotes { get; set; } = new();
+    public List<Contract> Contracts { get; set; } = new();
+    public decimal Invoiced { get; set; }
+    public decimal Paid { get; set; }
+    public decimal Receivable { get; set; }
+    public decimal Overdue { get; set; }
     public List<Activity> Activities { get; set; } = new();
     public decimal WonTotal => Opportunities.Where(o => o.Stage == OpportunityStage.ClosedWon).Sum(o => o.Amount);
     public decimal OpenTotal => Opportunities.Where(o => !o.IsClosed).Sum(o => o.Amount);
@@ -311,4 +316,151 @@ public class BusinessPlanFormViewModel
 public class BusinessPlanFilter : ListFilter
 {
     public BusinessPlanStatus? Status { get; set; }
+}
+
+// ---------- Hợp đồng / Hoá đơn ----------
+public class SalesLineInput
+{
+    public int? ProductId { get; set; }
+
+    [Required(ErrorMessage = "Nhập diễn giải")]
+    [StringLength(300)]
+    public string Description { get; set; } = string.Empty;
+
+    [StringLength(30)]
+    public string? Unit { get; set; }
+
+    [Range(0.01, 1_000_000, ErrorMessage = "Số lượng > 0")]
+    public decimal Quantity { get; set; } = 1;
+
+    [Range(0, 100_000_000_000)]
+    public decimal UnitPrice { get; set; }
+}
+
+public class MilestoneInput
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "Nhập tên đợt thanh toán")]
+    [StringLength(200)]
+    public string Name { get; set; } = string.Empty;
+
+    [Range(0.01, 100, ErrorMessage = "Tỷ lệ đợt thanh toán phải từ 0,01 đến 100%")]
+    public decimal Percent { get; set; }
+
+    [DataType(DataType.Date)]
+    public DateTime? DueDate { get; set; }
+
+    [StringLength(300)]
+    public string? Condition { get; set; }
+}
+
+public class ContractFormViewModel
+{
+    public int Id { get; set; }
+
+    [Display(Name = "Số hợp đồng")]
+    public string Number { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng nhập tên hợp đồng"), StringLength(200)]
+    [Display(Name = "Tên hợp đồng")]
+    public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng chọn khách hàng")]
+    [Display(Name = "Khách hàng")]
+    public int? CustomerId { get; set; }
+
+    [Display(Name = "Người đại diện")]
+    public int? ContactId { get; set; }
+
+    [Display(Name = "Cơ hội")]
+    public int? OpportunityId { get; set; }
+
+    public int? QuoteId { get; set; }
+    public int? BusinessPlanId { get; set; }
+    public string? SourceText { get; set; }
+
+    [DataType(DataType.Date)][Display(Name = "Ngày hiệu lực")] public DateTime? StartDate { get; set; } = DateTime.Today;
+    [DataType(DataType.Date)][Display(Name = "Ngày kết thúc")] public DateTime? EndDate { get; set; } = DateTime.Today.AddMonths(12);
+
+    [Range(0, 100)]
+    [Display(Name = "Thuế GTGT (%)")]
+    public decimal VatPercent { get; set; } = 10;
+
+    [StringLength(2000)]
+    [Display(Name = "Điều khoản thanh toán")]
+    public string? PaymentTerms { get; set; }
+
+    [StringLength(2000)]
+    [Display(Name = "Ghi chú")]
+    public string? Notes { get; set; }
+
+    public List<SalesLineInput> Lines { get; set; } = new();
+    public List<MilestoneInput> Milestones { get; set; } = new();
+}
+
+public class ContractFilter : ListFilter
+{
+    public ContractStatus? Status { get; set; }
+}
+
+public class ContractDetailViewModel
+{
+    public Contract Contract { get; set; } = null!;
+    public List<Invoice> Invoices { get; set; } = new();
+    public List<Payment> Payments { get; set; } = new();
+    public decimal Invoiced => Invoices.Where(i => i.IsBillable).Sum(i => i.Total);
+    public decimal Paid => Payments.Sum(p => p.Amount);
+    public decimal Receivable => Contract.Total - Paid;
+    public decimal InvoicedFor(int milestoneId) => Invoices.Where(i => i.MilestoneId == milestoneId && i.Status != InvoiceStatus.Cancelled).Sum(i => i.Total);
+}
+
+public class InvoiceFormViewModel
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "Vui lòng nhập ký hiệu hoá đơn"), StringLength(20)]
+    [Display(Name = "Ký hiệu")]
+    public string Symbol { get; set; } = string.Empty;
+
+    [Display(Name = "Số hoá đơn")]
+    public string Number { get; set; } = string.Empty;
+
+    [DataType(DataType.Date)][Display(Name = "Ngày hoá đơn")] public DateTime InvoiceDate { get; set; } = DateTime.Today;
+    [DataType(DataType.Date)][Display(Name = "Hạn thanh toán")] public DateTime? DueDate { get; set; } = DateTime.Today.AddDays(30);
+
+    [Required(ErrorMessage = "Vui lòng chọn khách hàng")]
+    [Display(Name = "Khách hàng")]
+    public int? CustomerId { get; set; }
+
+    [Display(Name = "Hợp đồng")]
+    public int? ContractId { get; set; }
+
+    public int? MilestoneId { get; set; }
+    public string? MilestoneName { get; set; }
+
+    [Range(0, 100)]
+    [Display(Name = "Thuế GTGT (%)")]
+    public decimal VatPercent { get; set; } = 10;
+
+    [StringLength(1000)]
+    [Display(Name = "Ghi chú")]
+    public string? Notes { get; set; }
+
+    public List<SalesLineInput> Lines { get; set; } = new();
+}
+
+public class InvoiceFilter : ListFilter
+{
+    /// <summary>open (còn nợ) | overdue | paid | draft | all</summary>
+    public string View { get; set; } = "open";
+    public int? CustomerId { get; set; }
+}
+
+public class PaymentFilter : ListFilter
+{
+    public DateTime? From { get; set; }
+    public DateTime? To { get; set; }
+    public string? Method { get; set; }
+    public int? CustomerId { get; set; }
 }
