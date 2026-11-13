@@ -21,28 +21,28 @@
             @* ===== NGHIỆP VỤ: các chức năng làm việc hằng ngày ===== *@
             <div class="nav-section">@T("Nghiệp vụ")</div>
             <div class="nav-group">@T("Tổng quan")</div>
-            <a class="@Active("Home")" asp-controller="Home" asp-action="Index">Dashboard</a>
-            <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@T("Lịch làm việc")</a>
+            <a class="@Active("Home")" asp-controller="Home" asp-action="Index">@Icon("dashboard")<span>Dashboard</span></a>
+            <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@Icon("calendar")<span>@T("Lịch làm việc")</span></a>
 
             <div class="nav-group">@T("Bán hàng")</div>
-            <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">@T("Lead (KH tiềm năng)")</a>
-            <a class="@Active("Opportunities","Pipeline")" asp-controller="Opportunities" asp-action="Pipeline">Pipeline</a>
-            <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">@T("Cơ hội bán hàng")</a>
-            <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">@L("Báo giá", "Quotes")</a>
+            <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">@Icon("lead")<span>@T("Lead (KH tiềm năng)")</span></a>
+            <a class="@Active("Opportunities","Pipeline")" asp-controller="Opportunities" asp-action="Pipeline">@Icon("pipeline")<span>Pipeline</span></a>
+            <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">@Icon("opportunity")<span>@T("Cơ hội bán hàng")</span></a>
+            <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">@Icon("quote")<span>@L("Báo giá", "Quotes")</span></a>
 
             <div class="nav-group">@L("Khách hàng", "Customers")</div>
-            <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@L("Khách hàng", "Customers")</a>
-            <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@L("Người liên hệ", "Contacts")</a>
+            <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@Icon("customer")<span>@L("Khách hàng", "Customers")</span></a>
+            <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@Icon("contact")<span>@L("Người liên hệ", "Contacts")</span></a>
 
             @* ===== DANH MỤC: dữ liệu dùng chung ===== *@
             <div class="nav-section">@T("Danh mục")</div>
-            <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@T("Sản phẩm / dịch vụ")</a>
+            <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("product")<span>@T("Sản phẩm / dịch vụ")</span></a>
             @if (User.SeesAll())
             {
                 var curGroup = ctrl == "Catalogs" ? ViewData["CatalogGroup"] as CatalogGroup? : null;
                 foreach (var cg in Enum.GetValues<CatalogGroup>())
                 {
-                    <a class="@(curGroup == cg ? "active" : "")" asp-controller="Catalogs" asp-action="Index" asp-route-group="@cg">@cg.GetDisplayName()</a>
+                    <a class="@(curGroup == cg ? "active" : "")" asp-controller="Catalogs" asp-action="Index" asp-route-group="@cg">@Icon(ForCatalog(cg))<span>@cg.GetDisplayName()</span></a>
                 }
             }
 
@@ -50,24 +50,24 @@
             {
                 @* ===== HỆ THỐNG ===== *@
                 <div class="nav-section">@T("Hệ thống")</div>
-                <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@T("Người dùng & phân quyền")</a>
+                <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@Icon("users")<span>@T("Người dùng & phân quyền")</span></a>
             }
         </nav>
     </aside>
 
     <div class="main">
         <header class="topbar">
-            <h1 class="page-title">@ViewData["Title"]</h1>
+            <h1 class="page-title">@Icon(ForPage(ctrl, act) ?? "", "ico-title")<span>@ViewData["Title"]</span></h1>
             <div class="d-flex align-items-center gap-2">
                 <partial name="_LanguageSwitcher" />
                 <div class="dropdown">
-                    <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">@T("+ Tạo nhanh")</button>
+                    <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">@Icon("plus") @T("Tạo nhanh")</button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" asp-controller="Leads" asp-action="Create">Lead</a></li>
-                        <li><a class="dropdown-item" asp-controller="Customers" asp-action="Create">@T("Khách hàng")</a></li>
-                        <li><a class="dropdown-item" asp-controller="Opportunities" asp-action="Create">@T("Cơ hội")</a></li>
-                        <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@T("Hoạt động")</a></li>
-                        <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@L("Báo giá", "Quote")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Leads" asp-action="Create">@Icon("lead")Lead</a></li>
+                        <li><a class="dropdown-item" asp-controller="Customers" asp-action="Create">@Icon("customer")@T("Khách hàng")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Opportunities" asp-action="Create">@Icon("opportunity")@T("Cơ hội")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@Icon("calendar")@T("Hoạt động")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@Icon("quote")@L("Báo giá", "Quote")</a></li>
                     </ul>
                 </div>
                 <div class="dropdown">
@@ -76,9 +76,9 @@
                         @User.GetFullName() <small class="text-muted">(@AppRoles.DisplayName(role))</small>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@T("Đổi mật khẩu")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@Icon("key")@T("Đổi mật khẩu")</a></li>
                         <li><hr class="dropdown-divider" /></li>
-                        <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">@T("Đăng xuất")</button></form></li>
+                        <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">@Icon("logout")@T("Đăng xuất")</button></form></li>
                     </ul>
                 </div>
             </div>

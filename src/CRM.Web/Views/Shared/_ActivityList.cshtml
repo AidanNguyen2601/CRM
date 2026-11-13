@@ -11,7 +11,7 @@
     <li class="@(a.Status == ActivityStatus.Completed ? "done" : a.IsOverdue ? "overdue" : "")">
         <div class="d-flex justify-content-between gap-2">
             <div>
-                <span class="act-type">@a.Type.GetDisplayName()</span>
+                <span class="act-type">@Icon(ForActivity(a.Type))@a.Type.GetDisplayName()</span>
                 <a asp-controller="Activities" asp-action="Edit" asp-route-id="@a.Id" class="fw-semibold">@a.Subject</a>
                 <div class="small text-muted">@a.DueDate.ToDateTime() · @a.Owner?.FullName @if (a.IsOverdue) { <span class="text-danger fw-semibold">· @T("Quá hạn")</span> }</div>
                 @if (!string.IsNullOrEmpty(a.Description)) { <div class="small mt-1 pre">@a.Description</div> }

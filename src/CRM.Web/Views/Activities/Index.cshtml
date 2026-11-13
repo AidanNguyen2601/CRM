@@ -29,7 +29,7 @@
     {
         <tr class="@(a.IsOverdue ? "table-danger" : "")">
             <td class="text-nowrap">@a.DueDate.ToDateTime()</td>
-            <td><span class="act-type">@a.Type.GetDisplayName()</span></td>
+            <td><span class="act-type">@Icon(ForActivity(a.Type))@a.Type.GetDisplayName()</span></td>
             <td><a asp-action="Edit" asp-route-id="@a.Id" class="fw-semibold">@a.Subject</a>
                 @if (!string.IsNullOrEmpty(a.Description)) { <div class="small text-muted pre">@a.Description</div> }</td>
             <td class="small">

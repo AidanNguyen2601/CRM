@@ -6,16 +6,16 @@
     var maxSource = Math.Max(1, Model.LeadsBySource.Count > 0 ? Model.LeadsBySource.Max(s => s.Count) : 1);
 }
 <div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="card stat"><div class="label">@T("Pipeline đang mở")</div><div class="value">@Model.OpenPipeline.ToShortMoney()</div><div class="small text-muted">@T("{0} cơ hội · trọng số {1}", Model.OpenOpportunities, Model.WeightedPipeline.ToShortMoney())</div></div></div>
-    <div class="col-md-3"><div class="card stat"><div class="label">@T("Doanh số thắng tháng này")</div><div class="value text-success">@Model.WonThisMonth.ToShortMoney()</div><div class="small text-muted">@T("{0} hợp đồng · tỷ lệ thắng {1}%", Model.WonCountThisMonth, Model.WinRate)</div></div></div>
-    <div class="col-md-3"><div class="card stat"><div class="label">@T("Lead mới (30 ngày)")</div><div class="value">@Model.NewLeads30d</div><div class="small text-muted">@T("Tỷ lệ chuyển đổi {0}%", Model.LeadConversionRate)</div></div></div>
-    <div class="col-md-3"><div class="card stat"><div class="label">@T("Hoạt động quá hạn")</div><div class="value @(Model.OverdueActivities > 0 ? "text-danger" : "")">@Model.OverdueActivities</div><a class="small" asp-controller="Activities" asp-action="Index" asp-route-view="overdue">@T("Xem danh sách →")</a></div></div>
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("trending", "stat-ico")@T("Pipeline đang mở")</div><div class="value">@Model.OpenPipeline.ToShortMoney()</div><div class="small text-muted">@T("{0} cơ hội · trọng số {1}", Model.OpenOpportunities, Model.WeightedPipeline.ToShortMoney())</div></div></div>
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("trophy", "stat-ico")@T("Doanh số thắng tháng này")</div><div class="value text-success">@Model.WonThisMonth.ToShortMoney()</div><div class="small text-muted">@T("{0} hợp đồng · tỷ lệ thắng {1}%", Model.WonCountThisMonth, Model.WinRate)</div></div></div>
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("lead", "stat-ico")@T("Lead mới (30 ngày)")</div><div class="value">@Model.NewLeads30d</div><div class="small text-muted">@T("Tỷ lệ chuyển đổi {0}%", Model.LeadConversionRate)</div></div></div>
+    <div class="col-md-3"><div class="card stat"><div class="label">@Icon("alert", "stat-ico")@T("Hoạt động quá hạn")</div><div class="value @(Model.OverdueActivities > 0 ? "text-danger" : "")">@Model.OverdueActivities</div><a class="small" asp-controller="Activities" asp-action="Index" asp-route-view="overdue">@T("Xem danh sách →")</a></div></div>
 </div>
 
 <div class="row g-3">
     <div class="col-lg-6">
         <div class="card h-100">
-            <div class="card-header d-flex justify-content-between">@T("Pipeline theo giai đoạn") <a class="small fw-normal" asp-controller="Opportunities" asp-action="Pipeline">@T("Mở Kanban")</a></div>
+            <div class="card-header d-flex justify-content-between"><span>@Icon("pipeline") @T("Pipeline theo giai đoạn")</span> <a class="small fw-normal" asp-controller="Opportunities" asp-action="Pipeline">@T("Mở Kanban")</a></div>
             <div class="card-body">
                 @foreach (var s in Model.Pipeline)
                 {
@@ -30,7 +30,7 @@
     </div>
     <div class="col-lg-6">
         <div class="card h-100">
-            <div class="card-header">@T("Doanh số thắng 6 tháng gần nhất")</div>
+            <div class="card-header">@Icon("trophy") @T("Doanh số thắng 6 tháng gần nhất")</div>
             <div class="card-body">
                 <div class="cols">
                     @foreach (var m in Model.WonByMonth)
@@ -47,7 +47,7 @@
     </div>
     <div class="col-lg-7">
         <div class="card h-100">
-            <div class="card-header">@T("Cơ hội dự kiến chốt trong 30 ngày")</div>
+            <div class="card-header">@Icon("opportunity") @T("Cơ hội dự kiến chốt trong 30 ngày")</div>
             <div class="card-body p-0">
                 <table class="table mb-0">
                     <thead><tr><th>@T("Cơ hội")</th><th>@T("Giai đoạn")</th><th class="money">@T("Giá trị")</th><th>@T("Dự kiến chốt")</th></tr></thead>
@@ -69,7 +69,7 @@
     </div>
     <div class="col-lg-5">
         <div class="card mb-3">
-            <div class="card-header">@T("Lead theo nguồn")</div>
+            <div class="card-header">@Icon("lead") @T("Lead theo nguồn")</div>
             <div class="card-body">
                 @foreach (var s in Model.LeadsBySource)
                 {
@@ -82,7 +82,7 @@
             </div>
         </div>
         <div class="card">
-            <div class="card-header d-flex justify-content-between">@T("Việc cần làm") <a class="small fw-normal" asp-controller="Activities" asp-action="Index">@T("Tất cả")</a></div>
+            <div class="card-header d-flex justify-content-between"><span>@Icon("calendar") @T("Việc cần làm")</span> <a class="small fw-normal" asp-controller="Activities" asp-action="Index">@T("Tất cả")</a></div>
             <div class="card-body p-0">
                 <table class="table table-sm mb-0">
                     <tbody>
@@ -90,7 +90,7 @@
                     {
                         <tr class="@(a.IsOverdue ? "table-danger" : "")">
                             <td class="text-nowrap small">@a.DueDate.ToString("dd/MM HH:mm")</td>
-                            <td><span class="act-type">@a.Type.GetDisplayName()</span><a asp-controller="Activities" asp-action="Edit" asp-route-id="@a.Id">@a.Subject</a><br /><small class="text-muted">@(a.Customer?.Name ?? a.Lead?.FullName)</small></td>
+                            <td><span class="act-type">@Icon(ForActivity(a.Type))@a.Type.GetDisplayName()</span><a asp-controller="Activities" asp-action="Edit" asp-route-id="@a.Id">@a.Subject</a><br /><small class="text-muted">@(a.Customer?.Name ?? a.Lead?.FullName)</small></td>
                         </tr>
                     }
                     @if (!Model.UpcomingActivities.Any()) { <tr><td class="text-muted p-3">@T("Không có việc đang chờ.")</td></tr> }

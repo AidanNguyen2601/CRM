@@ -11,6 +11,7 @@
     {
         <li class="nav-item">
             <a class="nav-link @(g == group ? "active" : "")" asp-action="Index" asp-route-group="@g">
+                @Icon(ForCatalog(g))
                 @g.GetDisplayName() <span class="badge @(g == group ? "bg-light text-dark" : "bg-secondary")">@(counts.TryGetValue(g, out var n) ? n : 0)</span>
             </a>
         </li>

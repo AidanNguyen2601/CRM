@@ -42,6 +42,7 @@ public static class I18n
         ["Sản phẩm / dịch vụ"] = "Products / services",
         ["Người dùng & phân quyền"] = "Users & permissions",
         ["+ Tạo nhanh"] = "+ Quick create",
+        ["Tạo nhanh"] = "Quick create",
         ["Cơ hội"] = "Opportunity",
         ["Hoạt động"] = "Activity",
         ["Đổi mật khẩu"] = "Change password",
