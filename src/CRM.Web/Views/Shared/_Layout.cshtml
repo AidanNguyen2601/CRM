@@ -12,52 +12,102 @@
     <title>@ViewData["Title"] - CRM</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script>
+        // Menu rút gọn: áp dụng trước khi vẽ trang để không bị nháy
+        try { if (localStorage.getItem('crm.nav.mini') === '1') document.documentElement.classList.add('sidebar-mini'); } catch (e) { }
+    </script>
 </head>
 <body>
 <div class="app">
-    <aside class="sidebar">
-        <a class="brand" asp-controller="Home" asp-action="Index">CRM<span>Sales</span></a>
-        <nav>
+    <aside class="sidebar" id="sidebar">
+        <a class="brand" asp-controller="Home" asp-action="Index"><span class="brand-full">CRM<span>Sales</span></span><span class="brand-mini">C<span>S</span></span></a>
+        @*
+            Menu có thể: (1) rút gọn chỉ còn icon, (2) mở rộng / thu gọn từng nhóm.
+            Mỗi .nav-block có data-nav là khóa lưu trạng thái (localStorage) – xem wwwroot/js/site.js.
+        *@
+        <nav id="sideNav">
             @* ===== NGHIỆP VỤ: các chức năng làm việc hằng ngày ===== *@
-            <div class="nav-section">@T("Nghiệp vụ")</div>
-            <div class="nav-group">@T("Tổng quan")</div>
-            <a class="@Active("Home")" asp-controller="Home" asp-action="Index">@Icon("dashboard")<span>Dashboard</span></a>
-            <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@Icon("calendar")<span>@T("Lịch làm việc")</span></a>
-
-            <div class="nav-group">@T("Bán hàng")</div>
-            <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">@Icon("lead")<span>@T("Lead (KH tiềm năng)")</span></a>
-            <a class="@Active("Opportunities","Pipeline")" asp-controller="Opportunities" asp-action="Pipeline">@Icon("pipeline")<span>Pipeline</span></a>
-            <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">@Icon("opportunity")<span>@T("Cơ hội bán hàng")</span></a>
-            <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">@Icon("quote")<span>@L("Báo giá", "Quotes")</span></a>
-
-            <div class="nav-group">@L("Khách hàng", "Customers")</div>
-            <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@Icon("customer")<span>@L("Khách hàng", "Customers")</span></a>
-            <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@Icon("contact")<span>@L("Người liên hệ", "Contacts")</span></a>
+            <div class="nav-block" data-nav="ops">
+                <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Nghiệp vụ")</span>@Icon("chevron", "chev")</button>
+                <div class="nav-items"><div class="nav-inner">
+                    <div class="nav-block" data-nav="ops-overview">
+                        <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Tổng quan")</span>@Icon("chevron", "chev")</button>
+                        <div class="nav-items"><div class="nav-inner">
+                            <a class="@Active("Home")" asp-controller="Home" asp-action="Index">@Icon("dashboard")<span>Dashboard</span></a>
+                            <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@Icon("calendar")<span>@T("Lịch làm việc")</span></a>
+                        </div></div>
+                    </div>
+                    <div class="nav-block" data-nav="ops-sales">
+                        <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Bán hàng")</span>@Icon("chevron", "chev")</button>
+                        <div class="nav-items"><div class="nav-inner">
+                            <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">@Icon("lead")<span>@T("Lead (KH tiềm năng)")</span></a>
+                            <a class="@Active("Opportunities","Pipeline")" asp-controller="Opportunities" asp-action="Pipeline">@Icon("pipeline")<span>Pipeline</span></a>
+                            <a class="@(ctrl == "Opportunities" && act != "Pipeline" ? "active" : "")" asp-controller="Opportunities" asp-action="Index">@Icon("opportunity")<span>@T("Cơ hội bán hàng")</span></a>
+                            <a class="@Active("Quotes")" asp-controller="Quotes" asp-action="Index">@Icon("quote")<span>@L("Báo giá", "Quotes")</span></a>
+                        </div></div>
+                    </div>
+                    <div class="nav-block" data-nav="ops-customers">
+                        <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@L("Khách hàng", "Customers")</span>@Icon("chevron", "chev")</button>
+                        <div class="nav-items"><div class="nav-inner">
+                            <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@Icon("customer")<span>@L("Khách hàng", "Customers")</span></a>
+                            <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@Icon("contact")<span>@L("Người liên hệ", "Contacts")</span></a>
+                        </div></div>
+                    </div>
+                </div></div>
+            </div>
 
             @* ===== DANH MỤC: dữ liệu dùng chung ===== *@
-            <div class="nav-section">@T("Danh mục")</div>
-            <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("product")<span>@T("Sản phẩm / dịch vụ")</span></a>
-            @if (User.SeesAll())
-            {
-                var curGroup = ctrl == "Catalogs" ? ViewData["CatalogGroup"] as CatalogGroup? : null;
-                foreach (var cg in Enum.GetValues<CatalogGroup>())
-                {
-                    <a class="@(curGroup == cg ? "active" : "")" asp-controller="Catalogs" asp-action="Index" asp-route-group="@cg">@Icon(ForCatalog(cg))<span>@cg.GetDisplayName()</span></a>
-                }
-            }
+            <div class="nav-block" data-nav="catalog">
+                <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Danh mục")</span>@Icon("chevron", "chev")</button>
+                <div class="nav-items"><div class="nav-inner">
+                    <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("product")<span>@T("Sản phẩm / dịch vụ")</span></a>
+                    @if (User.SeesAll())
+                    {
+                        var curGroup = ctrl == "Catalogs" ? ViewData["CatalogGroup"] as CatalogGroup? : null;
+                        foreach (var cg in Enum.GetValues<CatalogGroup>())
+                        {
+                            <a class="@(curGroup == cg ? "active" : "")" asp-controller="Catalogs" asp-action="Index" asp-route-group="@cg">@Icon(ForCatalog(cg))<span>@cg.GetDisplayName()</span></a>
+                        }
+                    }
+                </div></div>
+            </div>
 
             @if (User.IsInRole(AppRoles.Admin))
             {
                 @* ===== HỆ THỐNG ===== *@
-                <div class="nav-section">@T("Hệ thống")</div>
-                <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@Icon("users")<span>@T("Người dùng & phân quyền")</span></a>
+                <div class="nav-block" data-nav="system">
+                    <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Hệ thống")</span>@Icon("chevron", "chev")</button>
+                    <div class="nav-items"><div class="nav-inner">
+                        <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@Icon("users")<span>@T("Người dùng & phân quyền")</span></a>
+                    </div></div>
+                </div>
             }
         </nav>
+        <script>
+            // Áp dụng trạng thái nhóm đã lưu ngay khi dựng menu (tránh nháy giao diện)
+            (function () {
+                var nav = document.getElementById('sideNav'), collapsed = [];
+                try { collapsed = JSON.parse(localStorage.getItem('crm.nav.collapsed') || '[]'); } catch (e) { }
+                collapsed.forEach(function (k) {
+                    var b = nav.querySelector('.nav-block[data-nav="' + k + '"]');
+                    if (b && !b.querySelector('a.active')) { b.classList.add('collapsed'); b.querySelector('.nav-toggle').setAttribute('aria-expanded', 'false'); }
+                });
+            })();
+        </script>
+        <div class="sidebar-foot">
+            <button type="button" class="side-btn" data-nav-all="expand" title="@T("Mở rộng tất cả")">@Icon("expand-all")<span>@T("Mở rộng tất cả")</span></button>
+            <button type="button" class="side-btn" data-nav-all="collapse" title="@T("Thu gọn tất cả")">@Icon("collapse-all")<span>@T("Thu gọn tất cả")</span></button>
+            <button type="button" class="side-btn side-mini-btn" data-sidebar-toggle data-label-collapse="@T("Rút gọn menu")" data-label-expand="@T("Mở rộng menu")" title="@T("Rút gọn menu")">@Icon("panel")<span>@T("Rút gọn menu")</span></button>
+        </div>
     </aside>
+    <div class="sidebar-backdrop" data-sidebar-close></div>
 
     <div class="main">
         <header class="topbar">
-            <h1 class="page-title">@Icon(ForPage(ctrl, act) ?? "", "ico-title")<span>@ViewData["Title"]</span></h1>
+            <div class="d-flex align-items-center gap-2 min-w-0">
+                <button type="button" class="btn btn-light btn-sm menu-btn" data-sidebar-toggle title="@T("Ẩn / hiện menu")" aria-label="@T("Ẩn / hiện menu")" aria-controls="sidebar">@Icon("menu")</button>
+                <h1 class="page-title">@Icon(ForPage(ctrl, act) ?? "", "ico-title")<span>@ViewData["Title"]</span></h1>
+            </div>
             <div class="d-flex align-items-center gap-2">
                 <partial name="_LanguageSwitcher" />
                 <div class="dropdown">

@@ -18,3 +18,65 @@ document.addEventListener('change', async function (e) {
     items.forEach(function (c) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
     if (items.length > 0) sel.value = items[0].id;
 });
+
+// ---------- Menu bên trái: rút gọn (chỉ icon) + mở rộng / thu gọn từng nhóm ----------
+(function () {
+    const root = document.documentElement;
+    const nav = document.getElementById('sideNav');
+    if (!nav) return;
+    const store = {
+        get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
+    };
+    const mobile = () => window.matchMedia('(max-width: 900px)').matches;
+
+    // Tooltip tên chức năng khi menu rút gọn
+    nav.querySelectorAll('a').forEach(a => { const s = a.querySelector('span'); if (s && !a.title) a.title = s.textContent.trim(); });
+
+    function saveCollapsed() {
+        store.set('crm.nav.collapsed', JSON.stringify(
+            Array.from(nav.querySelectorAll('.nav-block.collapsed')).map(b => b.dataset.nav)));
+    }
+    function setBlock(block, collapsed) {
+        block.classList.toggle('collapsed', collapsed);
+        block.querySelector(':scope > .nav-toggle').setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    // (2) Mở rộng / thu gọn từng nhóm
+    nav.addEventListener('click', e => {
+        const btn = e.target.closest('.nav-toggle');
+        if (!btn || root.classList.contains('sidebar-mini') && !mobile()) return;
+        const block = btn.parentElement;
+        setBlock(block, !block.classList.contains('collapsed'));
+        saveCollapsed();
+    });
+    document.querySelectorAll('[data-nav-all]').forEach(b => b.addEventListener('click', () => {
+        const collapse = b.dataset.navAll === 'collapse';
+        nav.querySelectorAll('.nav-block').forEach(block => {
+            // Khi thu gọn tất cả vẫn giữ mở nhóm chứa trang đang xem
+            setBlock(block, collapse && !block.querySelector('a.active'));
+        });
+        saveCollapsed();
+    }));
+
+    // (1) Rút gọn menu (desktop) / trượt menu ra (mobile)
+    const miniBtn = document.querySelector('.side-mini-btn');
+    function syncMiniLabel() {
+        if (!miniBtn) return;
+        const label = root.classList.contains('sidebar-mini') ? miniBtn.dataset.labelExpand : miniBtn.dataset.labelCollapse;
+        miniBtn.title = label;
+        miniBtn.querySelector('span').textContent = label;
+    }
+    document.querySelectorAll('[data-sidebar-toggle]').forEach(b => b.addEventListener('click', () => {
+        if (mobile() && !b.classList.contains('side-mini-btn')) {
+            root.classList.toggle('sidebar-open');
+            return;
+        }
+        const mini = root.classList.toggle('sidebar-mini');
+        store.set('crm.nav.mini', mini ? '1' : '0');
+        syncMiniLabel();
+    }));
+    document.querySelectorAll('[data-sidebar-close]').forEach(b => b.addEventListener('click', () => root.classList.remove('sidebar-open')));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') root.classList.remove('sidebar-open'); });
+    syncMiniLabel();
+})();

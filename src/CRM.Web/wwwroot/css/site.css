@@ -69,7 +69,6 @@ dl.info dt { color: #64748b; font-weight: 500; }
 .auth-body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #102a43, #0f9d8a); }
 .auth-card { width: 380px; background: #fff; border-radius: 14px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
 @media print { .sidebar, .topbar, .footer, .no-print { display: none !important; } .content { padding: 0; } .card { border: none; box-shadow: none; } }
-@media (max-width: 900px) { .sidebar { display: none; } }
 
 /* ---------- Chuyển ngôn ngữ (2 lá cờ) ---------- */
 .lang-switch { display: inline-flex; align-items: center; gap: 6px; }
@@ -79,10 +78,6 @@ dl.info dt { color: #64748b; font-weight: 500; }
 .lang-flag.active { opacity: 1; filter: none; box-shadow: 0 0 0 2px #0d6efd; }
 .lang-flag svg { display: block; }
 .auth-lang { position: fixed; top: 16px; right: 16px; z-index: 10; }
-.sidebar .nav-section { margin: 14px 12px 0; padding: 10px 8px 2px; border-top: 1px solid rgba(255,255,255,.08); font-size: .78rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .1em; color: #6fe3d1; }
-.sidebar nav > .nav-section:first-child { margin-top: 4px; border-top: 0; }
-.sidebar .nav-section + .nav-group { padding-top: 6px; }
 
 /* ---------- Icon (SVG nội tuyến, Infrastructure/Icons.cs) ---------- */
 .ico { width: 1.15em; height: 1.15em; flex-shrink: 0; vertical-align: -.2em; fill: none; stroke: currentColor;
@@ -101,3 +96,69 @@ dl.info dt { color: #64748b; font-weight: 500; }
 .act-type { display: inline-flex; align-items: center; gap: 4px; }
 .act-type .ico { width: 12px; height: 12px; }
 .nav-pills .nav-link .ico { width: 16px; height: 16px; margin-right: 4px; }
+
+/* ---------- Menu bên trái: nhóm mở rộng / thu gọn + chế độ rút gọn ---------- */
+.sidebar { display: flex; flex-direction: column; overflow: hidden; transition: width .2s ease; }
+.sidebar nav { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.sidebar .brand { white-space: nowrap; }
+.sidebar .brand > span { margin-left: 0; font-weight: inherit; color: inherit; }
+.sidebar .brand-mini { display: none; }
+
+.nav-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: 0; text-align: left; cursor: pointer; }
+.nav-toggle .chev { width: 14px; height: 14px; transition: transform .2s ease; opacity: .7; }
+.nav-toggle:hover { color: #fff; }
+.nav-toggle:focus-visible { outline: 2px solid #6fe3d1; outline-offset: -2px; }
+.nav-block.collapsed > .nav-toggle .chev { transform: rotate(-90deg); }
+.nav-items { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .2s ease; }
+.nav-inner { overflow: hidden; min-height: 0; }
+.nav-block.collapsed > .nav-items { grid-template-rows: 0fr; }
+
+.sidebar .nav-section { margin: 10px 12px 0; padding: 10px 8px 4px; width: calc(100% - 24px); border-top: 1px solid rgba(255,255,255,.08);
+    font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #6fe3d1; }
+.sidebar nav > .nav-block:first-child > .nav-section { margin-top: 2px; border-top: 0; }
+.sidebar .nav-group { padding: 10px 20px 4px; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: #7b8fa6; }
+.sidebar nav a span, .side-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sidebar-foot { border-top: 1px solid rgba(255,255,255,.08); padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 2px; }
+.side-btn { display: flex; align-items: center; gap: 8px; background: none; border: 0; color: #9fb3c8; font-size: .8rem; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.side-btn:hover { background: rgba(255,255,255,.06); color: #fff; }
+.side-btn .ico { width: 16px; height: 16px; }
+.side-btn[data-nav-all] span { display: none; }            /* 2 nút mở rộng/thu gọn tất cả chỉ hiện icon (có tooltip) */
+.side-mini-btn { margin-left: auto; }
+
+.menu-btn { display: inline-flex; align-items: center; padding: 6px 8px; }
+.menu-btn .ico { width: 18px; height: 18px; }
+.min-w-0 { min-width: 0; }
+
+/* Chế độ rút gọn (desktop): chỉ còn icon, tên hiện qua tooltip */
+@media (min-width: 901px) {
+    .sidebar-mini .sidebar { width: 68px; }
+    .sidebar-mini .sidebar .brand { padding: 18px 0; text-align: center; }
+    .sidebar-mini .sidebar .brand-full { display: none; }
+    .sidebar-mini .sidebar .brand-mini { display: inline; }
+    .sidebar-mini .sidebar .brand-mini span { margin-left: 0; }
+    .sidebar-mini .nav-toggle { display: none; }
+    .sidebar-mini .nav-block > .nav-items { grid-template-rows: 1fr; }    /* luôn hiện đủ icon */
+    .sidebar-mini .sidebar nav > .nav-block + .nav-block { border-top: 1px solid rgba(255,255,255,.08); margin-top: 6px; padding-top: 6px; }
+    .sidebar-mini .sidebar nav a { justify-content: center; padding: 10px 0; }
+    .sidebar-mini .sidebar nav a span { display: none; }
+    .sidebar-mini .sidebar nav a .ico { width: 20px; height: 20px; }
+    .sidebar-mini .sidebar-foot { flex-direction: column; align-items: center; }
+    .sidebar-mini .side-btn[data-nav-all] { display: none; }
+    .sidebar-mini .side-mini-btn { margin: 0; }
+    .sidebar-mini .side-mini-btn span { display: none; }
+    .sidebar-mini .side-mini-btn .ico { transform: scaleX(-1); }
+    .sidebar-backdrop { display: none; }
+}
+
+/* Màn hình nhỏ: menu trượt ra từ bên trái */
+@media (max-width: 900px) {
+    .sidebar { position: fixed; left: 0; top: 0; z-index: 1040; width: 260px; transform: translateX(-100%); transition: transform .2s ease; }
+    .sidebar-open .sidebar { transform: none; box-shadow: 0 0 24px rgba(0,0,0,.3); }
+    .sidebar-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 1030; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .sidebar-open .sidebar-backdrop { opacity: 1; pointer-events: auto; }
+    .side-mini-btn { display: none; }
+    .topbar { padding: 10px 16px; }
+    .content { padding: 16px; }
+}
+@media print { .menu-btn, .sidebar-backdrop { display: none !important; } }

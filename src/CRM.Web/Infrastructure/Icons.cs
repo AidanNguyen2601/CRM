@@ -38,6 +38,11 @@ public static class Icons
         ["email"] = "<rect x='2' y='4' width='20' height='16' rx='2'/><path d='M22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/>",
         ["task"] = "<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M9 12l2 2 4-4'/>",
         ["catalog"] = "<path d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/>",
+        ["menu"] = "<path d='M4 6h16M4 12h16M4 18h16'/>",
+        ["chevron"] = "<path d='M6 9l6 6 6-6'/>",
+        ["panel"] = "<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M9 3v18M16 15l-3-3 3-3'/>",
+        ["expand-all"] = "<path d='M7 15l5 5 5-5M7 9l5-5 5 5'/>",
+        ["collapse-all"] = "<path d='M7 20l5-5 5 5M7 4l5 5 5-5'/>",
     };
 
     public static IHtmlContent Icon(string name, string? cssClass = null)
