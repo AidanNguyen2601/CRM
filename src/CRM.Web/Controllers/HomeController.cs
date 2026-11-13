@@ -56,6 +56,17 @@ public class HomeController : CrmControllerBase
         vm.UpcomingActivities = await acts.Include(a => a.Customer).Include(a => a.Lead)
             .OrderBy(a => a.DueDate).Take(8).ToListAsync();
 
+        // KPI tháng này: nhân viên kinh doanh xem của mình, quản lý xem tổng đội
+        var kpi = HttpContext.RequestServices.GetRequiredService<KpiService>();
+        var kpiUsers = await kpi.SalesUsersAsync();
+        if (!User.SeesAll()) kpiUsers = kpiUsers.Where(u => u.Id == CurrentUserId).ToList();
+        if (kpiUsers.Count > 0)
+        {
+            var period = KpiPeriod.Month(today.Year, today.Month);
+            ViewBag.KpiPeriod = period;
+            ViewBag.Kpi = KpiService.Total(await kpi.ComputeAsync(period, kpiUsers), new AppUser());
+        }
+
         return View(vm);
     }
 

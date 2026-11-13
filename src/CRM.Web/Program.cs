@@ -69,6 +69,7 @@ builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
+builder.Services.AddScoped<KpiService>();
 
 var app = builder.Build();
 

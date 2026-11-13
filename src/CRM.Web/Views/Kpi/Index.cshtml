@@ -1,0 +1,100 @@
+@model List<KpiRow>
+@{
+    var p = (KpiPeriod)ViewBag.P;
+    var period = (string)ViewBag.Period;
+    var total = (KpiRow)ViewBag.Total;
+    var years = (int[])ViewBag.Years;
+    var metrics = Enum.GetValues<KpiMetric>();
+    var elapsed = p.Elapsed;
+    var label = period switch
+    {
+        "year" => T("Năm {0}", p.Year),
+        "quarter" => T("Quý {0}/{1}", (p.FromMonth - 1) / 3 + 1, p.Year),
+        _ => T("Tháng {0}/{1}", p.FromMonth, p.Year)
+    };
+    ViewData["Title"] = T("KPI bán hàng – {0}", label);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<form method="get" class="toolbar align-items-end">
+    <div class="btn-group" role="group" aria-label="@T("Kỳ")">
+        @foreach (var (key, text) in new[] { ("month", T("Tháng")), ("quarter", T("Quý")), ("year", T("Năm")) })
+        {
+            <a class="btn btn-outline-primary @(period == key ? "active" : "")" asp-route-period="@key" asp-route-year="@p.Year">@text</a>
+        }
+    </div>
+    <input type="hidden" name="period" value="@period" />
+    <div><label class="form-label small mb-1">@T("Năm")</label>
+        <select name="year" class="form-select" onchange="this.form.submit()">@foreach (var y in years) { <option value="@y" selected="@(y == p.Year)">@y</option> }</select></div>
+    @if (period == "month")
+    {
+        <div><label class="form-label small mb-1">@T("Tháng")</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">@for (var i = 1; i <= 12; i++) { <option value="@i" selected="@(i == p.FromMonth)">@T("Tháng {0}", i)</option> }</select></div>
+    }
+    else if (period == "quarter")
+    {
+        <div><label class="form-label small mb-1">@T("Quý")</label>
+            <select name="quarter" class="form-select" onchange="this.form.submit()">@for (var i = 1; i <= 4; i++) { <option value="@i" selected="@(i == (p.FromMonth - 1) / 3 + 1)">@T("Quý {0}", i)</option> }</select></div>
+    }
+    <div class="small text-muted mb-2 ms-2">
+        @p.Start.ToDate() – @p.End.AddDays(-1).ToDate() ·
+        @if (elapsed >= 1) { <span>@T("Kỳ đã kết thúc")</span> } else if (elapsed <= 0) { <span>@T("Kỳ chưa bắt đầu")</span> } else { <span>@T("Đã qua {0}% thời gian", (elapsed * 100).ToString("0"))</span> }
+    </div>
+    @if (User.SeesAll()) { <a class="btn btn-primary ms-auto" asp-action="Targets" asp-route-year="@p.Year">@Icon("receivable") @T("Giao chỉ tiêu")</a> }
+</form>
+
+@* Tổng của đội (hoặc của bản thân với nhân viên kinh doanh) *@
+<div class="row g-3 mb-3">
+    @foreach (var m in metrics)
+    {
+        var pct = total.Percent(m);
+        var css = KpiUi.Css(pct, elapsed);
+        <div class="col-6 col-lg">
+            <div class="card stat h-100">
+                <div class="label">@Icon(KpiUi.Icon(m), "stat-ico")@m.GetDisplayName()</div>
+                <div class="value">@KpiUi.Format(m, total.Actual[m])</div>
+                @if (total.Target[m] > 0)
+                {
+                    <div class="small text-muted">@T("Chỉ tiêu {0}", KpiUi.Format(m, total.Target[m]))</div>
+                    <div class="kpi-bar mt-1"><div class="bg-@css" style="width:@(Math.Min(pct, 100m).ToString("0.#", inv))%"></div><span class="kpi-mark" style="left:@((elapsed * 100).ToString("0.#", inv))%"></span></div>
+                    <div class="small fw-semibold text-@css">@pct.ToString("0.#")%</div>
+                }
+                else { <div class="small text-muted">@T("Chưa giao chỉ tiêu")</div> }
+                @if (m == KpiMetric.Revenue && total.RevenueForecastExtra > 0)
+                {
+                    <div class="small text-muted mt-1" title="@T("Thực tế + pipeline có trọng số dự kiến chốt đến hết kỳ")">@T("Dự báo: {0}", total.RevenueForecast.ToShortMoney())</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0 kpi-table">
+    <thead><tr>
+        <th style="width:40px">#</th><th>@T("Nhân viên")</th>
+        @foreach (var m in metrics) { <th style="min-width:150px">@m.GetDisplayName()</th> }
+        <th class="money" title="@T("Thực tế + pipeline có trọng số dự kiến chốt đến hết kỳ")">@T("Dự báo doanh số")</th>
+        <th class="text-center" title="@T("Trung bình % hoàn thành các chỉ tiêu được giao (mỗi chỉ tiêu tối đa 150%)")">@T("Điểm KPI")</th>
+    </tr></thead>
+    <tbody>
+    @{ var rank = 1; }
+    @foreach (var r in Model)
+    {
+        <tr>
+            <td class="text-center text-muted">@(rank++)</td>
+            <td><a asp-action="Member" asp-route-id="@r.User.Id" asp-route-year="@p.Year" class="fw-semibold text-nowrap">@r.User.FullName</a>
+                <div class="small text-muted">@AppRoles.DisplayName(r.User.Role)</div></td>
+            @foreach (var m in metrics) { <td><partial name="_KpiCell" model="(r, m, elapsed)" /></td> }
+            <td class="money">@r.RevenueForecast.ToShortMoney()
+                @if (r.Target[KpiMetric.Revenue] > 0) { <div class="small text-muted">@((r.RevenueForecast * 100m / r.Target[KpiMetric.Revenue]).ToString("0"))%</div> }</td>
+            <td class="text-center">@if (r.HasTarget) { <span class="badge fs-6 bg-@KpiUi.Css(r.Score, elapsed)">@r.Score.ToString("0.#")</span> } else { <span class="text-muted">–</span> }</td>
+        </tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Không có nhân viên kinh doanh.")</td></tr> }
+    </tbody>
+</table>
+</div></div>
+<p class="small text-muted mt-2">
+    @T("Thực tế được tính tự động theo người phụ trách: doanh số = cơ hội thắng trong kỳ (trước VAT); thu tiền = phiếu thu trong kỳ; hợp đồng = hợp đồng ký trong kỳ; khách hàng mới = khách hàng tạo trong kỳ; hoạt động = hoạt động hoàn thành trong kỳ.")
+    @T("Vạch dọc trên thanh tiến độ là tiến độ thời gian của kỳ.")
+</p>

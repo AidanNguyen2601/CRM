@@ -1,0 +1,29 @@
+@* Ô KPI: thực tế / chỉ tiêu + thanh tiến độ (vạch dọc = tiến độ thời gian của kỳ) *@
+@model (KpiRow Row, KpiMetric Metric, double Elapsed)
+@{
+    var m = Model.Metric;
+    var target = Model.Row.Target[m];
+    var actual = Model.Row.Actual[m];
+    var pct = Model.Row.Percent(m);
+    // Kỳ chưa bắt đầu → màu trung tính (chưa đánh giá)
+    var css = Model.Elapsed <= 0 ? "secondary" : KpiUi.Css(pct, Model.Elapsed);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<div class="kpi-cell">
+    <div class="d-flex justify-content-between gap-2 text-nowrap">
+        <span class="fw-semibold">@KpiUi.Format(m, actual)</span>
+        <span class="text-muted small">/ @(target > 0 ? KpiUi.Format(m, target) : "–")</span>
+    </div>
+    @if (target > 0)
+    {
+        <div class="kpi-bar" title="@T("Đạt {0}% chỉ tiêu", pct)">
+            <div class="bg-@css" style="width:@(Math.Min(pct, 100m).ToString("0.#", inv))%"></div>
+            <span class="kpi-mark" style="left:@((Model.Elapsed * 100).ToString("0.#", inv))%"></span>
+        </div>
+        <div class="small fw-semibold text-@css">@pct.ToString("0.#")%</div>
+    }
+    else
+    {
+        <div class="small text-muted">@T("Chưa giao")</div>
+    }
+</div>

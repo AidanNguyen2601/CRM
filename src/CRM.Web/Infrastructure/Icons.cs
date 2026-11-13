@@ -116,6 +116,7 @@ public static class Icons
         "Catalogs" => "catalog",
         "Users" => "users",
         "DemoData" => "receivable",
+        "Kpi" => "trending",
         "Account" => "key",
         _ => null
     };

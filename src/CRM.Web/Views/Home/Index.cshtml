@@ -12,6 +12,29 @@
     <div class="col-md-3"><div class="card stat"><div class="label">@Icon("alert", "stat-ico")@T("Hoạt động quá hạn")</div><div class="value @(Model.OverdueActivities > 0 ? "text-danger" : "")">@Model.OverdueActivities</div><a class="small" asp-controller="Activities" asp-action="Index" asp-route-view="overdue">@T("Xem danh sách →")</a></div></div>
 </div>
 
+@if (ViewBag.Kpi is KpiRow kpi)
+{
+    var kp = (KpiPeriod)ViewBag.KpiPeriod;
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between">
+            <span>@Icon("trending") @(User.SeesAll() ? T("KPI tháng {0} – toàn đội", kp.FromMonth) : T("KPI tháng {0} của tôi", kp.FromMonth))
+                <span class="small text-muted fw-normal ms-2">@T("Đã qua {0}% thời gian", (kp.Elapsed * 100).ToString("0"))</span></span>
+            <a class="small fw-normal" asp-controller="Kpi" asp-action="Index">@T("Xem bảng KPI →")</a>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                @foreach (var m in Enum.GetValues<KpiMetric>())
+                {
+                    <div class="col-6 col-md">
+                        <div class="small text-muted mb-1">@Icon(KpiUi.Icon(m)) @m.GetDisplayName()</div>
+                        <partial name="~/Views/Kpi/_KpiCell.cshtml" model="(kpi, m, kp.Elapsed)" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
 <div class="row g-3">
     <div class="col-lg-6">
         <div class="card h-100">

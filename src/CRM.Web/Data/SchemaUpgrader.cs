@@ -330,5 +330,26 @@ public static class SchemaUpgrader
             CREATE INDEX [IX_Attachments_UploadedById] ON [dbo].[Attachments] ([UploadedById]);
         END
         """,
+
+        // ---------- Chỉ tiêu KPI bán hàng ----------
+        """
+        IF OBJECT_ID(N'[dbo].[SalesTargets]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [dbo].[SalesTargets] (
+                [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SalesTargets] PRIMARY KEY,
+                [UserId] int NOT NULL CONSTRAINT [FK_SalesTargets_Users_UserId] REFERENCES [dbo].[Users] ([Id]),
+                [Year] int NOT NULL,
+                [Month] int NOT NULL,
+                [Revenue] decimal(18,0) NOT NULL,
+                [Collection] decimal(18,0) NOT NULL,
+                [Contracts] int NOT NULL,
+                [NewCustomers] int NOT NULL,
+                [Activities] int NOT NULL,
+                [UpdatedById] int NULL,
+                [UpdatedAt] datetime2 NOT NULL
+            );
+            CREATE UNIQUE INDEX [IX_SalesTargets_UserId_Year_Month] ON [dbo].[SalesTargets] ([UserId], [Year], [Month]);
+        END
+        """,
     };
 }

@@ -1,0 +1,107 @@
+@model List<AppUser>
+@{
+    var year = (int)ViewBag.Year;
+    var metric = (KpiMetric)ViewBag.Metric;
+    var years = (int[])ViewBag.Years;
+    var targets = (List<SalesTarget>)ViewBag.Targets;
+    var money = SalesTarget.IsMoney(metric);
+    ViewData["Title"] = T("Giao chỉ tiêu KPI – năm {0}", year);
+    // Chỉ tiêu tiền nhập theo đơn vị TRIỆU ĐỒNG cho dễ đọc (máy chủ nhân 1.000.000 khi lưu)
+    decimal Val(int uid, int m) => (targets.FirstOrDefault(t => t.UserId == uid && t.Month == m)?.Get(metric) ?? 0) / (money ? 1_000_000m : 1m);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<div class="toolbar align-items-end">
+    <a class="btn btn-light" asp-action="Index" asp-route-year="@year">← @T("Bảng KPI")</a>
+    <form method="get" class="d-flex gap-2 align-items-end">
+        <input type="hidden" name="metric" value="@metric" />
+        <div><label class="form-label small mb-1">@T("Năm")</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">@foreach (var y in years.Append(years[^1] + 1)) { <option value="@y" selected="@(y == year)">@y</option> }</select></div>
+    </form>
+    <form asp-action="CopyFromPreviousYear" method="post" class="d-flex gap-2 align-items-end ms-auto"
+          data-confirm="@T("Sao chép toàn bộ chỉ tiêu năm {0} sang năm {1}? Chỉ tiêu đang có của năm {1} sẽ bị ghi đè.", year - 1, year)">
+        <input type="hidden" name="year" value="@year" /><input type="hidden" name="metric" value="@metric" />
+        <div><label class="form-label small mb-1">@T("Tăng trưởng so với năm {0} (%)", year - 1)</label>
+            <input type="number" name="growth" value="10" step="1" min="-90" max="500" class="form-control" style="width:120px" /></div>
+        <button class="btn btn-outline-secondary">@T("Sao chép từ năm {0}", year - 1)</button>
+    </form>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var m in Enum.GetValues<KpiMetric>())
+    {
+        <li class="nav-item"><a class="nav-link @(m == metric ? "active" : "")" asp-route-year="@year" asp-route-metric="@m">@Icon(KpiUi.Icon(m)) @m.GetDisplayName()</a></li>
+    }
+</ul>
+
+<form asp-action="SaveTargets" method="post" id="targetForm">
+    <input type="hidden" name="year" value="@year" /><input type="hidden" name="metric" value="@metric" />
+    <div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-sm mb-0 kpi-targets" data-no-grid data-money="@(money ? "1" : "0")">
+        <thead><tr>
+            <th style="min-width:170px">@T("Nhân viên")</th>
+            <th class="money" style="min-width:130px" title="@T("Nhập chỉ tiêu cả năm để chia đều cho 12 tháng")">@T("Cả năm")</th>
+            @for (var m = 1; m <= 12; m++) { <th class="money" style="min-width:@(money ? 90 : 70)px">T@(m)</th> }
+        </tr></thead>
+        <tbody>
+        @foreach (var u in Model)
+        {
+            <tr>
+                <td class="fw-semibold text-nowrap">@u.FullName<div class="small text-muted fw-normal">@AppRoles.DisplayName(u.Role)</div></td>
+                <td><input type="number" min="0" step="1" class="form-control form-control-sm text-end year-total" title="@T("Nhập chỉ tiêu cả năm để chia đều cho 12 tháng")" /></td>
+                @for (var m = 1; m <= 12; m++)
+                {
+                    <td><input type="number" min="0" step="1" name="v_@(u.Id)_@(m)" value="@Val(u.Id, m).ToString("0.##", inv)" class="form-control form-control-sm text-end cell" /></td>
+                }
+            </tr>
+        }
+        @if (!Model.Any()) { <tr><td colspan="14" class="text-center text-muted p-4">@T("Không có nhân viên kinh doanh.")</td></tr> }
+        </tbody>
+        <tfoot><tr class="fw-semibold">
+            <td>@T("Tổng đội")</td><td class="money" id="grandTotal"></td>
+            @for (var m = 1; m <= 12; m++) { <td class="money month-total" data-m="@(m)"></td> }
+        </tr></tfoot>
+    </table>
+    </div></div>
+    <div class="d-flex align-items-center gap-3 mt-3">
+        <button class="btn btn-primary">@T("Lưu chỉ tiêu {0}", metric.GetDisplayName())</button>
+        <span class="small text-muted">@(money ? T("Đơn vị: triệu đồng (trước VAT).") : T("Đơn vị: số lượng.")) @T("Sửa ô \"Cả năm\" để chia đều cho 12 tháng; sửa từng tháng để phân bổ theo mùa vụ.")</span>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+    (function () {
+        const table = document.querySelector('table.kpi-targets'), money = table.dataset.money === '1';
+        // Tiền: giá trị ô là TRIỆU đồng → hiển thị "x,xx tỷ" / "x tr" theo kiểu Việt Nam
+        const vn = (x, d) => x.toLocaleString('vi-VN', { maximumFractionDigits: d });
+        const fmt = n => money ? (n >= 1000 ? vn(n / 1000, 2) + ' tỷ' : vn(n, 1) + ' tr') : crmFmt(n);
+        const val = el => parseFloat(el.value) || 0;
+        function recalc() {
+            let grand = 0;
+            const months = Array(12).fill(0);
+            table.querySelectorAll('tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('input.cell');
+                if (!cells.length) return;
+                let sum = 0;
+                cells.forEach((c, i) => { const v = val(c); sum += v; months[i] += v; });
+                const yt = tr.querySelector('.year-total');
+                if (document.activeElement !== yt) yt.value = sum || '';
+                grand += sum;
+            });
+            table.querySelectorAll('.month-total').forEach((td, i) => td.textContent = fmt(months[i]));
+            document.getElementById('grandTotal').textContent = fmt(grand);
+        }
+        // Chia đều chỉ tiêu năm cho 12 tháng (tiền làm tròn triệu, số lượng làm tròn đơn vị; phần dư dồn vào các tháng cuối)
+        table.addEventListener('change', e => {
+            if (!e.target.classList.contains('year-total')) return;
+            const total = val(e.target), unit = 1;
+            const cells = e.target.closest('tr').querySelectorAll('input.cell');
+            const units = Math.round(total / unit), base = Math.floor(units / 12), extra = units - base * 12;
+            cells.forEach((c, i) => c.value = (base + (i >= 12 - extra ? 1 : 0)) * unit);
+            recalc();
+        });
+        table.addEventListener('input', e => { if (e.target.classList.contains('cell')) recalc(); });
+        recalc();
+    })();
+</script>
+}

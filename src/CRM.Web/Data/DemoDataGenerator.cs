@@ -350,8 +350,56 @@ public static class DemoDataGenerator
             _db.Activities.AddRange(acts);
             await _db.SaveChangesAsync();
 
+            await EnsureTargetsAsync();
+
             return new DemoDataResult(newProducts, customers.Count, contacts.Count, leads.Count, opps.Count, acts.Count,
                 quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count);
+        }
+
+        /// <summary>
+        /// Giao chỉ tiêu KPI mẫu (năm trước + năm nay) cho người chưa có: dựa trên thực tế bình quân tháng
+        /// trong 12 tháng gần nhất của từng người, nhân hệ số tăng trưởng 1,0–1,3.
+        /// </summary>
+        private async Task EnsureTargetsAsync()
+        {
+            var since = _today.AddMonths(-12);
+            var ids = _owners.Select(u => u.Id).Distinct().ToList();
+            var won = await _db.Opportunities.Where(o => o.Stage == OpportunityStage.ClosedWon && o.ClosedAt >= since && o.OwnerId != null)
+                .GroupBy(o => o.OwnerId!.Value).Select(g => new { g.Key, V = g.Sum(o => o.Amount), N = g.Count() }).ToDictionaryAsync(x => x.Key);
+            var cust = await _db.Customers.Where(c => c.CreatedAt >= since && c.OwnerId != null)
+                .GroupBy(c => c.OwnerId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+            var acts = await _db.Activities.Where(a => a.Status == ActivityStatus.Completed && a.CompletedAt >= since && a.OwnerId != null)
+                .GroupBy(a => a.OwnerId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+            var existing = (await _db.SalesTargets.Select(t => new { t.UserId, t.Year, t.Month }).ToListAsync())
+                .Select(t => (t.UserId, t.Year, t.Month)).ToHashSet();
+
+            foreach (var uid in ids)
+            {
+                var rev = won.TryGetValue(uid, out var w) ? w.V / 12m : 300_000_000m;
+                var deals = won.TryGetValue(uid, out var w2) ? w2.N / 12m : 1m;
+                var newCust = cust.GetValueOrDefault(uid) / 12m;
+                var done = acts.GetValueOrDefault(uid) / 12m;
+                foreach (var year in new[] { _today.Year - 1, _today.Year })
+                {
+                    var growth = (decimal)(1.0 + _r.NextDouble() * 0.3);
+                    for (var m = 1; m <= 12; m++)
+                    {
+                        if (existing.Contains((uid, year, m))) continue;
+                        var season = m is 12 or 6 ? 1.2m : m is 1 or 2 ? 0.8m : 1m;   // mùa vụ: cuối quý II / cuối năm cao, Tết thấp
+                        _db.SalesTargets.Add(new SalesTarget
+                        {
+                            UserId = uid, Year = year, Month = m,
+                            Revenue = Math.Max(50_000_000m, Math.Round(rev * growth * season / 10_000_000m) * 10_000_000m),
+                            Collection = Math.Max(50_000_000m, Math.Round(rev * growth * season * 1.05m / 10_000_000m) * 10_000_000m),
+                            Contracts = Math.Max(1, (int)Math.Round(deals * growth * season)),
+                            NewCustomers = Math.Max(1, (int)Math.Round(newCust * growth)),
+                            Activities = Math.Max(5, (int)Math.Round(done * growth / 5m) * 5),
+                            UpdatedAt = DateTime.Now
+                        });
+                    }
+                }
+            }
+            await _db.SaveChangesAsync();
         }
 
         // ================= Ngữ cảnh / danh mục =================

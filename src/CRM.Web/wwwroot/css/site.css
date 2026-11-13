@@ -210,3 +210,22 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .att-drop.att-error { border-color: #dc3545; background: #fef2f2; color: #b91c1c; }
 .att-drop .ico { width: 20px; height: 20px; flex-shrink: 0; }
 .att-drop-text { font-size: .9rem; overflow-wrap: anywhere; }
+
+/* ---------- KPI ---------- */
+.kpi-cell { min-width: 130px; }
+.kpi-bar { position: relative; height: 7px; margin-top: 4px; border-radius: 4px; background: #e9eef3; overflow: visible; }
+.kpi-bar > div { height: 100%; border-radius: 4px; transition: width .3s; }
+.kpi-mark { position: absolute; top: -3px; width: 2px; height: 13px; background: #334155; opacity: .55; border-radius: 1px; transform: translateX(-1px); }
+.kpi-table td { vertical-align: middle; }
+.kpi-chart { display: flex; align-items: flex-end; gap: 10px; min-height: 190px; overflow-x: auto; }
+.kpi-col { flex: 1; min-width: 46px; text-align: center; }
+.kpi-val { font-size: .72rem; color: #475569; height: 16px; white-space: nowrap; }
+.kpi-bars { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 152px; }
+.kpi-b { width: 14px; border-radius: 3px 3px 0 0; min-height: 2px; }
+.kpi-b.target { background: #cbd5e1; }
+.kpi-b.actual { background: #60a5fa; }
+.kpi-b.actual.hit { background: var(--accent); }
+.kpi-legend { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.kpi-legend.target { background: #cbd5e1; } .kpi-legend.actual { background: #60a5fa; } .kpi-legend.hit { background: var(--accent); }
+.kpi-targets input.form-control-sm { min-width: 0; padding-left: 4px; padding-right: 4px; }
+.kpi-targets .year-total { background: #f0fdfa; font-weight: 600; }

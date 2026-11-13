@@ -1,0 +1,67 @@
+@model AppUser
+@{
+    var year = (int)ViewBag.Year;
+    var years = (int[])ViewBag.Years;
+    var yearRow = (KpiRow)ViewBag.YearRow;
+    var months = (List<(int Month, KpiRow Row)>)ViewBag.Months;
+    var metrics = Enum.GetValues<KpiMetric>();
+    var yearElapsed = KpiPeriod.FullYear(year).Elapsed;
+    ViewData["Title"] = T("KPI {0} – năm {1}", Model.FullName, year);
+    var maxRev = Math.Max(1m, months.Max(x => Math.Max(x.Row.Target[KpiMetric.Revenue], x.Row.Actual[KpiMetric.Revenue])));
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<form method="get" class="toolbar align-items-end">
+    <a class="btn btn-light" asp-action="Index" asp-route-period="year" asp-route-year="@year">← @T("Bảng KPI")</a>
+    <div><label class="form-label small mb-1">@T("Năm")</label>
+        <select name="year" class="form-select" onchange="this.form.submit()">@foreach (var y in years) { <option value="@y" selected="@(y == year)">@y</option> }</select></div>
+    <div class="ms-2 mb-2"><span class="fw-semibold">@Model.FullName</span> <span class="text-muted small">· @AppRoles.DisplayName(Model.Role)</span></div>
+    @if (yearRow.HasTarget) { <div class="ms-auto mb-1">@T("Điểm KPI năm") <span class="badge fs-6 bg-@KpiUi.Css(yearRow.Score, yearElapsed)">@yearRow.Score.ToString("0.#")</span></div> }
+</form>
+
+<div class="row g-3 mb-3">
+    @foreach (var m in metrics)
+    {
+        <div class="col-6 col-lg"><div class="card stat h-100">
+            <div class="label">@Icon(KpiUi.Icon(m), "stat-ico")@m.GetDisplayName() @T("(năm)")</div>
+            <partial name="_KpiCell" model="(yearRow, m, yearElapsed)" />
+        </div></div>
+    }
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">@Icon("trophy") @T("Doanh số theo tháng: chỉ tiêu và thực tế")</div>
+    <div class="card-body">
+        <div class="kpi-chart">
+            @foreach (var (month, row) in months)
+            {
+                var t = row.Target[KpiMetric.Revenue]; var a = row.Actual[KpiMetric.Revenue];
+                <div class="kpi-col" title="@T("Tháng {0}", month): @T("thực tế {0} / chỉ tiêu {1}", a.ToShortMoney(), t.ToShortMoney())">
+                    <div class="kpi-val">@(a > 0 ? a.ToShortMoney() : "")</div>
+                    <div class="kpi-bars">
+                        <div class="kpi-b target" style="height:@((t * 150m / maxRev).ToString("0", inv))px"></div>
+                        <div class="kpi-b actual @(t > 0 && a >= t ? "hit" : "")" style="height:@((a * 150m / maxRev).ToString("0", inv))px"></div>
+                    </div>
+                    <div class="small text-muted mt-1">T@(month)</div>
+                </div>
+            }
+        </div>
+        <div class="small text-muted mt-2"><span class="kpi-legend target"></span> @T("Chỉ tiêu") <span class="kpi-legend actual ms-3"></span> @T("Thực tế") <span class="kpi-legend hit ms-3"></span> @T("Đạt chỉ tiêu")</div>
+    </div>
+</div>
+
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0 kpi-table">
+    <thead><tr><th>@T("Tháng")</th>@foreach (var m in metrics) { <th style="min-width:150px">@m.GetDisplayName()</th> }<th class="text-center">@T("Điểm KPI")</th></tr></thead>
+    <tbody>
+    @foreach (var (month, row) in months)
+    {
+        var el = KpiPeriod.Month(year, month).Elapsed;
+        <tr class="@(el > 0 && el < 1 ? "table-active" : "")">
+            <td class="text-nowrap fw-semibold"><a asp-action="Index" asp-route-period="month" asp-route-year="@year" asp-route-month="@month">@T("Tháng {0}", month)</a></td>
+            @foreach (var m in metrics) { <td><partial name="_KpiCell" model="(row, m, el)" /></td> }
+            <td class="text-center">@if (row.HasTarget && el > 0) { <span class="badge bg-@KpiUi.Css(row.Score, el)">@row.Score.ToString("0.#")</span> } else { <span class="text-muted">–</span> }</td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>
