@@ -6,3 +6,4 @@
 .git
 .env
 *.md
+**/App_Data/

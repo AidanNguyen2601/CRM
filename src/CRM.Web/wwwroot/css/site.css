@@ -200,3 +200,13 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .grid-custom > .grid-reset { display: inline-flex; }
 @media print { .col-resizer, .grid-reset { display: none !important; } table.grid-fixed { width: 100% !important; } }
 .cat-code { font-size: .85em; color: #0f766e; background: #ecfdf5; padding: 1px 6px; border-radius: 4px; }
+
+/* ---------- File đính kèm ---------- */
+.attachments .att-ico { width: 22px; height: 22px; color: #64748b; flex-shrink: 0; }
+.attachments .att-item .btn .ico { width: 14px; height: 14px; }
+.att-drop { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 12px 14px; border: 1.5px dashed #cbd5e1;
+    border-radius: 8px; color: #64748b; cursor: pointer; background: #f8fafc; transition: border-color .15s, background .15s; }
+.att-drop:hover, .att-drop.att-over { border-color: var(--accent); background: #ecfdf5; color: #0f766e; }
+.att-drop.att-error { border-color: #dc3545; background: #fef2f2; color: #b91c1c; }
+.att-drop .ico { width: 20px; height: 20px; flex-shrink: 0; }
+.att-drop-text { font-size: .9rem; overflow-wrap: anywhere; }

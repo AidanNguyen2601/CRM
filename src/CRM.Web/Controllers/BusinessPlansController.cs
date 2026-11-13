@@ -277,6 +277,7 @@ public class BusinessPlansController : CrmControllerBase
         Db.BusinessPlanCosts.RemoveRange(p.Costs);
         Db.BusinessPlans.Remove(p);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.BusinessPlan, p.Id);
         TempData["Success"] = I18n.T("Đã xóa phương án {0}.", p.Number);
         return RedirectToAction(nameof(Index));
     }

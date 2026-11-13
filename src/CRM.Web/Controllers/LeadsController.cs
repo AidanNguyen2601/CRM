@@ -206,6 +206,7 @@ public class LeadsController : CrmControllerBase
         }
         Db.Leads.Remove(l);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.Lead, l.Id);
         TempData["Success"] = I18n.T("Đã xóa lead.");
         return RedirectToAction(nameof(Index));
     }

@@ -54,3 +54,5 @@
     </table>
     @if (!string.IsNullOrEmpty(Model.Terms)) { <div class="small"><b>@T("Điều khoản:")</b><div class="pre">@Model.Terms</div></div> }
 </div></div>
+
+<div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Quote, id = Model.Id, hint = T("Báo giá đã ký gửi khách, báo giá nhà cung cấp…") })</div>

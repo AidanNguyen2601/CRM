@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# File đính kèm khi chạy local (không đưa vào git)
+src/CRM.Web/App_Data/

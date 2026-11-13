@@ -310,3 +310,33 @@ document.addEventListener('change', async function (e) {
         });
     });
 })();
+
+// ---------- File đính kèm: kéo thả / chọn file, hiện danh sách đã chọn, kiểm tra dung lượng trước khi gửi ----------
+(function () {
+    const en = document.documentElement.lang === 'en';
+    const fmt = b => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+    document.querySelectorAll('form.att-upload').forEach(form => {
+        const input = form.querySelector('input[type=file]'), drop = form.querySelector('.att-drop'),
+              text = form.querySelector('.att-drop-text'), btn = form.querySelector('button'), original = text.textContent;
+        const max = parseInt(input.dataset.max || '0', 10);
+        function refresh() {
+            const files = Array.from(input.files || []);
+            const big = files.filter(f => max && f.size > max);
+            if (big.length) {
+                text.textContent = (en ? 'Too large: ' : 'Vượt dung lượng: ') + big.map(f => f.name + ' (' + fmt(f.size) + ')').join(', ');
+                drop.classList.add('att-error'); btn.disabled = true; return;
+            }
+            drop.classList.remove('att-error');
+            text.textContent = files.length ? files.map(f => f.name + ' (' + fmt(f.size) + ')').join(', ') : original;
+            btn.disabled = files.length === 0;
+        }
+        input.addEventListener('change', refresh);
+        ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('att-over'); }));
+        ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove('att-over')));
+        drop.addEventListener('drop', e => {
+            e.preventDefault();
+            if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; refresh(); }
+        });
+        form.addEventListener('submit', () => { btn.disabled = true; btn.classList.add('disabled'); });
+    });
+})();

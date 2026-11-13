@@ -309,5 +309,26 @@ public static class SchemaUpgrader
             CREATE INDEX [IX_Payments_OwnerId] ON [dbo].[Payments] ([OwnerId]);
         END
         """,
+
+        // ---------- File đính kèm ----------
+        """
+        IF OBJECT_ID(N'[dbo].[Attachments]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [dbo].[Attachments] (
+                [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_Attachments] PRIMARY KEY,
+                [TargetType] int NOT NULL,
+                [TargetId] int NOT NULL,
+                [FileName] nvarchar(255) NOT NULL,
+                [ContentType] nvarchar(100) NOT NULL,
+                [Size] bigint NOT NULL,
+                [StoragePath] nvarchar(300) NOT NULL,
+                [Note] nvarchar(300) NULL,
+                [UploadedById] int NULL CONSTRAINT [FK_Attachments_Users_UploadedById] REFERENCES [dbo].[Users] ([Id]),
+                [UploadedAt] datetime2 NOT NULL
+            );
+            CREATE INDEX [IX_Attachments_TargetType_TargetId] ON [dbo].[Attachments] ([TargetType], [TargetId]);
+            CREATE INDEX [IX_Attachments_UploadedById] ON [dbo].[Attachments] ([UploadedById]);
+        END
+        """,
     };
 }

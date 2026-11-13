@@ -158,6 +158,7 @@ public class OpportunitiesController : CrmControllerBase
         }
         Db.Opportunities.Remove(o);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.Opportunity, o.Id);
         TempData["Success"] = I18n.T("Đã xóa cơ hội.");
         return RedirectToAction(nameof(Index));
     }

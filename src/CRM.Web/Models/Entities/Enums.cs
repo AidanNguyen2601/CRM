@@ -124,3 +124,18 @@ public enum InvoiceStatus
     [Display(Name = "Đã thanh toán")] Paid = 4,
     [Display(Name = "Đã hủy")] Cancelled = 5
 }
+
+/// <summary>Loại bản ghi được đính kèm file</summary>
+public enum AttachmentTarget
+{
+    Customer = 1,
+    Lead = 2,
+    Opportunity = 3,
+    Quote = 4,
+    BusinessPlan = 5,
+    Contract = 6,
+    Invoice = 7,
+    Payment = 8,
+    Activity = 9,
+    Product = 10
+}

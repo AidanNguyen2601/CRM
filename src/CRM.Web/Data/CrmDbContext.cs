@@ -26,6 +26,7 @@ public class CrmDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +48,7 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Invoice>().HasIndex(x => new { x.Symbol, x.Number }).IsUnique();
         modelBuilder.Entity<Invoice>().HasIndex(x => x.Status);
         modelBuilder.Entity<Payment>().HasIndex(x => x.Number).IsUnique();
+        modelBuilder.Entity<Attachment>().HasIndex(x => new { x.TargetType, x.TargetId });
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });
 

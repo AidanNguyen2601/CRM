@@ -1,0 +1,56 @@
+@model CRM.Web.ViewComponents.AttachmentsModel
+@{ var inputId = $"att-{Model.Type}-{Model.Id}"; }
+<div class="card mb-3 attachments no-print" id="attachments">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>@Icon("paperclip") @T("File đính kèm") <span class="badge bg-secondary">@Model.Items.Count</span></span>
+    </div>
+    @if (Model.Items.Any())
+    {
+        <ul class="list-group list-group-flush">
+            @foreach (var a in Model.Items)
+            {
+                var canDelete = Model.CanEdit && (a.UploadedById == Model.CurrentUserId || Model.SeesAll);
+                <li class="list-group-item d-flex align-items-center gap-2 att-item">
+                    @Icon(AttachmentService.IconFor(a.FileName), "att-ico")
+                    <div class="flex-grow-1 min-w-0">
+                        <a asp-controller="Attachments" asp-action="Get" asp-route-id="@a.Id" target="@(AttachmentService.CanPreview(a.FileName) ? "_blank" : null)" class="fw-semibold text-break">@a.FileName</a>
+                        <div class="small text-muted">@AttachmentService.FormatSize(a.Size) · @a.UploadedBy?.FullName · @a.UploadedAt.ToDateTime()@if (!string.IsNullOrEmpty(a.Note)) { <text> · <i>@a.Note</i></text> }</div>
+                    </div>
+                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Attachments" asp-action="Get" asp-route-id="@a.Id" asp-route-download="true" title="@T("Tải về")" aria-label="@T("Tải về")">@Icon("download")</a>
+                    @if (canDelete)
+                    {
+                        <form asp-controller="Attachments" asp-action="Delete" asp-route-id="@a.Id" method="post" data-confirm="@T("Xóa file {0}?", a.FileName)">
+                            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                            <button class="btn btn-sm btn-outline-danger" title="@T("Xóa")" aria-label="@T("Xóa")">@Icon("x")</button>
+                        </form>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <div class="card-body py-2 small text-muted">@T("Chưa có file đính kèm.") @Model.Hint</div>
+    }
+    @if (Model.CanEdit)
+    {
+        <div class="card-footer bg-white">
+            <form asp-controller="Attachments" asp-action="Upload" method="post" enctype="multipart/form-data" class="att-upload">
+                <input type="hidden" name="type" value="@Model.Type" />
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <label class="att-drop" for="@inputId">
+                    @Icon("upload")
+                    <span class="att-drop-text">@T("Kéo thả file vào đây hoặc bấm để chọn")</span>
+                    <input type="file" name="files" id="@inputId" multiple class="visually-hidden"
+                           accept="@string.Join(",", AttachmentService.AllowedExtensions)" data-max="@Model.MaxFileSize" />
+                </label>
+                <div class="d-flex gap-2 mt-2">
+                    <input name="note" class="form-control form-control-sm" maxlength="300" placeholder="@T("Ghi chú (tùy chọn)")" />
+                    <button class="btn btn-sm btn-primary text-nowrap" disabled>@Icon("upload") @T("Tải lên")</button>
+                </div>
+                <div class="form-text">@T("Tối đa {0} file / lần, mỗi file ≤ {1} MB. PDF, Word, Excel, PowerPoint, ảnh, ZIP/RAR, XML.", AttachmentService.MaxFilesPerUpload, Model.MaxFileSize / 1024 / 1024)</div>
+            </form>
+        </div>
+    }
+</div>

@@ -24,3 +24,5 @@
         <div class="col-6"><div class="fw-semibold">@T("NGƯỜI THU TIỀN")</div><div class="sign-space"></div><div>@Model.Owner?.FullName</div></div>
     </div>
 </div></div>
+
+<div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Payment, id = Model.Id, hint = T("Uỷ nhiệm chi (UNC), giấy báo có, chứng từ thu tiền…") })</div>

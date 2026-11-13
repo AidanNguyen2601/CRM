@@ -33,17 +33,20 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__CrmConnection: "Server=crm-db,1433;Database=CRM_DB;User Id=sa;Password=${CRM_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
       DataProtection__KeysPath: /app/keys
+      Attachments__Path: /app/uploads   # file đính kèm, lưu trên volume crm-files
       TZ: Asia/Ho_Chi_Minh
     ports:
       - "${CRM_WEB_PORT:-8100}:8080"
     volumes:
       - crm-keys:/app/keys
+      - crm-files:/app/uploads
     networks: [crm-net]
     restart: unless-stopped
 
 volumes:
   crm-sqldata:
   crm-keys:
+  crm-files:
 
 networks:
   crm-net:

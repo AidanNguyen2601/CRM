@@ -15,6 +15,10 @@ public abstract class CrmControllerBase : Controller
 
     protected int CurrentUserId => User.GetUserId();
 
+    /// <summary>Xóa toàn bộ file đính kèm của bản ghi (gọi sau khi xóa bản ghi gốc)</summary>
+    protected Task DeleteAttachmentsAsync(AttachmentTarget type, int id) =>
+        HttpContext.RequestServices.GetRequiredService<AttachmentService>().DeleteAllAsync(type, id);
+
     /// <summary>
     /// Số dòng mỗi trang cho các danh sách (ListFilter): lấy từ URL (?PageSize=) và ghi nhớ vào cookie
     /// theo từng danh sách; không có trên URL thì dùng giá trị đã nhớ.

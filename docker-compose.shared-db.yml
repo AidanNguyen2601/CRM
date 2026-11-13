@@ -11,16 +11,19 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__CrmConnection: "Server=${SHARED_DB_HOST},1433;Database=CRM_DB;User Id=${SHARED_DB_USER};Password=${SHARED_DB_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
       DataProtection__KeysPath: /app/keys
+      Attachments__Path: /app/uploads   # file đính kèm, lưu trên volume crm-files
       TZ: Asia/Ho_Chi_Minh
     ports:
       - "${CRM_WEB_PORT:-8100}:8080"
     volumes:
       - crm-keys:/app/keys
+      - crm-files:/app/uploads
     networks: [shared-net]
     restart: unless-stopped
 
 volumes:
   crm-keys:
+  crm-files:
 
 networks:
   shared-net:

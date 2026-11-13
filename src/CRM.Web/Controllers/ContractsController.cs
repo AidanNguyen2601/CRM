@@ -266,6 +266,7 @@ public class ContractsController : CrmControllerBase
         Db.ContractMilestones.RemoveRange(c.Milestones);
         Db.Contracts.Remove(c);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.Contract, c.Id);
         TempData["Success"] = I18n.T("Đã xóa hợp đồng {0}.", c.Number);
         return RedirectToAction(nameof(Index));
     }

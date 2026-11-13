@@ -129,6 +129,7 @@ public class CustomersController : CrmControllerBase
         }
         Db.Customers.Remove(c);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.Customer, c.Id);
         TempData["Success"] = I18n.T("Đã xóa khách hàng.");
         return RedirectToAction(nameof(Index));
     }

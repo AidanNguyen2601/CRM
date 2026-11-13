@@ -139,6 +139,7 @@ public class PaymentsController : CrmControllerBase
         var invoiceId = p.InvoiceId;
         Db.Payments.Remove(p);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.Payment, p.Id);
         if (invoiceId.HasValue) await RefreshInvoiceAsync(invoiceId.Value);
         TempData["Success"] = I18n.T("Đã xóa phiếu thu {0}.", p.Number);
         return RedirectToAction(nameof(Index));

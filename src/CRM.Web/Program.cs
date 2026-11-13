@@ -68,6 +68,7 @@ if (!string.IsNullOrWhiteSpace(keysPath))
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CatalogService>();
+builder.Services.AddScoped<AttachmentService>();
 
 var app = builder.Build();
 

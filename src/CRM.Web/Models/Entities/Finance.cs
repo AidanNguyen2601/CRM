@@ -276,3 +276,25 @@ public class Payment : IOwned
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
+
+/// <summary>File đính kèm của một bản ghi nghiệp vụ. Nội dung file lưu trên đĩa (thư mục cấu hình Attachments:Path).</summary>
+public class Attachment
+{
+    public int Id { get; set; }
+    public AttachmentTarget TargetType { get; set; }
+    public int TargetId { get; set; }
+
+    /// <summary>Tên file gốc người dùng tải lên (chỉ để hiển thị / tải về)</summary>
+    [Required, StringLength(255)] public string FileName { get; set; } = string.Empty;
+    [Required, StringLength(100)] public string ContentType { get; set; } = "application/octet-stream";
+    public long Size { get; set; }
+
+    /// <summary>Đường dẫn tương đối trong thư mục lưu trữ (yyyy/MM/guid.ext) – không bao giờ lấy từ tên file người dùng</summary>
+    [Required, StringLength(300)] public string StoragePath { get; set; } = string.Empty;
+
+    [StringLength(300)] public string? Note { get; set; }
+
+    public int? UploadedById { get; set; }
+    public AppUser? UploadedBy { get; set; }
+    public DateTime UploadedAt { get; set; } = DateTime.Now;
+}

@@ -245,6 +245,7 @@ public class InvoicesController : CrmControllerBase
         Db.InvoiceLines.RemoveRange(inv.Lines);
         Db.Invoices.Remove(inv);
         await Db.SaveChangesAsync();
+        await DeleteAttachmentsAsync(AttachmentTarget.Invoice, inv.Id);
         TempData["Success"] = I18n.T("Đã xóa hoá đơn {0}.", inv.FullNumber);
         return RedirectToAction(nameof(Index));
     }
