@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hướng dẫn cài đặt CRM</title>
+<style>
+  :root { --accent: #0f9d8a; --ink: #1e293b; --muted: #64748b; --line: #e2e8f0; --bg: #f8fafc; --warn: #b45309; --warn-bg: #fffbeb; --danger: #b91c1c; --danger-bg: #fef2f2; --ok-bg: #ecfdf5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.6 "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: #fff; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 24px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 21px; margin: 40px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  .sub { color: var(--muted); margin: 0; }
+  code, kbd { font-family: Consolas, "Cascadia Mono", monospace; font-size: 13.5px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font: 13.5px/1.5 Consolas, "Cascadia Mono", monospace; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 16px; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--bg); }
+  .note, .warn, .danger, .ok { border-left: 4px solid; border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .note { border-color: #3b82f6; background: #eff6ff; }
+  .warn { border-color: var(--warn); background: var(--warn-bg); }
+  .danger { border-color: var(--danger); background: var(--danger-bg); }
+  .ok { border-color: var(--accent); background: var(--ok-bg); }
+  .toc { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 20px; }
+  .toc ol { margin: 6px 0; padding-left: 22px; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+  .step { display: flex; gap: 12px; margin: 14px 0; }
+  .num { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .step > div { flex: 1; min-width: 0; }
+  ul.check { list-style: none; padding-left: 0; }
+  ul.check li::before { content: "☐  "; color: var(--accent); font-weight: 700; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 12px; }
+  @media print { .wrap { max-width: none; padding: 0; } h2 { break-after: avoid; } pre, table, .step { break-inside: avoid; } a { color: inherit; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Hướng dẫn cài đặt CRM</h1>
+  <p class="sub">Dành cho người cài đặt trên máy chủ / máy trạm đích. Không cần mã nguồn, không cần lập trình.</p>
+</header>
+
+<div class="toc">
+  <b>Nội dung</b>
+  <ol>
+    <li><a href="#tong-quan">Tổng quan</a></li>
+    <li><a href="#yeu-cau">Yêu cầu máy đích</a></li>
+    <li><a href="#docker">Cài Docker</a></li>
+    <li><a href="#cai-dat">Cài đặt CRM</a></li>
+    <li><a href="#sau-cai-dat">Việc cần làm ngay sau khi cài</a></li>
+    <li><a href="#mang">Cho máy khác trong mạng truy cập</a></li>
+    <li><a href="#cau-hinh">Cấu hình (.env)</a></li>
+    <li><a href="#sao-luu">Sao lưu &amp; khôi phục</a></li>
+    <li><a href="#chuyen-du-lieu">Chuyển dữ liệu từ máy CRM cũ sang (tuỳ chọn)</a></li>
+    <li><a href="#nang-cap">Nâng cấp phiên bản mới</a></li>
+    <li><a href="#go">Gỡ cài đặt</a></li>
+    <li><a href="#su-co">Xử lý sự cố</a></li>
+    <li><a href="#linux">Cài trên Linux</a></li>
+    <li><a href="#checklist">Danh sách kiểm tra bàn giao</a></li>
+  </ol>
+</div>
+
+<h2 id="tong-quan">1. Tổng quan</h2>
+<p>Gói cài đặt CRM là một thư mục (hoặc file <code>crm-&lt;phiên bản&gt;.zip</code>) gồm:</p>
+<table>
+  <tr><th>Thành phần</th><th>Mô tả</th></tr>
+  <tr><td><code>images\crm-web.tar</code></td><td>Ứng dụng CRM đã biên dịch (đóng gói dạng Docker image)</td></tr>
+  <tr><td><code>images\sqlserver.tar</code></td><td>Microsoft SQL Server 2022 (có thể không có nếu gói được tạo bản “nhẹ” – khi đó máy đích cần Internet)</td></tr>
+  <tr><td><code>install.ps1</code> / <code>install.sh</code></td><td>Script cài đặt cho Windows / Linux</td></tr>
+  <tr><td><code>backup.ps1</code>, <code>restore.ps1</code></td><td>Sao lưu / khôi phục database và file đính kèm</td></tr>
+  <tr><td><code>uninstall.ps1</code></td><td>Gỡ cài đặt</td></tr>
+  <tr><td><code>docker-compose.yml</code>, <code>VERSION</code></td><td>Cấu hình chạy và số phiên bản (không cần sửa)</td></tr>
+</table>
+<p>Sau khi cài, CRM chạy thành 2 thành phần độc lập trên máy đích: <b>web</b> (giao diện CRM) và <b>db</b> (SQL Server). Dữ liệu được lưu bền vững trong Docker volume, không mất khi khởi động lại máy hay nâng cấp.</p>
+
+<h2 id="yeu-cau">2. Yêu cầu máy đích</h2>
+<table>
+  <tr><th>Hạng mục</th><th>Tối thiểu</th><th>Khuyến nghị</th></tr>
+  <tr><td>Hệ điều hành</td><td>Windows 10/11 (64-bit, bản Pro/Enterprise/Home đều được)</td><td>Windows 11 Pro hoặc Ubuntu Server 22.04/24.04</td></tr>
+  <tr><td>CPU</td><td>2 nhân, hỗ trợ ảo hoá (VT-x / AMD-V)</td><td>4 nhân</td></tr>
+  <tr><td>RAM</td><td>4 GB</td><td>8 GB trở lên (SQL Server dùng khoảng 2 GB)</td></tr>
+  <tr><td>Ổ đĩa trống</td><td>6 GB</td><td>20 GB trở lên (dữ liệu + file đính kèm + bản sao lưu)</td></tr>
+  <tr><td>Mạng</td><td colspan="2">Không cần Internet nếu gói có đủ 2 file trong <code>images\</code>. Cần mở 1 cổng web (mặc định 8100) nếu cho máy khác truy cập.</td></tr>
+  <tr><td>Quyền</td><td colspan="2">Tài khoản Windows có quyền Administrator để cài Docker Desktop</td></tr>
+</table>
+<div class="warn"><b>Windows Server:</b> Docker Desktop không hỗ trợ chính thức trên Windows Server. Nếu máy đích là máy chủ, nên dùng một máy ảo / máy chủ <b>Linux</b> (xem <a href="#linux">mục 13</a>) hoặc Windows 10/11.</div>
+<div class="note"><b>Bản quyền:</b> Docker Desktop miễn phí cho cá nhân và doanh nghiệp nhỏ (dưới 250 nhân viên và doanh thu dưới 10 triệu USD/năm); doanh nghiệp lớn hơn cần mua gói Docker. Docker Engine trên Linux miễn phí. SQL Server mặc định ở bản <b>Developer</b> (dùng cho thử nghiệm / demo); khi dùng thật nên chuyển sang <b>Express</b> (miễn phí, tối đa 10 GB mỗi database) – xem <a href="#cau-hinh">mục 7</a>.</div>
+
+<h2 id="docker">3. Cài Docker (chỉ làm một lần)</h2>
+<div class="step"><div class="num">1</div><div>Tải <b>Docker Desktop for Windows</b> tại <code>https://www.docker.com/products/docker-desktop/</code> (nếu máy đích không có Internet, tải trên máy khác rồi chép file <code>Docker Desktop Installer.exe</code> sang).</div></div>
+<div class="step"><div class="num">2</div><div>Chạy file cài đặt, giữ tuỳ chọn <b>Use WSL 2</b> (mặc định). Cài xong <b>khởi động lại máy</b> nếu được yêu cầu.</div></div>
+<div class="step"><div class="num">3</div><div>Mở <b>Docker Desktop</b>, chấp nhận điều khoản, đợi biểu tượng cá voi ở khay hệ thống chuyển sang trạng thái <i>Engine running</i> (màu xanh).</div></div>
+<div class="step"><div class="num">4</div><div>Vào <b>Settings → General</b>, bật <b>Start Docker Desktop when you sign in</b> để CRM tự chạy sau khi khởi động lại máy.</div></div>
+<div class="step"><div class="num">5</div><div>Kiểm tra: mở <b>PowerShell</b> và chạy
+<pre><code>docker version
+docker compose version</code></pre>
+Cả hai lệnh đều in ra số phiên bản là đạt.</div></div>
+<div class="note">Nếu báo lỗi WSL hoặc ảo hoá: chạy PowerShell <b>bằng quyền Administrator</b> lệnh <code>wsl --install</code> rồi khởi động lại; và bật <i>Virtualization</i> (VT-x / SVM) trong BIOS nếu đang tắt.</div>
+
+<h2 id="cai-dat">4. Cài đặt CRM</h2>
+<div class="step"><div class="num">1</div><div>Chép file <code>crm-&lt;phiên bản&gt;.zip</code> sang máy đích và <b>giải nén vào một thư mục cố định</b>, ví dụ <code>C:\CRM</code>. Không đặt trong thư mục Downloads / Desktop tạm, vì sau này sao lưu và nâng cấp đều chạy từ thư mục này.</div></div>
+<div class="step"><div class="num">2</div><div>Mở thư mục <code>C:\CRM\crm-&lt;phiên bản&gt;</code>, bấm vào thanh địa chỉ, gõ <code>powershell</code> rồi Enter để mở PowerShell ngay tại thư mục đó.</div></div>
+<div class="step"><div class="num">3</div><div>Chạy lệnh cài đặt:
+<pre><code>powershell -ExecutionPolicy Bypass -File .\install.ps1</code></pre>
+Tuỳ chọn thêm (không bắt buộc):
+<table>
+  <tr><th>Tham số</th><th>Ý nghĩa</th><th>Ví dụ</th></tr>
+  <tr><td><code>-Port</code></td><td>Cổng web. Mặc định tự chọn cổng trống bắt đầu từ 8100</td><td><code>-Port 8080</code></td></tr>
+  <tr><td><code>-SampleCustomers</code></td><td>Số khách hàng mẫu khi tạo database lần đầu (mặc định 5; <code>0</code> = bộ mẫu chuẩn 8 khách hàng)</td><td><code>-SampleCustomers 5</code></td></tr>
+  <tr><td><code>-SqlEdition</code></td><td>Phiên bản SQL Server: <code>Developer</code> (mặc định – thử nghiệm / demo) hoặc <code>Express</code> (miễn phí, dùng thật). <b>Chọn ngay từ lần cài đầu.</b></td><td><code>-SqlEdition Express</code></td></tr>
+  <tr><td><code>-NoBrowser</code></td><td>Không tự mở trình duyệt khi cài xong</td><td></td></tr>
+</table>
+</div></div>
+<div class="step"><div class="num">4</div><div>Script sẽ lần lượt: kiểm tra Docker → tạo file cấu hình <code>.env</code> (tự sinh mật khẩu SQL Server mạnh) → nạp image → khởi động → đợi ứng dụng sẵn sàng. Lần đầu mất khoảng <b>1–3 phút</b>. Khi thấy dòng
+<pre><code>[OK]  CRM đã chạy: http://localhost:8100</code></pre>
+là cài đặt thành công; trình duyệt sẽ tự mở trang đăng nhập.</div></div>
+<div class="ok">Database được tạo sẵn kèm dữ liệu mẫu (khách hàng, cơ hội, báo giá, hợp đồng, hoá đơn, thanh toán, chỉ tiêu KPI) để làm quen. Có thể xoá dần hoặc giữ làm ví dụ.</div>
+
+<h2 id="sau-cai-dat">5. Việc cần làm ngay sau khi cài</h2>
+<table>
+  <tr><th>Tài khoản mẫu</th><th>Mật khẩu</th><th>Vai trò</th></tr>
+  <tr><td><code>admin</code></td><td><code>Admin@123</code></td><td>Quản trị hệ thống</td></tr>
+  <tr><td><code>manager</code></td><td><code>Manager@123</code></td><td>Quản lý kinh doanh</td></tr>
+  <tr><td><code>sales1</code>, <code>sales2</code></td><td><code>Sales@123</code></td><td>Nhân viên kinh doanh</td></tr>
+</table>
+<div class="danger"><b>Bắt buộc:</b> đăng nhập <code>admin</code> → menu tài khoản (góc phải) → <b>Đổi mật khẩu</b>. Sau đó vào <b>Hệ thống → Người dùng &amp; phân quyền</b> để đổi mật khẩu / khoá các tài khoản mẫu và tạo tài khoản thật cho nhân viên.</div>
+<ul>
+  <li>Kiểm tra / bổ sung danh mục: <b>Danh mục</b> → hàng hoá, ngành nghề, tỉnh thành, đơn vị tính, phương thức thanh toán…</li>
+  <li>Giao chỉ tiêu KPI: <b>Tổng quan → KPI bán hàng → Giao chỉ tiêu</b>.</li>
+  <li>Đặt lịch sao lưu tự động (<a href="#sao-luu">mục 8</a>).</li>
+  <li>Cất giữ file <code>.env</code> ở nơi an toàn (chứa mật khẩu SQL Server).</li>
+</ul>
+
+<h2 id="mang">6. Cho máy khác trong mạng truy cập</h2>
+<p>Người dùng truy cập bằng địa chỉ <code>http://&lt;IP-máy-cài&gt;:&lt;cổng&gt;</code>, ví dụ <code>http://192.168.1.20:8100</code>. Xem IP của máy cài bằng lệnh <code>ipconfig</code> (dòng <i>IPv4 Address</i>).</p>
+<p>Mở cổng trên Windows Firewall (PowerShell <b>quyền Administrator</b>, đổi 8100 nếu dùng cổng khác):</p>
+<pre><code>New-NetFirewallRule -DisplayName "CRM web 8100" -Direction Inbound -Protocol TCP -LocalPort 8100 -Action Allow</code></pre>
+<div class="warn"><b>Đưa ra Internet:</b> CRM chạy giao thức HTTP. Nếu cần truy cập từ ngoài công ty, hãy đặt phía trước một reverse proxy có <b>HTTPS</b> (IIS + URL Rewrite, Nginx hoặc Caddy) hoặc dùng VPN. Không mở trực tiếp cổng CRM ra Internet.</div>
+
+<h2 id="cau-hinh">7. Cấu hình (file .env)</h2>
+<p>File <code>.env</code> nằm trong thư mục cài đặt, được tạo ở lần cài đầu tiên. Sửa bằng Notepad, sau đó chạy <code>docker compose up -d</code> trong thư mục đó để áp dụng.</p>
+<table>
+  <tr><th>Biến</th><th>Ý nghĩa</th></tr>
+  <tr><td><code>CRM_WEB_PORT</code></td><td>Cổng web</td></tr>
+  <tr><td><code>CRM_SA_PASSWORD</code></td><td>Mật khẩu tài khoản <code>sa</code> của SQL Server. <b>Không đổi sau khi đã cài</b> (SQL Server chỉ nhận mật khẩu này lúc tạo lần đầu).</td></tr>
+  <tr><td><code>CRM_SAMPLE_CUSTOMERS</code></td><td>Số khách hàng mẫu – chỉ có tác dụng khi database còn trống (lần cài đầu)</td></tr>
+  <tr><td><code>CRM_SQL_EDITION</code></td><td><code>Developer</code> (thử nghiệm / demo) hoặc <code>Express</code> (miễn phí, dùng thật, tối đa 10 GB mỗi database). Chỉ có hiệu lực khi SQL Server được tạo lần đầu – xem ghi chú bên dưới.</td></tr>
+  <tr><td><code>CRM_VERSION</code></td><td>Phiên bản đang chạy – script cài đặt tự cập nhật, không sửa tay</td></tr>
+</table>
+<div class="note"><b>Đổi Developer → Express sau khi đã cài:</b> (1) <code>backup.ps1</code> → (2) <code>uninstall.ps1 -RemoveData</code> → (3) xoá file <code>.env</code> → (4) <code>install.ps1 -SqlEdition Express</code> → (5) <code>restore.ps1 .\backups\&lt;bản vừa sao lưu&gt;</code>. Bản Express chỉ dùng tối đa ~1,4 GB RAM và 10 GB mỗi database – đủ cho phần lớn doanh nghiệp vừa và nhỏ.</div>
+
+<h2 id="sao-luu">8. Sao lưu &amp; khôi phục</h2>
+<h3>Sao lưu thủ công</h3>
+<pre><code>cd C:\CRM\crm-&lt;phiên bản&gt;
+powershell -ExecutionPolicy Bypass -File .\backup.ps1</code></pre>
+<p>Kết quả nằm trong <code>backups\&lt;ngày-giờ&gt;\</code> gồm <code>CRM_DB.bak</code> (database) và <code>files.tgz</code> (file đính kèm). <b>Hãy chép thư mục <code>backups</code> sang ổ khác / máy khác / lưu trữ đám mây.</b></p>
+<h3>Đặt lịch sao lưu hằng ngày (2 giờ sáng)</h3>
+<p>PowerShell quyền Administrator (sửa đường dẫn cho đúng thư mục cài):</p>
+<pre><code>$dir = "C:\CRM\crm-&lt;phiên bản&gt;"
+$act = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$dir\backup.ps1`"" -WorkingDirectory $dir
+$trg = New-ScheduledTaskTrigger -Daily -At 2am
+Register-ScheduledTask -TaskName "CRM backup" -Action $act -Trigger $trg -RunLevel Highest -User $env:USERNAME</code></pre>
+<div class="note">Docker Desktop chỉ chạy khi người dùng đã đăng nhập Windows. Máy cài CRM nên để đăng nhập sẵn (khoá màn hình thay vì đăng xuất). Nhớ định kỳ xoá bớt các bản sao lưu cũ.</div>
+<h3>Khôi phục</h3>
+<pre><code>powershell -ExecutionPolicy Bypass -File .\restore.ps1 .\backups\20261113-020000</code></pre>
+<p>Script hỏi xác nhận (gõ <code>YES</code>), sau đó <b>ghi đè toàn bộ dữ liệu hiện tại</b> bằng bản sao lưu đã chọn.</p>
+
+<h2 id="chuyen-du-lieu">9. Chuyển dữ liệu từ máy CRM cũ sang (tuỳ chọn)</h2>
+<p>Bỏ qua mục này nếu chỉ cần dữ liệu mẫu. Nếu muốn mang toàn bộ dữ liệu thật đang có:</p>
+<h3>a) Máy cũ cũng cài bằng gói này</h3>
+<p>Chạy <code>backup.ps1</code> trên máy cũ → chép thư mục <code>backups\&lt;ngày-giờ&gt;</code> sang máy mới → chạy <code>restore.ps1 &lt;thư mục đó&gt;</code> trên máy mới.</p>
+<h3>b) Máy cũ là máy phát triển (CRM dùng chung SQL Server với ứng dụng khác)</h3>
+<p>Trên máy cũ, tại thư mục mã nguồn CRM (có file <code>.env</code>), chạy PowerShell:</p>
+<pre><code>$dbPass = (Select-String '^SHARED_DB_PASSWORD=(.*)' .\.env).Matches[0].Groups[1].Value
+$sql = (Select-String '^SHARED_DB_HOST=(.*)' .\.env).Matches[0].Groups[1].Value
+New-Item -ItemType Directory -Force .\chuyen-du-lieu | Out-Null
+
+# Database
+docker exec $sql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U crm_app -P $dbPass -Q "BACKUP DATABASE CRM_DB TO DISK='/tmp/CRM_DB.bak' WITH INIT"
+docker cp "${sql}:/tmp/CRM_DB.bak" .\chuyen-du-lieu\CRM_DB.bak
+
+# File đính kèm
+docker exec crm-web tar czf /tmp/files.tgz -C /app/uploads .
+docker cp crm-web:/tmp/files.tgz .\chuyen-du-lieu\files.tgz</code></pre>
+<p>Chép thư mục <code>chuyen-du-lieu</code> sang máy mới (ví dụ vào <code>C:\CRM\crm-&lt;phiên bản&gt;\chuyen-du-lieu</code>) rồi chạy:</p>
+<pre><code>powershell -ExecutionPolicy Bypass -File .\restore.ps1 .\chuyen-du-lieu</code></pre>
+<div class="note">Sau khi khôi phục, tài khoản và mật khẩu người dùng là của hệ thống cũ. Người dùng sẽ phải đăng nhập lại.</div>
+
+<h2 id="nang-cap">10. Nâng cấp phiên bản mới</h2>
+<div class="step"><div class="num">1</div><div>Chạy <code>backup.ps1</code> trên bản đang dùng.</div></div>
+<div class="step"><div class="num">2</div><div>Giải nén gói mới, chép <b>toàn bộ file của gói mới</b> đè lên thư mục cài đặt hiện tại. <b>Giữ nguyên</b> file <code>.env</code> và thư mục <code>backups</code>.</div></div>
+<div class="step"><div class="num">3</div><div>Chạy lại <code>install.ps1</code>. Script nhận ra cấu hình cũ, chỉ nạp phiên bản mới và khởi động lại. Dữ liệu được giữ nguyên; cấu trúc database tự nâng cấp khi ứng dụng khởi động.</div></div>
+
+<h2 id="go">11. Gỡ cài đặt</h2>
+<table>
+  <tr><th>Lệnh</th><th>Kết quả</th></tr>
+  <tr><td><code>.\uninstall.ps1</code></td><td>Dừng và gỡ CRM, <b>giữ dữ liệu</b> (cài lại sẽ thấy dữ liệu cũ)</td></tr>
+  <tr><td><code>.\uninstall.ps1 -RemoveData</code></td><td>Gỡ và <b>xoá vĩnh viễn</b> database + file đính kèm (hỏi xác nhận). Nên chạy <code>backup.ps1</code> trước.</td></tr>
+</table>
+
+<h2 id="su-co">12. Xử lý sự cố</h2>
+<p>Các lệnh chạy trong thư mục cài đặt:</p>
+<pre><code>docker compose ps               # trạng thái: db, web phải là "running" / "healthy"
+docker compose logs --tail 100 web   # xem log ứng dụng
+docker compose restart web      # khởi động lại ứng dụng
+docker compose up -d            # khởi động lại toàn bộ (sau khi sửa .env, sau khi khởi động lại máy)</code></pre>
+<table>
+  <tr><th>Hiện tượng</th><th>Nguyên nhân / cách xử lý</th></tr>
+  <tr><td><i>Docker chưa chạy</i> khi cài</td><td>Mở Docker Desktop, đợi trạng thái <i>Engine running</i> rồi chạy lại <code>install.ps1</code>.</td></tr>
+  <tr><td><i>…cannot be loaded because running scripts is disabled</i></td><td>Luôn chạy bằng <code>powershell -ExecutionPolicy Bypass -File .\install.ps1</code> (không double-click file .ps1).</td></tr>
+  <tr><td>Trình duyệt báo <i>không truy cập được trang</i> sau khi khởi động lại máy</td><td>Docker Desktop chưa chạy hoặc chưa đăng nhập Windows. Mở Docker Desktop; nếu vẫn không được chạy <code>docker compose up -d</code>.</td></tr>
+  <tr><td>Cài báo <i>Ứng dụng chưa phản hồi sau 6 phút</i></td><td>Xem log được in ra. Thường do máy thiếu RAM (SQL Server cần ~2 GB): đóng bớt ứng dụng, hoặc tăng bộ nhớ cho Docker trong <i>Settings → Resources</i>. Sau đó chạy lại <code>install.ps1</code>.</td></tr>
+  <tr><td><i>port is already allocated</i></td><td>Cổng đã bị phần mềm khác dùng. Sửa <code>CRM_WEB_PORT</code> trong <code>.env</code> rồi <code>docker compose up -d</code>.</td></tr>
+  <tr><td>Máy khác không vào được</td><td>Kiểm tra IP đúng chưa, đã mở firewall (<a href="#mang">mục 6</a>) chưa, hai máy cùng mạng chưa.</td></tr>
+  <tr><td>Quên mật khẩu <code>admin</code></td><td>Một tài khoản quản trị khác vào <i>Người dùng &amp; phân quyền</i> đặt lại. Nếu không còn ai: khôi phục từ bản sao lưu cũ, hoặc liên hệ bộ phận phát triển.</td></tr>
+  <tr><td>Hết dung lượng ổ đĩa</td><td>Xoá bớt bản sao lưu cũ trong <code>backups</code>; dọn Docker: <code>docker system prune</code> (không xoá dữ liệu CRM).</td></tr>
+</table>
+
+<h2 id="linux">13. Cài trên Linux (Ubuntu)</h2>
+<pre><code># 1. Cài Docker Engine (cần Internet một lần)
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # đăng xuất / đăng nhập lại để có hiệu lực
+
+# 2. Giải nén gói và cài (cổng 8100, 5 khách hàng mẫu)
+unzip crm-&lt;phiên bản&gt;.zip -d /opt/crm
+cd /opt/crm/crm-&lt;phiên bản&gt;
+chmod +x install.sh
+./install.sh 8100 5 Express     # cổng, số khách hàng mẫu, phiên bản SQL Server (Developer | Express)
+
+# 3. Mở firewall (nếu dùng ufw)
+sudo ufw allow 8100/tcp</code></pre>
+<p>Trên Linux, CRM tự chạy lại khi khởi động máy (Docker Engine chạy dưới dạng dịch vụ). Các lệnh sao lưu / khôi phục tương đương:</p>
+<pre><code>docker compose exec -T db /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$(grep ^CRM_SA_PASSWORD= .env | cut -d= -f2-)" \
+  -Q "BACKUP DATABASE CRM_DB TO DISK='/var/opt/mssql/CRM_DB.bak' WITH INIT"
+docker compose cp db:/var/opt/mssql/CRM_DB.bak ./CRM_DB.bak
+docker compose exec -T web tar czf /tmp/files.tgz -C /app/uploads . &amp;&amp; docker compose cp web:/tmp/files.tgz ./files.tgz</code></pre>
+<p>Hoặc cài PowerShell trên Linux (<code>sudo snap install powershell --classic</code>) để dùng trực tiếp <code>backup.ps1</code> / <code>restore.ps1</code> với lệnh <code>pwsh ./backup.ps1</code>.</p>
+
+<h2 id="checklist">14. Danh sách kiểm tra bàn giao</h2>
+<ul class="check">
+  <li>Docker Desktop đã cài, bật <i>Start when you sign in</i></li>
+  <li>Cài CRM thành công, đăng nhập được bằng trình duyệt trên máy cài</li>
+  <li>Đã đổi mật khẩu <code>admin</code>; đã khoá / đổi mật khẩu các tài khoản mẫu</li>
+  <li>Đã tạo tài khoản cho người dùng thật, phân đúng vai trò</li>
+  <li>Máy khác trong mạng truy cập được (đã mở firewall)</li>
+  <li>Đã chạy <code>backup.ps1</code> thử thành công và đặt lịch sao lưu hằng ngày</li>
+  <li>File <code>.env</code> và bản sao lưu được cất ở nơi an toàn</li>
+  <li>Đã thử khởi động lại máy: CRM tự chạy lại sau khi đăng nhập</li>
+  <li>(Dùng thật) đã cài với <code>-SqlEdition Express</code> hoặc có bản quyền SQL Server phù hợp</li>
+</ul>
+
+<footer>CRM – Hướng dẫn cài đặt. Áp dụng cho gói cài đặt tạo bằng <code>deploy\build-package.ps1</code>. Số phiên bản xem trong file <code>VERSION</code> của gói.</footer>
+</div>
+</body>
+</html>

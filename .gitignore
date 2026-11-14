@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 
 # File đính kèm khi chạy local (không đưa vào git)
 src/CRM.Web/App_Data/
+
+# Gói cài đặt do deploy\build-package.ps1 tạo ra
+dist/

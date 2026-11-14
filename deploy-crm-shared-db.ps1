@@ -20,12 +20,45 @@ docker version --format '{{.Server.Version}}' *> $null
 if ($LASTEXITCODE -ne 0) { Fail "Docker chưa chạy. Mở Docker Desktop rồi chạy lại script." }
 Ok "Docker đang chạy"
 
-# 2. Tim SQL Server cua Healthcare
+# 2. Tim SQL Server cua Healthcare (doi toi da 60 giay neu Docker / container vua khoi dong)
+$exclude = @('hrm-sqlserver', 'crm-sqlserver')
+function Find-Sql([bool]$all) {
+    if ($all) { $lines = docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' }
+    else { $lines = docker ps --format '{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' }
+    # Nhận diện SQL Server theo image gốc trong cấu hình container (docker ps có thể chỉ hiện mã ID khi image đã được tải bản mới)
+    @($lines | Where-Object { $_ } | Where-Object {
+        $n = $_.Split('|')[0]
+        if ($n -in $exclude) { return $false }
+        $cfgImage = docker inspect -f '{{.Config.Image}}' $n 2>$null
+        ("$_|$cfgImage" -match 'mssql|sqlserver|azure-sql-edge|1433->')
+    })
+}
 if (-not $SqlContainer) {
-    $candidates = docker ps --format '{{.Names}}|{{.Image}}' | Where-Object { $_ -match 'mssql|sqlserver|azure-sql-edge' } |
-        ForEach-Object { $_.Split('|')[0] } | Where-Object { $_ -notin @('hrm-sqlserver', 'crm-sqlserver') }
-    $candidates = @($candidates)
-    if ($candidates.Count -eq 0) { Fail "Không tìm thấy container SQL Server nào đang chạy. Healthcare có dùng SQL Server trong Docker không? (PA B chỉ áp dụng cho SQL Server)" }
+    $running = @()
+    for ($try = 1; $try -le 12; $try++) {
+        $running = Find-Sql $false
+        if ($running.Count -gt 0) { break }
+        if ($try -eq 1) {
+            $stopped = Find-Sql $true
+            if ($stopped.Count -gt 0) {
+                $name = $stopped[0].Split('|')[0]
+                Write-Host "Container SQL Server '$name' đang DỪNG ($($stopped[0].Split('|')[2]))." -ForegroundColor Yellow
+                $ans = Read-Host "Khởi động container '$name'? (Y/n)"
+                if ($ans -eq '' -or $ans -match '^[YyCc]') { docker start $name | Out-Null; Ok "Đã gửi lệnh khởi động $name" }
+            } else {
+                Write-Host "Không có container SQL Server nào (kể cả đang dừng). Các container hiện có:" -ForegroundColor Yellow
+                docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+            }
+        }
+        Info "Chưa thấy SQL Server đang chạy, đợi 5 giây... ($try/12)"
+        Start-Sleep -Seconds 5
+    }
+    $candidates = @($running | ForEach-Object { $_.Split('|')[0] })
+    if ($candidates.Count -eq 0) {
+        Write-Host "Danh sách container hiện có:"
+        docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+        Fail "Không tìm thấy container SQL Server đang chạy. Mở Docker Desktop, bấm Start container SQL của Healthcare rồi chạy lại; hoặc chỉ định tên: .\deploy-crm-shared-db.ps1 -SqlContainer <tên container>"
+    }
     if ($candidates.Count -gt 1) {
         Write-Host "Tìm thấy nhiều container SQL Server:"
         for ($i = 0; $i -lt $candidates.Count; $i++) { Write-Host "  [$i] $($candidates[$i])" }
@@ -72,7 +105,11 @@ $crmPwd = "Crm@$rand" + "9x"
 $q = "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'crm_app') CREATE LOGIN crm_app WITH PASSWORD = '$crmPwd', CHECK_POLICY = ON " +
      "ELSE ALTER LOGIN crm_app WITH PASSWORD = '$crmPwd'; ALTER SERVER ROLE dbcreator ADD MEMBER crm_app; " +
      "IF DB_ID('CRM_DB') IS NOT NULL EXEC('USE CRM_DB; IF USER_ID(''crm_app'') IS NULL CREATE USER crm_app FOR LOGIN crm_app; ALTER ROLE db_owner ADD MEMBER crm_app;');"
-docker exec $SqlContainer $sqlcmd -S localhost -U sa -P $saPwd @extra -b -Q $q
+for ($try = 1; $try -le 12; $try++) {
+    docker exec $SqlContainer $sqlcmd -S localhost -U sa -P $saPwd @extra -b -Q $q
+    if ($LASTEXITCODE -eq 0) { break }
+    if ($try -lt 12) { Info "SQL Server chưa sẵn sàng, thử lại sau 5 giây... ($try/12)"; Start-Sleep -Seconds 5 }
+}
 if ($LASTEXITCODE -ne 0) { Fail "Không tạo được login crm_app (sai mật khẩu SA?)." }
 Ok "Login 'crm_app' sẵn sàng (chỉ có quyền tạo database, không truy cập DB của Healthcare)"
 

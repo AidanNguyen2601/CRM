@@ -7,8 +7,13 @@ namespace CRM.Web.Data;
 /// <summary>Tạo database (nếu chưa có) và nạp dữ liệu mẫu để chạy thử.</summary>
 public static class DbSeeder
 {
-    /// <summary>Đảm bảo schema + danh mục dùng chung; nạp dữ liệu mẫu nếu <paramref name="seedSampleData"/> và DB còn trống.</summary>
-    public static async Task SeedAsync(IServiceProvider services, bool seedSampleData = true)
+    /// <summary>
+    /// Đảm bảo schema + danh mục dùng chung; nạp dữ liệu mẫu nếu <paramref name="seedSampleData"/> và DB còn trống.
+    /// <paramref name="sampleCustomers"/> (cấu hình Database:SampleCustomers): nếu có, chỉ tạo tài khoản + hàng hoá cố định
+    /// rồi sinh đúng N khách hàng mẫu kèm trọn chuỗi nghiệp vụ (bộ sinh DemoDataGenerator, seed cố định để lần nào cũng như nhau);
+    /// nếu không, nạp bộ 8 khách hàng mẫu viết tay như trước.
+    /// </summary>
+    public static async Task SeedAsync(IServiceProvider services, bool seedSampleData = true, int? sampleCustomers = null)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
@@ -16,11 +21,20 @@ public static class DbSeeder
 
         await db.Database.EnsureCreatedAsync();
         await SchemaUpgrader.EnsureAsync(db);
-        if (seedSampleData && !await db.Users.AnyAsync()) await SeedSampleDataAsync(db, hasher);
+        if (seedSampleData && !await db.Users.AnyAsync())
+        {
+            if (sampleCustomers is > 0)
+            {
+                await SeedSampleDataAsync(db, hasher, usersAndProductsOnly: true);
+                await CatalogSeeder.SeedAsync(db);   // bộ sinh dữ liệu dùng danh mục (ngành, tỉnh, loại chi phí...)
+                await DemoDataGenerator.GenerateAsync(db, sampleCustomers.Value, seed: 2026);
+            }
+            else await SeedSampleDataAsync(db, hasher);
+        }
         await CatalogSeeder.SeedAsync(db);
     }
 
-    private static async Task SeedSampleDataAsync(CrmDbContext db, IPasswordHasher<AppUser> hasher)
+    private static async Task SeedSampleDataAsync(CrmDbContext db, IPasswordHasher<AppUser> hasher, bool usersAndProductsOnly = false)
     {
 
         var today = DateTime.Today;
@@ -59,6 +73,7 @@ public static class DbSeeder
         }
         db.Products.AddRange(products);
         await db.SaveChangesAsync();
+        if (usersAndProductsOnly) return;
 
         // ---------- Khách hàng & liên hệ ----------
         var custData = new (string Name, string Industry, string City, CustomerType Type, AppUser Owner, string Contact, string Title)[]

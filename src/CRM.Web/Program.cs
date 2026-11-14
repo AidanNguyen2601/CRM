@@ -94,12 +94,14 @@ app.MapControllerRoute(
 // Thử lại nhiều lần vì khi chạy bằng Docker, SQL Server có thể khởi động chậm hơn web app.
 {
     var seedSample = app.Configuration.GetValue("Database:SeedOnStartup", true);
+    // Số khách hàng mẫu khi khởi tạo DB mới (để trống = bộ mẫu mặc định 8 khách hàng)
+    int? sampleCustomers = int.TryParse(app.Configuration["Database:SampleCustomers"], out var sc) && sc > 0 ? sc : null;
     var retries = app.Configuration.GetValue("Database:StartupRetries", 12);
     for (var attempt = 1; ; attempt++)
     {
         try
         {
-            await DbSeeder.SeedAsync(app.Services, seedSample);
+            await DbSeeder.SeedAsync(app.Services, seedSample, sampleCustomers);
             break;
         }
         catch (Exception ex) when (attempt < retries)

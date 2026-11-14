@@ -34,6 +34,7 @@ services:
       ConnectionStrings__CrmConnection: "Server=crm-db,1433;Database=CRM_DB;User Id=sa;Password=${CRM_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
       DataProtection__KeysPath: /app/keys
       Attachments__Path: /app/uploads   # file đính kèm, lưu trên volume crm-files
+      Database__SampleCustomers: ${CRM_SAMPLE_CUSTOMERS:-}   # số khách hàng mẫu khi tạo DB mới (trống = bộ mẫu mặc định)
       TZ: Asia/Ho_Chi_Minh
     ports:
       - "${CRM_WEB_PORT:-8100}:8080"

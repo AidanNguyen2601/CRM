@@ -60,6 +60,12 @@ Web: `http://localhost:8100`, SQL: `localhost,1435`.
 
 Không trùng với HRM / Healthcare: project `crm`, container `crm-web` / `crm-sqlserver`, network `crm-net`, database `CRM_DB`, port 8100/1435.
 
+**Đóng gói cài đặt cho máy khác (không kèm mã nguồn):**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\build-package.ps1 -Version 1.0.0
+```
+Tạo `dist\crm-1.0.0.zip` (~560 MB) gồm image ứng dụng đã biên dịch + SQL Server + script `install.ps1` / `install.sh`, `backup.ps1`, `restore.ps1`, `uninstall.ps1` và `HUONG-DAN.txt`. Máy đích chỉ cần Docker, không cần Internet: giải nén → `install.ps1` (mặc định 5 khách hàng mẫu, tự sinh mật khẩu SQL). Thêm `-SkipSqlImage` để gói nhẹ (~100 MB) nếu máy đích có Internet. Mã nguồn các script gói nằm trong `deploy\package\`.
+
 ## 5. Ghi chú kỹ thuật
 
 - Database tạo bằng `EnsureCreated()`; khi lên môi trường thật nên chuyển sang EF Migrations: `dotnet ef migrations add InitialCreate`, rồi đổi `EnsureCreatedAsync()` thành `MigrateAsync()` trong `DbSeeder`.

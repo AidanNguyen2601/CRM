@@ -1,0 +1,44 @@
+# CRM – gói cài đặt (không kèm mã nguồn). Dùng image đã build sẵn, KHÔNG build lại.
+# Cấu hình trong file .env (install.ps1 / install.sh tự tạo). Tên dự án mặc định "crm" (đổi bằng COMPOSE_PROJECT_NAME).
+name: crm
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${CRM_SA_PASSWORD:?Thiếu CRM_SA_PASSWORD trong .env}
+      MSSQL_PID: ${CRM_SQL_EDITION:-Developer}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    restart: unless-stopped
+
+  web:
+    image: crm-web:${CRM_VERSION:?Thiếu CRM_VERSION trong .env}
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__CrmConnection: "Server=db,1433;Database=CRM_DB;User Id=sa;Password=${CRM_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      DataProtection__KeysPath: /app/keys
+      Attachments__Path: /app/uploads
+      Database__SampleCustomers: ${CRM_SAMPLE_CUSTOMERS:-}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${CRM_WEB_PORT:-8100}:8080"
+    volumes:
+      - keys:/app/keys
+      - files:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  sqldata:
+  keys:
+  files:

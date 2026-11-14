@@ -1,0 +1,58 @@
+==========================================================================
+ CRM – GÓI CÀI ĐẶT (không kèm mã nguồn)
+==========================================================================
+
+ >>> Hướng dẫn ĐẦY ĐỦ (có hình thức dễ đọc, in được): mở file
+ >>> HUONG-DAN-CAI-DAT.html bằng trình duyệt. File này là bản tóm tắt.
+
+YÊU CẦU
+  - Windows 10/11: cài Docker Desktop và mở Docker Desktop.
+    (Windows Server: Docker Desktop không hỗ trợ chính thức – nên dùng máy Linux.)
+  - Linux: cài Docker Engine + docker compose plugin.
+  - RAM tối thiểu 4 GB (SQL Server cần khoảng 2 GB), ổ đĩa trống khoảng 6 GB.
+  - Không cần Internet nếu thư mục images\ có đủ 2 image (crm-web và SQL Server).
+
+CÀI ĐẶT (Windows)
+  1. Giải nén gói vào một thư mục cố định, ví dụ C:\CRM
+  2. Mở PowerShell tại thư mục đó và chạy:
+        powershell -ExecutionPolicy Bypass -File .\install.ps1
+     Tuỳ chọn:  -Port 8100        cổng web (mặc định tự chọn cổng trống từ 8100)
+                -SampleCustomers 5  số khách hàng mẫu khi tạo database lần đầu
+                -SqlEdition Express phiên bản SQL Server (mặc định Developer) – chọn ngay lần cài đầu
+  3. Trình duyệt tự mở http://localhost:<cổng>
+     Đăng nhập: admin / Admin@123  ->  ĐỔI MẬT KHẨU NGAY
+     Tài khoản demo: manager / Manager@123, sales1 / Sales@123, sales2 / Sales@123
+
+CÀI ĐẶT (Linux)
+     chmod +x install.sh && ./install.sh 8100 5 Express
+
+TRUY CẬP TỪ MÁY KHÁC TRONG MẠNG
+  - http://<IP-máy-cài>:<cổng>
+  - Mở cổng web trên tường lửa (Windows Defender Firewall -> Inbound Rules).
+  - Nếu đưa ra Internet: đặt reverse proxy có HTTPS (IIS / Nginx / Caddy) phía trước.
+
+CẤU HÌNH (file .env – install tự tạo lần đầu, hãy giữ bí mật)
+  CRM_WEB_PORT          cổng web
+  CRM_SA_PASSWORD       mật khẩu SQL Server (sinh ngẫu nhiên)
+  CRM_SAMPLE_CUSTOMERS  số khách hàng mẫu khi tạo database lần đầu
+  CRM_SQL_EDITION       Developer (thử nghiệm) | Express (miễn phí, dùng thật, tối đa 10 GB)
+  Sửa xong chạy:  docker compose up -d
+
+SAO LƯU / KHÔI PHỤC
+  .\backup.ps1                              -> backups\<ngày-giờ>\CRM_DB.bak + files.tgz
+  .\restore.ps1 .\backups\<ngày-giờ>        -> khôi phục (ghi đè dữ liệu hiện tại)
+  Nên đặt lịch backup.ps1 hằng ngày bằng Task Scheduler và chép thư mục backups sang nơi khác.
+
+NÂNG CẤP LÊN PHIÊN BẢN MỚI
+  1. Chạy backup.ps1
+  2. Chép các file của gói mới đè lên thư mục cài đặt (GIỮ NGUYÊN file .env)
+  3. Chạy lại install.ps1 – dữ liệu được giữ, database tự nâng cấp cấu trúc khi khởi động.
+
+GỠ CÀI ĐẶT
+  .\uninstall.ps1               gỡ, giữ dữ liệu
+  .\uninstall.ps1 -RemoveData   gỡ và xóa toàn bộ dữ liệu (không khôi phục được)
+
+XỬ LÝ SỰ CỐ
+  docker compose ps             xem trạng thái
+  docker compose logs -f web    xem log ứng dụng
+  docker compose restart web    khởi động lại ứng dụng
