@@ -36,6 +36,24 @@ public class DemoDataController : CrmControllerBase
         return View();
     }
 
+    public static readonly int[] MarketingSizes = { 4, 8, 12 };
+
+    /// <summary>Chỉ nạp chiến dịch tiếp thị mẫu trên khách hàng / lead đang có</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenerateMarketing(int campaigns)
+    {
+        if (!MarketingSizes.Contains(campaigns)) return BadRequest();
+        if (!await Db.Customers.AnyAsync())
+        {
+            TempData["Error"] = I18n.T("Chưa có khách hàng để lập danh sách tiếp thị. Hãy nạp dữ liệu mẫu trước.");
+            return RedirectToAction(nameof(Index));
+        }
+        var r = await DemoDataGenerator.GenerateMarketingAsync(Db, campaigns);
+        TempData["Success"] = I18n.T("Đã nạp {0} chiến dịch tiếp thị với {1} đối tượng; gắn {2} lead và {3} cơ hội vào chiến dịch.",
+            r.Campaigns, r.Members, r.Leads, r.Opportunities);
+        return RedirectToAction(nameof(Index));
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Generate(int customers)
     {

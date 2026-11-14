@@ -16,6 +16,18 @@
                 </div>
                 <div class="form-text">@T("Ước tính với 100 khách hàng: ~200 liên hệ, ~120 lead, ~200 cơ hội, ~700 hoạt động, ~100 hợp đồng.")</div>
             </form>
+            <hr />
+            <h6>@Icon("campaign") @T("Chỉ nạp dữ liệu tiếp thị")</h6>
+            <p class="small text-muted">@T("Tạo chiến dịch tiếp thị trong 12 tháng gần nhất trên khách hàng / lead đang có: danh sách đối tượng với trạng thái tiếp cận, chi phí, và gắn các lead / cơ hội phát sinh trong thời gian chạy vào chiến dịch. Không tạo khách hàng mới.")</p>
+            <form asp-action="GenerateMarketing" method="post" data-confirm="@T("Nạp chiến dịch tiếp thị mẫu? Thao tác này không hoàn tác tự động.")">
+                <label class="form-label">@T("Số chiến dịch")</label>
+                <div class="d-flex gap-2">
+                    <select name="campaigns" class="form-select" style="max-width:160px">
+                        @foreach (var s in CRM.Web.Controllers.DemoDataController.MarketingSizes) { <option value="@s" selected="@(s == 8)">@s</option> }
+                    </select>
+                    <button class="btn btn-outline-primary">@T("Nạp dữ liệu tiếp thị")</button>
+                </div>
+            </form>
         </div></div>
     </div>
     <div class="col-lg-7">

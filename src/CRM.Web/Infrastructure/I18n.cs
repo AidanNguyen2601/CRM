@@ -983,6 +983,13 @@ public static class I18n
         ["Đã cập nhật {0} đối tượng và ghi {1} hoạt động vào lịch sử chăm sóc."] = "{0} recipients updated and {1} activities logged.",
         ["Đã cập nhật {0} đối tượng."] = "{0} recipients updated.",
         ["Đã bỏ {0} đối tượng khỏi chiến dịch."] = "{0} recipients removed from the campaign.",
+        ["Chỉ nạp dữ liệu tiếp thị"] = "Marketing data only",
+        ["Tạo chiến dịch tiếp thị trong 12 tháng gần nhất trên khách hàng / lead đang có: danh sách đối tượng với trạng thái tiếp cận, chi phí, và gắn các lead / cơ hội phát sinh trong thời gian chạy vào chiến dịch. Không tạo khách hàng mới."] = "Creates marketing campaigns over the last 12 months using existing customers / leads: recipient lists with outreach status, costs, and links leads / opportunities created while each campaign ran. No new customers are created.",
+        ["Nạp chiến dịch tiếp thị mẫu? Thao tác này không hoàn tác tự động."] = "Add sample marketing campaigns? This cannot be undone automatically.",
+        ["Số chiến dịch"] = "Number of campaigns",
+        ["Nạp dữ liệu tiếp thị"] = "Add marketing data",
+        ["Chưa có khách hàng để lập danh sách tiếp thị. Hãy nạp dữ liệu mẫu trước."] = "There are no customers to build a marketing list from. Add demo data first.",
+        ["Đã nạp {0} chiến dịch tiếp thị với {1} đối tượng; gắn {2} lead và {3} cơ hội vào chiến dịch."] = "Added {0} marketing campaigns with {1} recipients; linked {2} leads and {3} opportunities.",
     };
 }
 

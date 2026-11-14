@@ -25,6 +25,17 @@ public static class DemoDataGenerator
         return result;
     }
 
+    /// <summary>Nạp thêm chiến dịch tiếp thị mẫu dựa trên dữ liệu khách hàng / lead đang có</summary>
+    public static async Task<(int Campaigns, int Members, int Leads, int Opportunities)> GenerateMarketingAsync(CrmDbContext db, int campaignCount, int? seed = null)
+    {
+        campaignCount = Math.Clamp(campaignCount, 1, 50);
+        var g = new Gen(db, new Random(seed ?? Environment.TickCount));
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var result = await g.RunMarketingAsync(campaignCount);
+        await tx.CommitAsync();
+        return result;
+    }
+
     private sealed class Gen
     {
         private readonly CrmDbContext _db;
@@ -351,7 +362,7 @@ public static class DemoDataGenerator
             await _db.SaveChangesAsync();
 
             await EnsureTargetsAsync();
-            var campaigns = await GenerateCampaignsAsync(n, customers, contactsByCustomer, leads, opps);
+            var campaigns = await GenerateCampaignsAsync(Math.Clamp(n / 12, 3, 12), customers, contactsByCustomer, leads, opps);
 
             return new DemoDataResult(newProducts, customers.Count, contacts.Count, leads.Count, opps.Count, acts.Count,
                 quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count, campaigns);
@@ -464,10 +475,28 @@ public static class DemoDataGenerator
         /// Chiến dịch tiếp thị trải trong 12 tháng: danh sách đối tượng (liên hệ chính + lead), trạng thái tiếp cận,
         /// và gắn một phần lead / cơ hội phát sinh trong thời gian chạy vào chiến dịch để có số liệu ROI.
         /// </summary>
-        private async Task<int> GenerateCampaignsAsync(int n, List<Customer> customers, Dictionary<int, List<Contact>> contactsByCustomer,
+        /// <summary>Chỉ sinh dữ liệu tiếp thị trên khách hàng / liên hệ / lead / cơ hội đang có (không tạo khách hàng mới)</summary>
+        public async Task<(int Campaigns, int Members, int Leads, int Opportunities)> RunMarketingAsync(int count)
+        {
+            await LoadContextAsync();
+            var customers = await _db.Customers.Where(c => c.Type != CustomerType.Inactive).ToListAsync();
+            if (customers.Count == 0) throw new InvalidOperationException("Chưa có khách hàng để lập danh sách tiếp thị.");
+            var contactsByCustomer = (await _db.Contacts.Where(x => x.CustomerId != null)
+                    .OrderByDescending(x => x.IsPrimary).ThenBy(x => x.Id).ToListAsync())
+                .GroupBy(x => x.CustomerId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+            var leads = await _db.Leads.ToListAsync();
+            var opps = await _db.Opportunities.ToListAsync();
+            var membersBefore = await _db.CampaignMembers.CountAsync();
+            var leadsBefore = leads.Count(l => l.CampaignId != null);
+            var oppsBefore = opps.Count(o => o.CampaignId != null);
+            var n = await GenerateCampaignsAsync(count, customers, contactsByCustomer, leads, opps);
+            return (n, await _db.CampaignMembers.CountAsync() - membersBefore,
+                leads.Count(l => l.CampaignId != null) - leadsBefore, opps.Count(o => o.CampaignId != null) - oppsBefore);
+        }
+
+        private async Task<int> GenerateCampaignsAsync(int count, List<Customer> customers, Dictionary<int, List<Contact>> contactsByCustomer,
             List<Lead> leads, List<Opportunity> opps)
         {
-            var count = Math.Clamp(n / 12, 3, 12);
             var seq = new Dictionary<int, int>();
             var campaigns = new List<Campaign>();
             for (var i = 0; i < count; i++)

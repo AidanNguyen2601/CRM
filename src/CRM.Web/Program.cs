@@ -130,4 +130,16 @@ if (seedArg >= 0)
     return;
 }
 
+// Chỉ nạp chiến dịch tiếp thị mẫu trên dữ liệu đang có rồi thoát: dotnet CRM.Web.dll --seed-marketing [số chiến dịch]
+var mktArg = Array.IndexOf(args, "--seed-marketing");
+if (mktArg >= 0)
+{
+    var count = mktArg + 1 < args.Length && int.TryParse(args[mktArg + 1], out var c) ? c : 8;
+    using var scope = app.Services.CreateScope();
+    var r = await DemoDataGenerator.GenerateMarketingAsync(scope.ServiceProvider.GetRequiredService<CrmDbContext>(), count);
+    app.Logger.LogInformation("Đã nạp dữ liệu tiếp thị: {Campaigns} chiến dịch, {Members} đối tượng, gắn {Leads} lead và {Opps} cơ hội",
+        r.Campaigns, r.Members, r.Leads, r.Opportunities);
+    return;
+}
+
 app.Run();
