@@ -106,6 +106,7 @@ public class ContactsController : CrmControllerBase
             TempData["Error"] = I18n.T("Người liên hệ đang gắn với cơ hội, báo giá hoặc hoạt động nên không thể xóa.");
             return RedirectToAction(nameof(Index));
         }
+        await HttpContext.RequestServices.GetRequiredService<CampaignService>().DetachAsync(contactId: c.Id);
         Db.Contacts.Remove(c);
         await Db.SaveChangesAsync();
         TempData["Success"] = I18n.T("Đã xóa người liên hệ.");

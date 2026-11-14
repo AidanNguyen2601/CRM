@@ -36,7 +36,7 @@ public class LeadsController : CrmControllerBase
 
     public async Task<IActionResult> Details(int id)
     {
-        var l = await Db.Leads.Include(x => x.Owner).Include(x => x.ConvertedCustomer).FirstOrDefaultAsync(x => x.Id == id);
+        var l = await Db.Leads.Include(x => x.Owner).Include(x => x.ConvertedCustomer).Include(x => x.Campaign).FirstOrDefaultAsync(x => x.Id == id);
         if (l == null) return NotFound();
         if (!User.CanAccess(l)) return NotAllowed();
         ViewBag.Activities = await Db.Activities.Include(a => a.Owner).Where(a => a.LeadId == id)
@@ -44,10 +44,16 @@ public class LeadsController : CrmControllerBase
         return View(l);
     }
 
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(int? campaignId)
     {
-        await LoadOwnersAsync(CurrentUserId);
-        return View("Form", new Lead { OwnerId = CurrentUserId });
+        var model = new Lead { OwnerId = CurrentUserId };
+        if (campaignId.HasValue && await Db.Campaigns.FindAsync(campaignId) is { } camp)
+        {
+            model.CampaignId = camp.Id;
+            model.Source = Campaign.LeadSourceFor(camp.Channel);
+        }
+        await LoadLookups(model);
+        return View("Form", model);
     }
 
     public async Task<IActionResult> Edit(int id)
@@ -55,7 +61,7 @@ public class LeadsController : CrmControllerBase
         var l = await Db.Leads.FindAsync(id);
         if (l == null) return NotFound();
         if (!User.CanAccess(l)) return NotAllowed();
-        await LoadOwnersAsync(l.OwnerId);
+        await LoadLookups(l);
         return View("Form", l);
     }
 
@@ -66,7 +72,7 @@ public class LeadsController : CrmControllerBase
             ModelState.AddModelError(nameof(model.Phone), I18n.T("Cần ít nhất số điện thoại hoặc email"));
         if (!ModelState.IsValid)
         {
-            await LoadOwnersAsync(model.OwnerId);
+            await LoadLookups(model);
             return View("Form", model);
         }
 
@@ -90,7 +96,7 @@ public class LeadsController : CrmControllerBase
             l.FullName = model.FullName; l.Company = model.Company; l.JobTitle = model.JobTitle;
             l.Email = model.Email; l.Phone = model.Phone; l.Source = model.Source; l.Rating = model.Rating;
             l.Status = model.Status == LeadStatus.Converted ? l.Status : model.Status;
-            l.EstimatedValue = model.EstimatedValue; l.Description = model.Description;
+            l.EstimatedValue = model.EstimatedValue; l.Description = model.Description; l.CampaignId = model.CampaignId;
             l.OwnerId = ResolveOwner(model.OwnerId);
         }
         await Db.SaveChangesAsync();
@@ -172,7 +178,7 @@ public class LeadsController : CrmControllerBase
             {
                 Name = vm.OpportunityName!.Trim(), CustomerId = customer.Id, ContactId = contact.Id, Amount = vm.OpportunityAmount,
                 Stage = OpportunityStage.Qualification, Probability = (int)OpportunityStage.Qualification,
-                ExpectedCloseDate = vm.ExpectedCloseDate, OwnerId = l.OwnerId, Source = l.Source, Description = l.Description
+                ExpectedCloseDate = vm.ExpectedCloseDate, OwnerId = l.OwnerId, Source = l.Source, CampaignId = l.CampaignId, Description = l.Description
             };
             Db.Opportunities.Add(opp);
             await Db.SaveChangesAsync();
@@ -185,6 +191,7 @@ public class LeadsController : CrmControllerBase
         l.ConvertedOpportunityId = opp?.Id;
         var acts = await Db.Activities.Where(a => a.LeadId == l.Id).ToListAsync();
         foreach (var a in acts) { a.CustomerId = customer.Id; a.ContactId = contact.Id; a.OpportunityId = opp?.Id; }
+        await HttpContext.RequestServices.GetRequiredService<CampaignService>().OnLeadConvertedAsync(l.Id, customer.Id, contact.Id);
         await Db.SaveChangesAsync();
 
         TempData["Success"] = opp != null ? I18n.T("Đã chuyển đổi lead thành khách hàng {0} và tạo cơ hội bán hàng.", customer.Name) : I18n.T("Đã chuyển đổi lead thành khách hàng {0}.", customer.Name);
@@ -204,11 +211,18 @@ public class LeadsController : CrmControllerBase
             TempData["Error"] = I18n.T("Lead đã có hoạt động chăm sóc. Hãy chuyển trạng thái 'Không phù hợp' thay vì xóa.");
             return RedirectToAction(nameof(Details), new { id });
         }
+        await HttpContext.RequestServices.GetRequiredService<CampaignService>().DetachAsync(leadId: l.Id);
         Db.Leads.Remove(l);
         await Db.SaveChangesAsync();
         await DeleteAttachmentsAsync(AttachmentTarget.Lead, l.Id);
         TempData["Success"] = I18n.T("Đã xóa lead.");
         return RedirectToAction(nameof(Index));
+    }
+
+    private async Task LoadLookups(Lead l)
+    {
+        await LoadOwnersAsync(l.OwnerId);
+        ViewBag.Campaigns = await CampaignsController.CampaignOptionsAsync(Db, l.CampaignId);
     }
 
     private async Task<string> NextCustomerCodeAsync()

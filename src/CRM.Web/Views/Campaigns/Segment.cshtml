@@ -1,0 +1,88 @@
+@model CampaignSegmentViewModel
+@{
+    var c = Model.Campaign!;
+    ViewData["Title"] = T("Thêm đối tượng: {0}", c.Code);
+    var isLead = Model.Audience == CampaignAudience.Leads;
+    var need = Campaign.NeedsEmail(c.Channel);
+    var needText = need == true ? T("có email") : need == false ? T("có số điện thoại") : null;
+}
+<div class="mb-3"><a asp-action="Details" asp-route-id="@c.Id">← @c.Code · @c.Name</a> <span class="text-muted small ms-2">@Icon(ForChannel(c.Channel)) @c.Channel.GetDisplayName()</span></div>
+
+<ul class="nav nav-tabs mb-0">
+    @foreach (var a in Enum.GetValues<CampaignAudience>())
+    {
+        <li class="nav-item"><a class="nav-link @(Model.Audience == a ? "active" : "")" asp-action="Segment" asp-route-id="@c.Id" asp-route-audience="@a">@Icon(a == CampaignAudience.Leads ? "lead" : "customer") @a.GetDisplayName()</a></li>
+    }
+</ul>
+<div class="card mb-3" style="border-top-left-radius:0"><div class="card-body">
+<form asp-action="Segment" method="post">
+    <input type="hidden" asp-for="CampaignId" /><input type="hidden" asp-for="Audience" />
+    <div class="row g-3">
+        @if (isLead)
+        {
+            <div class="col-md-3"><label class="form-label">@T("Trạng thái lead")</label><select asp-for="LeadStatus" class="form-select" asp-items="Html.GetEnumSelectList<LeadStatus>().Where(i => i.Value != ((int)LeadStatus.Converted).ToString())"><option value="">@T("Đang theo đuổi (Mới / Đã liên hệ / Đủ điều kiện)")</option></select></div>
+            <div class="col-md-3"><label class="form-label">@T("Mức độ")</label><select asp-for="LeadRating" class="form-select" asp-items="Html.GetEnumSelectList<LeadRating>()"><option value="">@T("-- Tất cả --")</option></select></div>
+            <div class="col-md-3"><label class="form-label">@T("Nguồn")</label><select asp-for="LeadSource" class="form-select" asp-items="Html.GetEnumSelectList<LeadSource>()"><option value="">@T("-- Tất cả --")</option></select></div>
+        }
+        else
+        {
+            <div class="col-md-3"><label class="form-label">@T("Phân loại")</label><select asp-for="CustomerType" class="form-select" asp-items="Html.GetEnumSelectList<CustomerType>()"><option value="">@T("Đang giao dịch (trừ Ngừng giao dịch)")</option></select></div>
+            <div class="col-md-3"><label class="form-label">@T("Ngành nghề")</label><select asp-for="Industry" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Industry, Model.Industry)"><option value="">@T("-- Tất cả --")</option></select></div>
+            <div class="col-md-3"><label class="form-label">@T("Tỉnh / Thành phố")</label><select asp-for="City" class="form-select" asp-items="Catalogs.Options(CatalogGroup.City, Model.City)"><option value="">@T("-- Tất cả --")</option></select></div>
+        }
+        @if (User.SeesAll()) { <div class="col-md-3"><label class="form-label">@T("Phụ trách")</label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+        <div class="col-md-4"><label class="form-label">@T("Tìm kiếm")</label><input asp-for="Keyword" class="form-control" placeholder="@(isLead ? T("Họ tên, công ty") : T("Mã, tên khách hàng"))" /></div>
+        <div class="col-md-8 d-flex flex-wrap gap-3 align-items-end">
+            @if (!isLead)
+            {
+                <div class="form-check"><input asp-for="AllContacts" class="form-check-input" /><label asp-for="AllContacts" class="form-check-label">@T("Lấy tất cả người liên hệ (mặc định: chỉ liên hệ chính)")</label></div>
+            }
+            @if (needText != null)
+            {
+                <div class="form-check"><input asp-for="RequireChannelInfo" class="form-check-input" /><label asp-for="RequireChannelInfo" class="form-check-label">@T("Chỉ lấy đối tượng {0}", needText)</label></div>
+            }
+            <div class="form-check"><input asp-for="ExcludeUnsubscribed" class="form-check-input" /><label asp-for="ExcludeUnsubscribed" class="form-check-label">@T("Loại người đã từ chối nhận tin")</label></div>
+        </div>
+    </div>
+    <div class="mt-3 d-flex gap-2 flex-wrap">
+        <button name="mode" value="preview" class="btn btn-outline-primary">@T("Xem trước")</button>
+        @if (Model.Previewed && Model.ToAdd > 0)
+        {
+            <button name="mode" value="add" class="btn btn-primary" data-confirm-click="@T("Thêm {0} đối tượng vào chiến dịch?", Model.ToAdd)">@Icon("plus") @T("Thêm {0} đối tượng", Model.ToAdd)</button>
+        }
+        <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-light">@T("Quay lại")</a>
+    </div>
+    <div class="form-text mt-2">@T("Danh sách được lấy theo điều kiện lọc tại thời điểm bấm Thêm. Người đã có trong chiến dịch (trùng liên hệ, lead hoặc email) được tự động bỏ qua.")</div>
+</form>
+</div></div>
+
+@if (Model.Previewed)
+{
+    <div class="card">
+        <div class="card-header d-flex flex-wrap gap-3">
+            <span class="fw-semibold">@T("{0} đối tượng mới phù hợp", Model.ToAdd)</span>
+            <span class="small text-muted">@T("Bỏ qua: {0} đã có trong chiến dịch · {1} thiếu thông tin liên lạc · {2} từ chối nhận tin", Model.SkippedDuplicate, Model.SkippedNoInfo, Model.SkippedUnsubscribed)</span>
+        </div>
+        <div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>@T("Họ tên")</th><th>@T("Công ty")</th><th>Email</th><th>@T("Điện thoại")</th></tr></thead>
+            <tbody>
+            @foreach (var m in Model.Preview)
+            {
+                <tr><td class="fw-semibold">@m.FullName</td><td>@m.Company</td><td>@m.Email</td><td>@m.Phone</td></tr>
+            }
+            @if (!Model.Preview.Any()) { <tr><td colspan="4" class="text-center text-muted p-4">@T("Không có đối tượng mới nào phù hợp.")</td></tr> }
+            </tbody>
+        </table>
+        </div>
+        @if (Model.ToAdd > Model.Preview.Count) { <div class="card-footer bg-white small text-muted">@T("Hiển thị {0} / {1} đối tượng đầu tiên.", Model.Preview.Count, Model.ToAdd)</div> }
+    </div>
+}
+
+@section Scripts {
+<script>
+    document.querySelectorAll('[data-confirm-click]').forEach(b => b.addEventListener('click', e => {
+        if (!confirm(b.getAttribute('data-confirm-click'))) e.preventDefault();
+    }));
+</script>
+}

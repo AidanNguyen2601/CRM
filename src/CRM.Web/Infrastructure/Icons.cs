@@ -60,7 +60,9 @@ public static class Icons
         ["file-sheet"] = "<path d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z' stroke='#16a34a'/><path d='M14 2v4a2 2 0 0 0 2 2h4M8 13h8M8 17h8M12 11v8' stroke='#16a34a'/>",
         ["file-image"] = "<rect x='3' y='3' width='18' height='18' rx='2' stroke='#9333ea'/><circle cx='9' cy='9' r='2' stroke='#9333ea'/><path d='m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21' stroke='#9333ea'/>",
         ["file-zip"] = "<path d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z' stroke='#b45309'/><path d='M10 2v2M10 6v2M10 10v2M10 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z' stroke='#b45309'/>",
-        ["menu"] = "<path d='M4 6h16M4 12h16M4 18h16'/>",
+        ["campaign"] = "<path d='m3 11 18-5v12L3 14v-3z'/><path d='M11.6 16.8a3 3 0 1 1-5.8-1.6'/>",
+        ["target"] = "<circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><path d='M22 2 12 12M16 2h6v6'/>",
+        ["menu"] ="<path d='M4 6h16M4 12h16M4 18h16'/>",
         ["chevron"] = "<path d='M6 9l6 6 6-6'/>",
         ["panel"] = "<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M9 3v18M16 15l-3-3 3-3'/>",
         ["expand-all"] = "<path d='M7 15l5 5 5-5M7 9l5-5 5 5'/>",
@@ -98,6 +100,16 @@ public static class Icons
         _ => "task"
     };
 
+    public static string ForChannel(CampaignChannel c) => c switch
+    {
+        CampaignChannel.Email => "email",
+        CampaignChannel.Sms or CampaignChannel.Telesales => "call",
+        CampaignChannel.Zalo => "send",
+        CampaignChannel.Social or CampaignChannel.Webinar => "globe",
+        CampaignChannel.Event => "meeting",
+        _ => "campaign"
+    };
+
     /// <summary>Icon tiêu đề trang theo controller / action.</summary>
     public static string? ForPage(string? controller, string? action) => controller switch
     {
@@ -117,6 +129,7 @@ public static class Icons
         "Users" => "users",
         "DemoData" => "receivable",
         "Kpi" => "trending",
+        "Campaigns" => action == "Segment" ? "target" : "campaign",
         "Account" => "key",
         _ => null
     };

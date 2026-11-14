@@ -52,7 +52,7 @@ public class OpportunitiesController : CrmControllerBase
 
     public async Task<IActionResult> Details(int id)
     {
-        var o = await Db.Opportunities.Include(x => x.Customer).Include(x => x.Contact).Include(x => x.Owner)
+        var o = await Db.Opportunities.Include(x => x.Customer).Include(x => x.Contact).Include(x => x.Owner).Include(x => x.Campaign)
             .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (o == null) return NotFound();
         if (!User.CanAccess(o)) return NotAllowed();
@@ -65,13 +65,19 @@ public class OpportunitiesController : CrmControllerBase
         });
     }
 
-    public async Task<IActionResult> Create(int? customerId)
+    public async Task<IActionResult> Create(int? customerId, int? campaignId)
     {
         var model = new Opportunity
         {
             CustomerId = customerId, OwnerId = CurrentUserId, ExpectedCloseDate = DateTime.Today.AddDays(30),
             Probability = (int)OpportunityStage.Prospecting
         };
+        if (campaignId.HasValue && await Db.Campaigns.FindAsync(campaignId) is { } camp)
+        {
+            model.CampaignId = camp.Id;
+            model.Source = Campaign.LeadSourceFor(camp.Channel);
+            model.Name = camp.Name;
+        }
         await LoadLookups(model);
         return View("Form", model);
     }
@@ -103,6 +109,13 @@ public class OpportunitiesController : CrmControllerBase
             model.CreatedAt = DateTime.Now;
             Db.Opportunities.Add(model);
             entity = model;
+            // Cơ hội phát sinh từ chiến dịch → đối tượng tương ứng của khách hàng được ghi nhận "Chuyển đổi"
+            if (model.CampaignId.HasValue && model.CustomerId.HasValue)
+            {
+                var members = await Db.CampaignMembers.Where(m => m.CampaignId == model.CampaignId && m.CustomerId == model.CustomerId
+                    && m.Status != CampaignMemberStatus.Unsubscribed && m.Status != CampaignMemberStatus.Converted).ToListAsync();
+                members.ForEach(m => { m.Status = CampaignMemberStatus.Converted; m.LastContactAt = DateTime.Now; });
+            }
         }
         else
         {
@@ -111,7 +124,7 @@ public class OpportunitiesController : CrmControllerBase
             if (!User.CanAccess(o)) return NotAllowed();
             o.Name = model.Name; o.CustomerId = model.CustomerId; o.ContactId = model.ContactId; o.Stage = model.Stage;
             o.Amount = model.Amount; o.Probability = model.Probability; o.ExpectedCloseDate = model.ExpectedCloseDate;
-            o.Source = model.Source; o.LostReason = model.LostReason; o.Description = model.Description;
+            o.Source = model.Source; o.CampaignId = model.CampaignId; o.LostReason = model.LostReason; o.Description = model.Description;
             o.OwnerId = ResolveOwner(model.OwnerId);
             entity = o;
         }
@@ -188,5 +201,6 @@ public class OpportunitiesController : CrmControllerBase
         await LoadCustomersAsync(o.CustomerId);
         await LoadContactsAsync(o.CustomerId, o.ContactId);
         await LoadOwnersAsync(o.OwnerId);
+        ViewBag.Campaigns = await CampaignsController.CampaignOptionsAsync(Db, o.CampaignId);
     }
 }

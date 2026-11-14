@@ -140,6 +140,7 @@ public class CustomerDetailViewModel
     public decimal Receivable { get; set; }
     public decimal Overdue { get; set; }
     public List<Activity> Activities { get; set; } = new();
+    public List<CampaignMember> Campaigns { get; set; } = new();
     public decimal WonTotal => Opportunities.Where(o => o.Stage == OpportunityStage.ClosedWon).Sum(o => o.Amount);
     public decimal OpenTotal => Opportunities.Where(o => !o.IsClosed).Sum(o => o.Amount);
 }
@@ -463,4 +464,99 @@ public class PaymentFilter : ListFilter
     public DateTime? To { get; set; }
     public string? Method { get; set; }
     public int? CustomerId { get; set; }
+}
+
+// ==================== Tiếp thị khách hàng ====================
+
+public class CampaignFilter : ListFilter
+{
+    public CampaignStatus? Status { get; set; }
+    public CampaignChannel? Channel { get; set; }
+    public int? Year { get; set; }
+}
+
+public class CampaignMemberFilter : ListFilter
+{
+    public CampaignMemberStatus? MemberStatus { get; set; }
+}
+
+/// <summary>Chỉ số hiệu quả của một chiến dịch (hoặc cộng dồn nhiều chiến dịch)</summary>
+public class CampaignStats
+{
+    public int Members { get; set; }
+    public int Reached { get; set; }
+    public int Positive { get; set; }
+    public int Unsubscribed { get; set; }
+    public int Leads { get; set; }
+    public int ConvertedLeads { get; set; }
+    public int Opportunities { get; set; }
+    public decimal Pipeline { get; set; }
+    public int WonCount { get; set; }
+    public decimal Won { get; set; }
+    public decimal Cost { get; set; }
+    public decimal Budget { get; set; }
+
+    /// <summary>Tỷ lệ tiếp cận: đã tiếp cận / tổng đối tượng (%)</summary>
+    public decimal ReachRate => Members == 0 ? 0 : Math.Round(Reached * 100m / Members, 1);
+    /// <summary>Tỷ lệ phản hồi tích cực trên số đã tiếp cận (%)</summary>
+    public decimal ResponseRate => Reached == 0 ? 0 : Math.Round(Positive * 100m / Reached, 1);
+    public decimal? CostPerLead => Leads == 0 || Cost == 0 ? null : Math.Round(Cost / Leads, 0);
+    /// <summary>ROI = (doanh số thắng − chi phí) / chi phí (%); không có chi phí → không tính</summary>
+    public decimal? Roi => Cost == 0 ? null : Math.Round((Won - Cost) * 100m / Cost, 0);
+    public decimal BudgetUsed => Budget == 0 ? 0 : Math.Round(Cost * 100m / Budget, 0);
+
+    public static string RoiCss(decimal? roi) => roi == null ? "text-muted" : roi < 0 ? "text-danger" : roi >= 100 ? "text-success" : "";
+}
+
+public class CampaignDetailViewModel
+{
+    public Campaign Campaign { get; set; } = null!;
+    public CampaignStats Stats { get; set; } = new();
+    public Dictionary<CampaignMemberStatus, int> StatusCounts { get; set; } = new();
+    public PagedList<CampaignMember> Members { get; set; } = null!;
+    public CampaignMemberFilter Filter { get; set; } = new();
+    public List<Lead> Leads { get; set; } = new();
+    public List<Opportunity> Opportunities { get; set; } = new();
+    public bool CanEdit { get; set; }
+}
+
+public enum CampaignAudience
+{
+    [Display(Name = "Khách hàng (người liên hệ)")] Customers = 1,
+    [Display(Name = "Lead (KH tiềm năng)")] Leads = 2
+}
+
+/// <summary>Bộ lọc phân khúc để thêm đối tượng vào chiến dịch</summary>
+public class CampaignSegmentViewModel
+{
+    public int CampaignId { get; set; }
+    public CampaignAudience Audience { get; set; } = CampaignAudience.Customers;
+
+    // Khách hàng
+    public CustomerType? CustomerType { get; set; }
+    public string? Industry { get; set; }
+    public string? City { get; set; }
+    /// <summary>true: mọi người liên hệ; false: chỉ liên hệ chính (không có liên hệ → dùng thông tin khách hàng)</summary>
+    public bool AllContacts { get; set; }
+
+    // Lead
+    public LeadStatus? LeadStatus { get; set; }
+    public LeadRating? LeadRating { get; set; }
+    public LeadSource? LeadSource { get; set; }
+
+    public int? OwnerId { get; set; }
+    public string? Keyword { get; set; }
+    /// <summary>Bỏ qua đối tượng thiếu thông tin liên lạc theo kênh (email cho Email, SĐT cho SMS/Zalo/Telesales)</summary>
+    public bool RequireChannelInfo { get; set; } = true;
+    /// <summary>Bỏ qua người đã từ chối nhận tin ở bất kỳ chiến dịch nào</summary>
+    public bool ExcludeUnsubscribed { get; set; } = true;
+
+    // Kết quả xem trước
+    public Campaign? Campaign { get; set; }
+    public bool Previewed { get; set; }
+    public List<CampaignMember> Preview { get; set; } = new();
+    public int ToAdd { get; set; }
+    public int SkippedDuplicate { get; set; }
+    public int SkippedNoInfo { get; set; }
+    public int SkippedUnsubscribed { get; set; }
 }

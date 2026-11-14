@@ -54,6 +54,7 @@ public class AttachmentService
             AttachmentTarget.Invoice => await _db.Invoices.FindAsync(id),
             AttachmentTarget.Payment => await _db.Payments.FindAsync(id),
             AttachmentTarget.Activity => await _db.Activities.FindAsync(id),
+            AttachmentTarget.Campaign => await _db.Campaigns.FindAsync(id),
             _ => null
         };
         if (type == AttachmentTarget.Product)

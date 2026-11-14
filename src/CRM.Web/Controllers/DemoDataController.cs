@@ -31,6 +31,7 @@ public class DemoDataController : CrmControllerBase
             (I18n.L("Hợp đồng", "Contracts"), "contract", await Db.Contracts.CountAsync()),
             (I18n.L("Hoá đơn", "Invoices"), "invoice", await Db.Invoices.CountAsync()),
             (I18n.T("Thanh toán"), "wallet", await Db.Payments.CountAsync()),
+            (I18n.T("Chiến dịch tiếp thị"), "campaign", await Db.Campaigns.CountAsync()),
         };
         return View();
     }
@@ -41,8 +42,8 @@ public class DemoDataController : CrmControllerBase
         if (!Sizes.Contains(customers)) return BadRequest();
         var r = await DemoDataGenerator.GenerateAsync(Db, customers);
         _catalogs.Invalidate();
-        TempData["Success"] = I18n.T("Đã nạp thêm: {0} khách hàng, {1} liên hệ, {2} lead, {3} cơ hội, {4} hoạt động, {5} báo giá, {6} PAKD, {7} hợp đồng, {8} hoá đơn, {9} phiếu thu.",
-            r.Customers, r.Contacts, r.Leads, r.Opportunities, r.Activities, r.Quotes, r.BusinessPlans, r.Contracts, r.Invoices, r.Payments);
+        TempData["Success"] = I18n.T("Đã nạp thêm: {0} khách hàng, {1} liên hệ, {2} lead, {3} cơ hội, {4} hoạt động, {5} báo giá, {6} PAKD, {7} hợp đồng, {8} hoá đơn, {9} phiếu thu, {10} chiến dịch tiếp thị.",
+            r.Customers, r.Contacts, r.Leads, r.Opportunities, r.Activities, r.Quotes, r.BusinessPlans, r.Contracts, r.Invoices, r.Payments, r.Campaigns);
         return RedirectToAction(nameof(Index));
     }
 }

@@ -351,5 +351,74 @@ public static class SchemaUpgrader
             CREATE UNIQUE INDEX [IX_SalesTargets_UserId_Year_Month] ON [dbo].[SalesTargets] ([UserId], [Year], [Month]);
         END
         """,
+
+        // ---------- Tiếp thị khách hàng: chiến dịch + đối tượng ----------
+        """
+        IF OBJECT_ID(N'[dbo].[Campaigns]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [dbo].[Campaigns] (
+                [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_Campaigns] PRIMARY KEY,
+                [Code] nvarchar(30) NOT NULL,
+                [Name] nvarchar(200) NOT NULL,
+                [Channel] int NOT NULL,
+                [Status] int NOT NULL,
+                [StartDate] datetime2 NOT NULL,
+                [EndDate] datetime2 NULL,
+                [Budget] decimal(18,0) NOT NULL,
+                [ActualCost] decimal(18,0) NOT NULL,
+                [ExpectedRevenue] decimal(18,0) NOT NULL,
+                [TargetLeads] int NULL,
+                [Objective] nvarchar(1000) NULL,
+                [Message] nvarchar(4000) NULL,
+                [OwnerId] int NULL CONSTRAINT [FK_Campaigns_Users_OwnerId] REFERENCES [dbo].[Users] ([Id]),
+                [CreatedAt] datetime2 NOT NULL,
+                [UpdatedAt] datetime2 NULL
+            );
+            CREATE UNIQUE INDEX [IX_Campaigns_Code] ON [dbo].[Campaigns] ([Code]);
+            CREATE INDEX [IX_Campaigns_Status] ON [dbo].[Campaigns] ([Status]);
+            CREATE INDEX [IX_Campaigns_OwnerId] ON [dbo].[Campaigns] ([OwnerId]);
+        END
+        """,
+        """
+        IF OBJECT_ID(N'[dbo].[CampaignMembers]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [dbo].[CampaignMembers] (
+                [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_CampaignMembers] PRIMARY KEY,
+                [CampaignId] int NOT NULL CONSTRAINT [FK_CampaignMembers_Campaigns_CampaignId] REFERENCES [dbo].[Campaigns] ([Id]),
+                [CustomerId] int NULL CONSTRAINT [FK_CampaignMembers_Customers_CustomerId] REFERENCES [dbo].[Customers] ([Id]),
+                [ContactId] int NULL CONSTRAINT [FK_CampaignMembers_Contacts_ContactId] REFERENCES [dbo].[Contacts] ([Id]),
+                [LeadId] int NULL CONSTRAINT [FK_CampaignMembers_Leads_LeadId] REFERENCES [dbo].[Leads] ([Id]),
+                [FullName] nvarchar(150) NOT NULL,
+                [Company] nvarchar(200) NULL,
+                [Email] nvarchar(150) NULL,
+                [Phone] nvarchar(20) NULL,
+                [Status] int NOT NULL,
+                [LastContactAt] datetime2 NULL,
+                [Note] nvarchar(500) NULL,
+                [AddedAt] datetime2 NOT NULL
+            );
+            CREATE INDEX [IX_CampaignMembers_CampaignId_Status] ON [dbo].[CampaignMembers] ([CampaignId], [Status]);
+            CREATE INDEX [IX_CampaignMembers_CustomerId] ON [dbo].[CampaignMembers] ([CustomerId]);
+            CREATE INDEX [IX_CampaignMembers_ContactId] ON [dbo].[CampaignMembers] ([ContactId]);
+            CREATE INDEX [IX_CampaignMembers_LeadId] ON [dbo].[CampaignMembers] ([LeadId]);
+        END
+        """,
+        // Gắn lead / cơ hội với chiến dịch mang lại (đo hiệu quả, ROI)
+        """
+        IF COL_LENGTH(N'dbo.Leads', N'CampaignId') IS NULL
+        BEGIN
+            ALTER TABLE [dbo].[Leads] ADD [CampaignId] int NULL
+                CONSTRAINT [FK_Leads_Campaigns_CampaignId] REFERENCES [dbo].[Campaigns] ([Id]);
+            EXEC(N'CREATE INDEX [IX_Leads_CampaignId] ON [dbo].[Leads] ([CampaignId])');
+        END
+        """,
+        """
+        IF COL_LENGTH(N'dbo.Opportunities', N'CampaignId') IS NULL
+        BEGIN
+            ALTER TABLE [dbo].[Opportunities] ADD [CampaignId] int NULL
+                CONSTRAINT [FK_Opportunities_Campaigns_CampaignId] REFERENCES [dbo].[Campaigns] ([Id]);
+            EXEC(N'CREATE INDEX [IX_Opportunities_CampaignId] ON [dbo].[Opportunities] ([CampaignId])');
+        END
+        """,
     };
 }

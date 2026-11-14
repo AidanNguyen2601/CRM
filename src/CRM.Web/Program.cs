@@ -70,6 +70,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<KpiService>();
+builder.Services.AddScoped<CampaignService>();
 
 var app = builder.Build();
 

@@ -48,6 +48,12 @@
                             <a class="@Active("BusinessPlans")" asp-controller="BusinessPlans" asp-action="Index">@Icon("plan")<span>@T("Phương án kinh doanh")</span></a>
                         </div></div>
                     </div>
+                    <div class="nav-block" data-nav="ops-marketing">
+                        <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Tiếp thị")</span>@Icon("chevron", "chev")</button>
+                        <div class="nav-items"><div class="nav-inner">
+                            <a class="@Active("Campaigns")" asp-controller="Campaigns" asp-action="Index">@Icon("campaign")<span>@T("Chiến dịch tiếp thị")</span></a>
+                        </div></div>
+                    </div>
                     <div class="nav-block" data-nav="ops-finance">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Hợp đồng & công nợ")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
@@ -130,6 +136,7 @@
                         <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@Icon("calendar")@T("Hoạt động")</a></li>
                         <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@Icon("quote")@L("Báo giá", "Quote")</a></li>
                         <li><a class="dropdown-item" asp-controller="BusinessPlans" asp-action="Create">@Icon("plan")@T("Phương án kinh doanh")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Campaigns" asp-action="Create">@Icon("campaign")@T("Chiến dịch tiếp thị")</a></li>
                         <li><hr class="dropdown-divider" /></li>
                         <li><a class="dropdown-item" asp-controller="Contracts" asp-action="Create">@Icon("contract")@T("Hợp đồng")</a></li>
                         <li><a class="dropdown-item" asp-controller="Invoices" asp-action="Create">@Icon("invoice")@T("Hoá đơn")</a></li>

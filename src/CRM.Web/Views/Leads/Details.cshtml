@@ -32,6 +32,11 @@
                 <dt class="col-5">@T("Điện thoại")</dt><dd class="col-7">@Model.Phone</dd>
                 <dt class="col-5">Email</dt><dd class="col-7">@Model.Email</dd>
                 <dt class="col-5">@T("Nguồn")</dt><dd class="col-7">@Model.Source.GetDisplayName()</dd>
+                @if (Model.Campaign != null)
+                {
+                    <dt class="col-5">@T("Chiến dịch")</dt>
+                    <dd class="col-7">@if (User.CanAccess(Model.Campaign)) { <a asp-controller="Campaigns" asp-action="Details" asp-route-id="@Model.CampaignId">@Model.Campaign.Name</a> } else { @Model.Campaign.Name }</dd>
+                }
                 <dt class="col-5">@T("Giá trị dự kiến")</dt><dd class="col-7">@Model.EstimatedValue.ToMoney()</dd>
                 <dt class="col-5">@T("Phụ trách")</dt><dd class="col-7">@Model.Owner?.FullName</dd>
                 <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@Model.CreatedAt.ToDate()</dd>

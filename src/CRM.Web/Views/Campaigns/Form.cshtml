@@ -1,0 +1,25 @@
+@model Campaign
+@{ ViewData["Title"] = Model.Id == 0 ? T("Tạo chiến dịch tiếp thị") : T("Sửa chiến dịch: {0}", Model.Code); }
+<div class="card" style="max-width:980px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" /><input type="hidden" asp-for="Status" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" readonly /></div>
+        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="@T("VD: Ưu đãi gia hạn bản quyền Q4")" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Channel" class="form-label"></label><select asp-for="Channel" class="form-select" asp-items="Html.GetEnumSelectList<CampaignChannel>()"></select></div>
+        <div class="col-md-3"><label asp-for="StartDate" class="form-label"></label><input asp-for="StartDate" class="form-control" /><span asp-validation-for="StartDate" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="EndDate" class="form-label"></label><input asp-for="EndDate" class="form-control" /><span asp-validation-for="EndDate" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="TargetLeads" class="form-label"></label><input asp-for="TargetLeads" class="form-control" /><span asp-validation-for="TargetLeads" class="text-danger small"></span></div>
+        @if (User.SeesAll()) { <div class="col-md-3"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
+        <div class="col-md-4"><label asp-for="Budget" class="form-label"></label><input asp-for="Budget" class="form-control" /><span asp-validation-for="Budget" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="ActualCost" class="form-label"></label><input asp-for="ActualCost" class="form-control" /><span asp-validation-for="ActualCost" class="text-danger small"></span>
+            <div class="form-text">@T("Cập nhật dần trong quá trình chạy để tính chi phí / lead và ROI.")</div></div>
+        <div class="col-md-4"><label asp-for="ExpectedRevenue" class="form-label"></label><input asp-for="ExpectedRevenue" class="form-control" /><span asp-validation-for="ExpectedRevenue" class="text-danger small"></span></div>
+        <div class="col-12"><label asp-for="Objective" class="form-label"></label><textarea asp-for="Objective" class="form-control" rows="2" placeholder="@T("Nhóm khách hàng hướng tới, kết quả mong muốn…")"></textarea></div>
+        <div class="col-12"><label asp-for="Message" class="form-label"></label><textarea asp-for="Message" class="form-control" rows="6" placeholder="@T("Nội dung email / tin nhắn / kịch bản gọi điện…")"></textarea></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="@(Model.Id == 0 ? "Index" : "Details")" asp-route-id="@(Model.Id == 0 ? (int?)null : Model.Id)" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

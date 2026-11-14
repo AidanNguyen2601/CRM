@@ -50,6 +50,11 @@
                 @if (o.IsClosed) { <dt class="col-5">@T("Ngày chốt")</dt><dd class="col-7">@o.ClosedAt.ToDate()</dd> }
                 @if (o.Stage == OpportunityStage.ClosedLost) { <dt class="col-5">@T("Lý do thua")</dt><dd class="col-7">@o.LostReason</dd> }
                 <dt class="col-5">@T("Nguồn")</dt><dd class="col-7">@o.Source?.GetDisplayName()</dd>
+                @if (o.Campaign != null)
+                {
+                    <dt class="col-5">@T("Chiến dịch")</dt>
+                    <dd class="col-7">@if (User.CanAccess(o.Campaign)) { <a asp-controller="Campaigns" asp-action="Details" asp-route-id="@o.CampaignId">@o.Campaign.Name</a> } else { @o.Campaign.Name }</dd>
+                }
                 <dt class="col-5">@T("Phụ trách")</dt><dd class="col-7">@o.Owner?.FullName</dd>
                 <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@o.CreatedAt.ToDate()</dd>
             </dl>

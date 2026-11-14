@@ -28,6 +28,8 @@ public class CrmDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<SalesTarget> SalesTargets => Set<SalesTarget>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<CampaignMember> CampaignMembers => Set<CampaignMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +56,10 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<SalesTarget>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });
+        modelBuilder.Entity<Campaign>().HasIndex(x => x.Code).IsUnique();
+        modelBuilder.Entity<Campaign>().HasIndex(x => x.Status);
+        modelBuilder.Entity<CampaignMember>().HasIndex(x => new { x.CampaignId, x.Status });
+        modelBuilder.Entity<CampaignMember>().HasOne(x => x.Campaign).WithMany(c => c.Members).HasForeignKey(x => x.CampaignId);
 
         // Không xóa dây chuyền: dữ liệu khách hàng phải xóa có chủ đích
         foreach (var fk in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))

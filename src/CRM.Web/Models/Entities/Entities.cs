@@ -209,6 +209,10 @@ public class Lead : IOwned
     [Display(Name = "Nhu cầu / ghi chú")]
     public string? Description { get; set; }
 
+    [Display(Name = "Chiến dịch")]
+    public int? CampaignId { get; set; }
+    public Campaign? Campaign { get; set; }
+
     public int? ConvertedCustomerId { get; set; }
     public Customer? ConvertedCustomer { get; set; }
     public int? ConvertedOpportunityId { get; set; }
@@ -253,6 +257,10 @@ public class Opportunity : IOwned
 
     [Display(Name = "Nguồn")]
     public LeadSource? Source { get; set; }
+
+    [Display(Name = "Chiến dịch")]
+    public int? CampaignId { get; set; }
+    public Campaign? Campaign { get; set; }
 
     [Display(Name = "Phụ trách")]
     public int? OwnerId { get; set; }

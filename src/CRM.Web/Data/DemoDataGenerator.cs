@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CRM.Web.Data;
 
 public record DemoDataResult(int Products, int Customers, int Contacts, int Leads, int Opportunities, int Activities,
-    int Quotes, int BusinessPlans, int Contracts, int Invoices, int Payments);
+    int Quotes, int BusinessPlans, int Contracts, int Invoices, int Payments, int Campaigns = 0);
 
 /// <summary>
 /// Sinh thêm dữ liệu mẫu nhất quán theo cả chuỗi nghiệp vụ, trải trong 12 tháng gần nhất:
@@ -351,9 +351,10 @@ public static class DemoDataGenerator
             await _db.SaveChangesAsync();
 
             await EnsureTargetsAsync();
+            var campaigns = await GenerateCampaignsAsync(n, customers, contactsByCustomer, leads, opps);
 
             return new DemoDataResult(newProducts, customers.Count, contacts.Count, leads.Count, opps.Count, acts.Count,
-                quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count);
+                quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count, campaigns);
         }
 
         /// <summary>
@@ -459,6 +460,132 @@ public static class DemoDataGenerator
         }
 
         // ================= Tiện ích sinh dữ liệu =================
+        /// <summary>
+        /// Chiến dịch tiếp thị trải trong 12 tháng: danh sách đối tượng (liên hệ chính + lead), trạng thái tiếp cận,
+        /// và gắn một phần lead / cơ hội phát sinh trong thời gian chạy vào chiến dịch để có số liệu ROI.
+        /// </summary>
+        private async Task<int> GenerateCampaignsAsync(int n, List<Customer> customers, Dictionary<int, List<Contact>> contactsByCustomer,
+            List<Lead> leads, List<Opportunity> opps)
+        {
+            var count = Math.Clamp(n / 12, 3, 12);
+            var seq = new Dictionary<int, int>();
+            var campaigns = new List<Campaign>();
+            for (var i = 0; i < count; i++)
+            {
+                // Chiến dịch cuối cùng ở tương lai gần (đang lên kế hoạch), còn lại rải trong 11 tháng qua
+                var start = i == count - 1 ? _today.AddDays(_r.Next(5, 25)) : _today.AddDays(-_r.Next(0, 330));
+                var end = start.AddDays(_r.Next(14, 61));
+                var year = start.Year;
+                if (!seq.ContainsKey(year))
+                {
+                    var prefix = $"CD{year}-";
+                    var codes = await _db.Campaigns.Where(c => c.Code.StartsWith(prefix)).Select(c => c.Code).ToListAsync();
+                    seq[year] = codes.Select(c => int.TryParse(c[prefix.Length..], out var x) ? x : 0).DefaultIfEmpty(0).Max();
+                }
+                var (name, channel) = Pick(CampaignIdeas);
+                var status = start > _today ? CampaignStatus.Planned
+                    : end >= _today ? CampaignStatus.Active
+                    : _r.Next(100) < 10 ? CampaignStatus.Cancelled : CampaignStatus.Completed;
+                var budget = RoundTo(_r.Next(2, 30) * 5_000_000m, 1_000_000);
+                var spent = status switch
+                {
+                    CampaignStatus.Planned => 0m,
+                    CampaignStatus.Active => RoundTo(budget * _r.Next(20, 70) / 100m, 500_000),
+                    CampaignStatus.Cancelled => RoundTo(budget * _r.Next(5, 40) / 100m, 500_000),
+                    _ => RoundTo(budget * _r.Next(60, 115) / 100m, 500_000)
+                };
+                campaigns.Add(new Campaign
+                {
+                    Code = $"CD{year}-{++seq[year]:000}", Name = $"{name} Q{(start.Month - 1) / 3 + 1}/{year}", Channel = channel, Status = status,
+                    StartDate = start, EndDate = end, Budget = budget, ActualCost = spent, ExpectedRevenue = budget * _r.Next(4, 12),
+                    TargetLeads = _r.Next(2, 8) * 5, OwnerId = Pick(_approvers.Count > 0 ? _approvers : _owners).Id,
+                    Objective = Pick(CampaignObjectives), Message = CampaignMessage, CreatedAt = start.AddDays(-_r.Next(7, 21))
+                });
+            }
+            _db.Campaigns.AddRange(campaigns);
+            await _db.SaveChangesAsync();
+
+            var openLeads = leads.Where(l => l.Status != LeadStatus.Converted).ToList();
+            var members = new List<CampaignMember>();
+            foreach (var c in campaigns)
+            {
+                var started = c.Status != CampaignStatus.Planned;
+                var done = c.Status is CampaignStatus.Completed or CampaignStatus.Cancelled;
+                var lastDay = c.EndDate!.Value < _today ? c.EndDate.Value : _today;
+                CampaignMemberStatus MemberStatus() => !started ? CampaignMemberStatus.Pending : Weighted(
+                    (CampaignMemberStatus.Pending, done ? 3 : 30), (CampaignMemberStatus.Sent, 40), (CampaignMemberStatus.Responded, 14),
+                    (CampaignMemberStatus.Declined, 8), (CampaignMemberStatus.Unsubscribed, 2), (CampaignMemberStatus.Failed, 6));
+                DateTime? Touched(CampaignMemberStatus s) => s == CampaignMemberStatus.Pending ? null
+                    : c.StartDate.AddDays(_r.Next(0, Math.Max(1, (lastDay - c.StartDate).Days + 1))).AddHours(_r.Next(8, 18));
+
+                foreach (var cu in customers.Where(_ => _r.Next(100) < 35))
+                {
+                    var ct = contactsByCustomer.TryGetValue(cu.Id, out var cs) && cs.Count > 0 ? cs[0] : null;
+                    var s = MemberStatus();
+                    members.Add(new CampaignMember
+                    {
+                        CampaignId = c.Id, CustomerId = cu.Id, ContactId = ct?.Id, FullName = ct?.FullName ?? cu.Name, Company = cu.Name,
+                        Email = ct?.Email ?? cu.Email, Phone = ct?.Phone ?? cu.Phone, Status = s, LastContactAt = Touched(s), AddedAt = c.CreatedAt
+                    });
+                }
+                foreach (var l in openLeads.Where(_ => _r.Next(100) < 25))
+                {
+                    var s = MemberStatus();
+                    members.Add(new CampaignMember
+                    {
+                        CampaignId = c.Id, LeadId = l.Id, FullName = l.FullName, Company = l.Company, Email = l.Email, Phone = l.Phone,
+                        Status = s, LastContactAt = Touched(s), AddedAt = c.CreatedAt
+                    });
+                }
+
+                if (!started) continue;
+                // Lead phát sinh trong thời gian chiến dịch, cùng nguồn với kênh → quy về chiến dịch
+                var src = Campaign.LeadSourceFor(c.Channel);
+                var window = c.EndDate.Value.AddDays(14);
+                foreach (var l in leads.Where(l => l.CampaignId == null && l.CreatedAt >= c.StartDate && l.CreatedAt <= window
+                                                   && (l.Source == src || _r.Next(100) < 15)))
+                    l.CampaignId = c.Id;
+                // Cơ hội của khách hàng là đối tượng chiến dịch, tạo trong thời gian chạy → quy về chiến dịch
+                var memberCustomers = members.Where(m => m.CampaignId == c.Id && m.CustomerId != null && m.Status != CampaignMemberStatus.Unsubscribed)
+                    .Select(m => m.CustomerId!.Value).ToHashSet();
+                foreach (var o in opps.Where(o => o.CampaignId == null && o.CustomerId != null && memberCustomers.Contains(o.CustomerId.Value)
+                                                  && o.CreatedAt >= c.StartDate && o.CreatedAt <= window && _r.Next(100) < 60))
+                {
+                    o.CampaignId = c.Id;
+                    var m = members.FirstOrDefault(x => x.CampaignId == c.Id && x.CustomerId == o.CustomerId);
+                    if (m != null) { m.Status = CampaignMemberStatus.Converted; m.LastContactAt ??= o.CreatedAt; }
+                }
+            }
+            _db.CampaignMembers.AddRange(members);
+            await _db.SaveChangesAsync();
+            return campaigns.Count;
+        }
+
+        private static readonly (string Name, CampaignChannel Channel)[] CampaignIdeas =
+        {
+            ("Email giới thiệu giải pháp mới", CampaignChannel.Email),
+            ("Ưu đãi gia hạn hợp đồng", CampaignChannel.Email),
+            ("Bản tin khách hàng", CampaignChannel.Email),
+            ("SMS chúc mừng & khuyến mãi", CampaignChannel.Sms),
+            ("Chăm sóc qua Zalo OA", CampaignChannel.Zalo),
+            ("Quảng cáo Facebook / LinkedIn", CampaignChannel.Social),
+            ("Hội thảo chuyển đổi số", CampaignChannel.Event),
+            ("Gọi điện khách hàng cũ", CampaignChannel.Telesales),
+            ("Webinar demo sản phẩm", CampaignChannel.Webinar),
+        };
+
+        private static readonly string[] CampaignObjectives =
+        {
+            "Khách hàng đang giao dịch – bán thêm / bán chéo dịch vụ, mục tiêu tăng 10% doanh số nhóm khách hàng cũ.",
+            "Doanh nghiệp vừa và nhỏ khu vực phía Bắc – thu thập lead mới cho đội kinh doanh.",
+            "Khách hàng tiềm năng chưa phát sinh đơn hàng – kích hoạt lại nhu cầu, đặt lịch demo.",
+            "Khách hàng sắp hết hạn hợp đồng – gia hạn sớm với ưu đãi.",
+        };
+
+        private const string CampaignMessage =
+            "Kính gửi Quý khách,\n\nNhân dịp ra mắt gói dịch vụ mới, chúng tôi trân trọng gửi tới Quý khách ưu đãi giảm 10% cho đơn hàng ký trong tháng.\n" +
+            "Vui lòng phản hồi email này hoặc liên hệ nhân viên phụ trách để được tư vấn chi tiết.\n\nTrân trọng.";
+
         private T Pick<T>(IReadOnlyList<T> list) => list[_r.Next(list.Count)];
         private T Pick<T>(T[] arr) => arr[_r.Next(arr.Length)];
 

@@ -13,6 +13,7 @@ Hệ thống quản lý quan hệ khách hàng (CRM) cơ bản cho đội kinh d
 | Người liên hệ | Nhiều liên hệ mỗi khách hàng, đánh dấu liên hệ chính |
 | Cơ hội bán hàng | 4 giai đoạn mở + Thắng/Thua, xác suất mặc định theo giai đoạn, bắt buộc lý do thua; **Pipeline Kanban** đổi giai đoạn ngay trên thẻ; thắng cơ hội tự nâng khách tiềm năng thành khách hàng |
 | Hoạt động | Cuộc gọi, cuộc họp, email, công việc; lọc hôm nay / quá hạn / đã xong; hoàn thành kèm kết quả; timeline trên từng khách hàng, lead, cơ hội |
+| Tiếp thị khách hàng | Chiến dịch theo kênh (Email, SMS, Zalo, mạng xã hội, sự kiện, telesales, webinar), ngân sách / chi phí thực tế / doanh số kỳ vọng, nội dung thông điệp; **lập danh sách đối tượng** từ phân khúc khách hàng (phân loại, ngành, tỉnh, phụ trách) hoặc lead (trạng thái, mức độ, nguồn): tự bỏ trùng, bỏ người thiếu email/SĐT theo kênh, loại người đã từ chối nhận tin; cập nhật trạng thái tiếp cận hàng loạt (tùy chọn ghi vào lịch sử chăm sóc); xuất CSV; gắn lead / cơ hội với chiến dịch (chuyển đổi lead giữ nguyên chiến dịch) → phễu, tỷ lệ phản hồi, chi phí / lead, doanh số thắng, ROI |
 | Sản phẩm / dịch vụ | Danh mục, đơn vị tính, đơn giá (Quản lý cập nhật) |
 | Báo giá | Nhiều dòng sản phẩm, chiết khấu từng dòng + chiết khấu chung, VAT 0/5/8/10%, tính tiền trực tiếp trên form; gửi → khách chấp nhận (tự cập nhật giá trị & giai đoạn cơ hội) / từ chối; nhân bản; in / lưu PDF |
 | Người dùng | Tạo tài khoản, vai trò, khóa/mở, thống kê số lead/cơ hội/khách hàng đang phụ trách |

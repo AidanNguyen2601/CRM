@@ -1,0 +1,64 @@
+@model PagedList<Campaign>
+@{
+    ViewData["Title"] = T("Chiến dịch tiếp thị");
+    var f = (CampaignFilter)ViewBag.Filter;
+    var counts = (Dictionary<CampaignStatus, int>)ViewBag.Counts;
+    var stats = (Dictionary<int, CampaignStats>)ViewBag.Stats;
+    var tot = (CampaignStats)ViewBag.Total;
+    var years = (List<int>)ViewBag.Years;
+    string Tab(CampaignStatus? s) => f.Status == s ? "active" : "";
+    int Count(CampaignStatus s) => counts.TryGetValue(s, out var n) ? n : 0;
+}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="card stat"><div class="label">@Icon("campaign", "stat-ico")@T("Đang triển khai")</div><div class="value">@Count(CampaignStatus.Active)</div><div class="small text-muted">@T("{0} đối tượng · tiếp cận {1}%", tot.Members, tot.ReachRate)</div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat"><div class="label">@Icon("lead", "stat-ico")@T("Lead mang lại")</div><div class="value">@tot.Leads</div><div class="small text-muted">@T("Chi phí / lead: {0}", tot.CostPerLead?.ToShortMoney() ?? "—")</div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat"><div class="label">@Icon("trophy", "stat-ico")@T("Doanh số thắng")</div><div class="value text-success">@tot.Won.ToShortMoney()</div><div class="small text-muted">@T("{0} cơ hội · pipeline {1}", tot.Opportunities, tot.Pipeline.ToShortMoney())</div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat"><div class="label">@Icon("coins", "stat-ico")@T("Chi phí · ROI")</div><div class="value"><span>@tot.Cost.ToShortMoney()</span> <small class="fs-6 @CampaignStats.RoiCss(tot.Roi)">@(tot.Roi.HasValue ? $"ROI {tot.Roi:0}%" : "")</small></div><div class="small text-muted">@T("Đã dùng {0}% ngân sách {1}", tot.BudgetUsed, tot.Budget.ToShortMoney())</div></div></div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    <li class="nav-item"><a class="nav-link @Tab(null)" asp-route-Keyword="@f.Keyword" asp-route-Channel="@f.Channel" asp-route-Year="@f.Year" asp-route-OwnerId="@f.OwnerId">@T("Tất cả") <span class="badge bg-secondary">@counts.Values.Sum()</span></a></li>
+    @foreach (var s in Enum.GetValues<CampaignStatus>())
+    {
+        <li class="nav-item"><a class="nav-link @Tab(s)" asp-route-Status="@s" asp-route-Keyword="@f.Keyword" asp-route-Channel="@f.Channel" asp-route-Year="@f.Year" asp-route-OwnerId="@f.OwnerId">@s.GetDisplayName() <span class="badge bg-secondary">@Count(s)</span></a></li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="Status" value="@f.Status" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Mã, tên chiến dịch")" /></div>
+    <div><label class="form-label small mb-1">@T("Kênh")</label><select name="Channel" class="form-select" asp-items="Html.GetEnumSelectList<CampaignChannel>().Select(i => { i.Selected = i.Value == ((int?)f.Channel)?.ToString(); return i; })"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Năm")</label><select name="Year" class="form-select"><option value="">@T("-- Tất cả --")</option>@foreach (var y in years) { <option value="@y" selected="@(f.Year == y)">@y</option> }</select></div>
+    @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create">@Icon("plus") @T("Tạo chiến dịch")</a>
+</form>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Mã")</th><th>@T("Tên chiến dịch")</th><th>@T("Kênh")</th><th>@T("Thời gian")</th><th class="text-end">@T("Đối tượng")</th><th class="text-end">@T("Phản hồi")</th><th class="text-end">Lead</th><th class="money">@T("Doanh số thắng")</th><th class="money">@T("Chi phí")</th><th class="text-end">ROI</th><th>@T("Trạng thái")</th><th>@T("Phụ trách")</th></tr></thead>
+    <tbody>
+    @foreach (var c in Model.Items)
+    {
+        var s = stats[c.Id];
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@c.Id" class="fw-semibold text-nowrap">@c.Code</a></td>
+            <td>@c.Name</td>
+            <td class="text-nowrap">@Icon(ForChannel(c.Channel)) @c.Channel.GetDisplayName()</td>
+            <td class="text-nowrap small">@c.StartDate.ToDate()@(c.EndDate.HasValue ? " – " + c.EndDate.ToDate() : "")</td>
+            <td class="text-end">@s.Members</td>
+            <td class="text-end">@(s.Reached > 0 ? s.ResponseRate.ToString("0.#") + "%" : "—")</td>
+            <td class="text-end">@s.Leads@(c.TargetLeads > 0 ? $"/{c.TargetLeads}" : "")</td>
+            <td class="money">@s.Won.ToMoney()</td>
+            <td class="money">@c.ActualCost.ToMoney()</td>
+            <td class="text-end fw-semibold @CampaignStats.RoiCss(s.Roi)">@(s.Roi.HasValue ? s.Roi.Value.ToString("0") + "%" : "—")</td>
+            <td><partial name="_Badge" model="c.Status" /></td>
+            <td>@c.Owner?.FullName</td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="12" class="text-center text-muted p-4">@T("Chưa có chiến dịch tiếp thị.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-muted">@T("{0} chiến dịch", Model.TotalCount)</span>
+    <partial name="_Pager" model="Model" />
+</div></div>

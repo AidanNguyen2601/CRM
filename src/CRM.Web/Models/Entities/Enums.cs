@@ -137,5 +137,6 @@ public enum AttachmentTarget
     Invoice = 7,
     Payment = 8,
     Activity = 9,
-    Product = 10
+    Product = 10,
+    Campaign = 11
 }

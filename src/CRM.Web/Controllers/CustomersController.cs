@@ -58,7 +58,9 @@ public class CustomersController : CrmControllerBase
             Opportunities = await Db.Opportunities.Include(o => o.Owner).Where(o => o.CustomerId == id).OrderByDescending(o => o.CreatedAt).ToListAsync(),
             Quotes = await Db.Quotes.Where(q => q.CustomerId == id).OrderByDescending(q => q.QuoteDate).ToListAsync(),
             Activities = await Db.Activities.Include(a => a.Owner).Include(a => a.Contact).Where(a => a.CustomerId == id)
-                .OrderByDescending(a => a.DueDate).Take(30).ToListAsync()
+                .OrderByDescending(a => a.DueDate).Take(30).ToListAsync(),
+            Campaigns = await Db.CampaignMembers.Include(m => m.Campaign).AsNoTracking().Where(m => m.CustomerId == id)
+                .OrderByDescending(m => m.Campaign!.StartDate).Take(20).ToListAsync()
         });
     }
 
@@ -127,6 +129,7 @@ public class CustomersController : CrmControllerBase
             TempData["Error"] = I18n.T("Khách hàng đã có dữ liệu liên quan (liên hệ, cơ hội, báo giá, hoạt động). Hãy chuyển phân loại sang 'Ngừng giao dịch'.");
             return RedirectToAction(nameof(Details), new { id });
         }
+        await HttpContext.RequestServices.GetRequiredService<CampaignService>().DetachAsync(customerId: c.Id);
         Db.Customers.Remove(c);
         await Db.SaveChangesAsync();
         await DeleteAttachmentsAsync(AttachmentTarget.Customer, c.Id);

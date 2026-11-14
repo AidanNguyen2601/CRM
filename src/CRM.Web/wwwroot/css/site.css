@@ -229,3 +229,8 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .kpi-legend.target { background: #cbd5e1; } .kpi-legend.actual { background: #60a5fa; } .kpi-legend.hit { background: var(--accent); }
 .kpi-targets input.form-control-sm { min-width: 0; padding-left: 4px; padding-right: 4px; }
 .kpi-targets .year-total { background: #f0fdfa; font-weight: 600; }
+
+/* ---------- Tiếp thị khách hàng ---------- */
+.campaign-message { max-height: 260px; overflow: auto; background: #f8fafc; border: 1px solid #eef2f6; border-radius: 6px; padding: 10px 12px; }
+.member-bulk { border-bottom: 1px solid #eef2f6; }
+.member-bulk .form-select, .member-bulk .form-control { min-width: 170px; }

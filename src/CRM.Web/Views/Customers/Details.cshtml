@@ -63,6 +63,21 @@
                 </tbody>
             </table></div>
         </div>
+        @if (Model.Campaigns.Any())
+        {
+            <div class="card mb-3"><div class="card-header">@Icon("campaign") @T("Chiến dịch tiếp thị đã tham gia")</div>
+                <div class="card-body p-0"><table class="table mb-0">
+                    <thead><tr><th>@T("Chiến dịch")</th><th>@T("Kênh")</th><th>@T("Người nhận")</th><th>@T("Trạng thái")</th><th>@T("Lần tiếp cận gần nhất")</th></tr></thead>
+                    <tbody>
+                    @foreach (var m in Model.Campaigns)
+                    {
+                        <tr><td>@if (m.Campaign != null && User.CanAccess(m.Campaign)) { <a asp-controller="Campaigns" asp-action="Details" asp-route-id="@m.CampaignId">@m.Campaign.Name</a> } else { @m.Campaign?.Name }</td>
+                            <td>@m.Campaign?.Channel.GetDisplayName()</td><td>@m.FullName</td><td><partial name="_Badge" model="m.Status" /></td><td class="small">@m.LastContactAt?.ToDate()</td></tr>
+                    }
+                    </tbody>
+                </table></div>
+            </div>
+        }
         <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("contract") @T("Hợp đồng & công nợ")</span>
             <a class="small fw-normal" asp-controller="Invoices" asp-action="Index" asp-route-CustomerId="@c.Id" asp-route-View="all">@T("Xem hoá đơn")</a></div>
             <div class="card-body pb-0">

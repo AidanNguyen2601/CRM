@@ -12,6 +12,13 @@
         CustomerType.Partner => "bg-primary",
         ContractStatus.Active or InvoiceStatus.Issued => "bg-primary",
         ContractStatus.Liquidated => "bg-dark",
+        CampaignStatus.Planned or CampaignMemberStatus.Pending => "bg-secondary",
+        CampaignStatus.Active or CampaignMemberStatus.Sent => "bg-primary",
+        CampaignStatus.Completed or CampaignMemberStatus.Converted => "bg-success",
+        CampaignStatus.Cancelled or CampaignMemberStatus.Unsubscribed => "bg-danger",
+        CampaignMemberStatus.Responded => "bg-info text-dark",
+        CampaignMemberStatus.Declined => "bg-warning text-dark",
+        CampaignMemberStatus.Failed => "bg-light text-dark border",
         _ => "bg-light text-dark border"
     };
 }
