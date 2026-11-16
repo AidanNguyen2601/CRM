@@ -39,29 +39,13 @@ public class CustomersController : CrmControllerBase
         return View(new PagedList<Customer>(items, total, f.Page, f.PageSize));
     }
 
-    public async Task<IActionResult> Details(int id)
+    /// <summary>Khách hàng 360°: toàn bộ quan hệ, bán hàng, tài chính, chăm sóc của một khách hàng</summary>
+    public async Task<IActionResult> Details(int id, [FromServices] Customer360Service svc)
     {
-        var c = await Db.Customers.Include(x => x.Owner).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var c = await Db.Customers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (c == null) return NotFound();
         if (!User.CanAccess(c)) return NotAllowed();
-        var billable = Db.Invoices.Where(i => i.CustomerId == id && (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.PartiallyPaid || i.Status == InvoiceStatus.Paid));
-        var open = billable.Where(i => i.Status != InvoiceStatus.Paid);
-        return View(new CustomerDetailViewModel
-        {
-            Customer = c,
-            Contracts = await Db.Contracts.Where(x => x.CustomerId == id).OrderByDescending(x => x.SignDate ?? x.CreatedAt).ToListAsync(),
-            Invoiced = await billable.SumAsync(i => (decimal?)i.Total) ?? 0,
-            Paid = await Db.Payments.Where(p => p.CustomerId == id).SumAsync(p => (decimal?)p.Amount) ?? 0,
-            Receivable = await open.SumAsync(i => (decimal?)(i.Total - i.PaidAmount)) ?? 0,
-            Overdue = await open.Where(i => i.DueDate != null && i.DueDate < DateTime.Today).SumAsync(i => (decimal?)(i.Total - i.PaidAmount)) ?? 0,
-            Contacts = await Db.Contacts.Where(x => x.CustomerId == id).OrderByDescending(x => x.IsPrimary).ThenBy(x => x.FullName).ToListAsync(),
-            Opportunities = await Db.Opportunities.Include(o => o.Owner).Where(o => o.CustomerId == id).OrderByDescending(o => o.CreatedAt).ToListAsync(),
-            Quotes = await Db.Quotes.Where(q => q.CustomerId == id).OrderByDescending(q => q.QuoteDate).ToListAsync(),
-            Activities = await Db.Activities.Include(a => a.Owner).Include(a => a.Contact).Where(a => a.CustomerId == id)
-                .OrderByDescending(a => a.DueDate).Take(30).ToListAsync(),
-            Campaigns = await Db.CampaignMembers.Include(m => m.Campaign).AsNoTracking().Where(m => m.CustomerId == id)
-                .OrderByDescending(m => m.Campaign!.StartDate).Take(20).ToListAsync()
-        });
+        return View(await svc.BuildAsync(id));
     }
 
     public async Task<IActionResult> Create()

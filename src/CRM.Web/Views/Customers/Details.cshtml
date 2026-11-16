@@ -1,122 +1,427 @@
-@model CustomerDetailViewModel
+@* Khách hàng 360° – mọi dữ liệu của một khách hàng trên một trang, chia tab. Dữ liệu: Customer360Service *@
+@model Customer360ViewModel
 @{
     var c = Model.Customer;
     ViewData["Title"] = c.Name;
+    var h = Model.Health;
+    var maxMonth = Math.Max(1m, Model.Monthly.Max(x => Math.Max(x.Invoiced, x.Collected)));
+    var primary = Model.Contacts.FirstOrDefault(x => x.IsPrimary) ?? Model.Contacts.FirstOrDefault();
+    var tenure = (DateTime.Today.Year - Model.CustomerSince.Year) * 12 + DateTime.Today.Month - Model.CustomerSince.Month;
+    var today = DateTime.Today;
 }
 <div class="toolbar">
     <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@c.Id">@T("Sửa")</a>
-    <a class="btn btn-outline-secondary" asp-controller="Contacts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Liên hệ")</a>
-    <a class="btn btn-outline-secondary" asp-controller="Opportunities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Cơ hội")</a>
     <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hoạt động")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Opportunities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Cơ hội")</a>
     <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Báo giá")</a>
     <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hợp đồng")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Contacts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Liên hệ")</a>
     <form asp-action="Delete" asp-route-id="@c.Id" method="post" data-confirm="@T("Xóa khách hàng {0}?", c.Name)" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
 </div>
-<div class="row g-3">
-    <div class="col-lg-4">
-        <div class="card mb-3"><div class="card-body">
-            <h5 class="mb-0">@c.Name</h5>
-            <div class="text-muted mb-2">@c.Code · @Catalogs.Text(CatalogGroup.Industry, c.Industry)</div>
-            <partial name="_Badge" model="c.Type" />
-            <div class="row text-center mt-3">
-                <div class="col"><div class="small text-muted">@T("Đã thắng")</div><div class="fw-bold text-success">@Model.WonTotal.ToShortMoney()</div></div>
-                <div class="col"><div class="small text-muted">@T("Đang mở")</div><div class="fw-bold">@Model.OpenTotal.ToShortMoney()</div></div>
-            </div>
-            <hr />
-            <dl class="row small mb-0 info">
-                <dt class="col-5">MST</dt><dd class="col-7">@c.TaxCode</dd>
-                <dt class="col-5">@T("Điện thoại")</dt><dd class="col-7">@c.Phone</dd>
-                <dt class="col-5">Email</dt><dd class="col-7">@c.Email</dd>
-                <dt class="col-5">Website</dt><dd class="col-7">@c.Website</dd>
-                <dt class="col-5">@T("Địa chỉ")</dt><dd class="col-7">@c.Address @Catalogs.Text(CatalogGroup.City, c.City)</dd>
-                <dt class="col-5">@T("Số nhân sự")</dt><dd class="col-7">@c.EmployeeCount</dd>
-                <dt class="col-5">@T("Phụ trách")</dt><dd class="col-7">@c.Owner?.FullName</dd>
-                <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@c.CreatedAt.ToDate()</dd>
-            </dl>
-            @if (!string.IsNullOrEmpty(c.Description)) { <hr /><div class="small pre">@c.Description</div> }
-        </div></div>
-        <div class="card"><div class="card-header">@T("Người liên hệ ({0})", Model.Contacts.Count)</div>
-            <ul class="list-group list-group-flush">
-                @foreach (var ct in Model.Contacts)
-                {
-                    <li class="list-group-item small">
-                        <a asp-controller="Contacts" asp-action="Edit" asp-route-id="@ct.Id" class="fw-semibold">@ct.FullName</a>
-                        @if (ct.IsPrimary) { <span class="badge bg-success">@T("Chính")</span> }
-                        <div class="text-muted">@ct.JobTitle</div>
-                        <div>@ct.Phone @(ct.Email != null ? "· " + ct.Email : "")</div>
-                    </li>
-                }
-            </ul>
+
+@* ---------- Hồ sơ + sức khỏe ---------- *@
+<div class="card mb-3 c360-head"><div class="card-body d-flex flex-wrap gap-4 align-items-center">
+    <div class="c360-logo">@(c.Name.Length > 0 ? c.Name.Substring(0, 1).ToUpper() : "?")</div>
+    <div class="flex-grow-1" style="min-width:240px">
+        <h4 class="mb-1">@c.Name <partial name="_Badge" model="c.Type" /></h4>
+        <div class="text-muted small d-flex flex-wrap gap-3">
+            <span>@c.Code</span>
+            @if (!string.IsNullOrEmpty(c.Industry)) { <span>@Icon("industry") @Catalogs.Text(CatalogGroup.Industry, c.Industry)</span> }
+            @if (!string.IsNullOrEmpty(c.City)) { <span>@Icon("city") @Catalogs.Text(CatalogGroup.City, c.City)</span> }
+            @if (c.Owner != null) { <span>@Icon("contact") @T("Phụ trách: {0}", c.Owner.FullName)</span> }
+            <span>@Icon("calendar") @T("Khách hàng từ {0}", Model.CustomerSince.ToDate()) (@(tenure >= 12 ? T("{0} năm {1} tháng", tenure / 12, tenure % 12) : T("{0} tháng", Math.Max(0, tenure))))</span>
+        </div>
+        <div class="small mt-2 d-flex flex-wrap gap-3">
+            @if (!string.IsNullOrEmpty(c.Phone)) { <a href="tel:@c.Phone">@Icon("call") @c.Phone</a> }
+            @if (!string.IsNullOrEmpty(c.Email)) { <a href="mailto:@c.Email">@Icon("email") @c.Email</a> }
+            @if (!string.IsNullOrEmpty(c.Website)) { <a href="@(c.Website.StartsWith("http") ? c.Website : "https://" + c.Website)" target="_blank" rel="noopener">@Icon("globe") @c.Website</a> }
+            @if (primary != null) { <span>@Icon("badge") @primary.FullName @(primary.JobTitle != null ? "– " + primary.JobTitle : "") @primary.Phone</span> }
         </div>
     </div>
-    <div class="col-lg-8">
-        <div class="card mb-3"><div class="card-header">@T("Cơ hội bán hàng")</div>
-            <div class="card-body p-0"><table class="table mb-0">
-                <thead><tr><th>@T("Cơ hội")</th><th>@T("Giai đoạn")</th><th class="money">@T("Giá trị")</th><th>@T("Dự kiến chốt")</th><th>@T("Phụ trách")</th></tr></thead>
-                <tbody>
-                @foreach (var o in Model.Opportunities)
-                {
-                    <tr><td><a asp-controller="Opportunities" asp-action="Details" asp-route-id="@o.Id">@o.Name</a></td><td><partial name="_Badge" model="o.Stage" /></td>
-                        <td class="money">@o.Amount.ToMoney()</td><td>@o.ExpectedCloseDate.ToDate()</td><td>@o.Owner?.FullName</td></tr>
-                }
-                @if (!Model.Opportunities.Any()) { <tr><td colspan="5" class="text-muted p-3">@T("Chưa có cơ hội.")</td></tr> }
-                </tbody>
-            </table></div>
+    <div class="c360-health @h.Level" title="@T("Điểm sức khỏe khách hàng")">
+        <div class="ring" style="--p:@h.Score"><span>@h.Score</span></div>
+        <div>
+            <div class="small text-muted">@T("Sức khỏe khách hàng")</div>
+            <div class="fw-bold lvl">@CustomerHealth.LevelText(h.Level)</div>
+            <a href="#overview" class="small" data-tab-link="overview">@T("Xem chi tiết")</a>
         </div>
-        @if (Model.Campaigns.Any())
-        {
-            <div class="card mb-3"><div class="card-header">@Icon("campaign") @T("Chiến dịch tiếp thị đã tham gia")</div>
-                <div class="card-body p-0"><table class="table mb-0">
-                    <thead><tr><th>@T("Chiến dịch")</th><th>@T("Kênh")</th><th>@T("Người nhận")</th><th>@T("Trạng thái")</th><th>@T("Lần tiếp cận gần nhất")</th></tr></thead>
-                    <tbody>
-                    @foreach (var m in Model.Campaigns)
-                    {
-                        <tr><td>@if (m.Campaign != null && User.CanAccess(m.Campaign)) { <a asp-controller="Campaigns" asp-action="Details" asp-route-id="@m.CampaignId">@m.Campaign.Name</a> } else { @m.Campaign?.Name }</td>
-                            <td>@m.Campaign?.Channel.GetDisplayName()</td><td>@m.FullName</td><td><partial name="_Badge" model="m.Status" /></td><td class="small">@m.LastContactAt?.ToDate()</td></tr>
-                    }
-                    </tbody>
-                </table></div>
+    </div>
+</div></div>
+
+@* ---------- Chỉ số ---------- *@
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-2"><div class="card stat h-100"><div class="label">@Icon("invoice", "stat-ico")@T("Doanh thu lũy kế")</div><div class="value">@Model.Invoiced.ToShortMoney()</div><div class="small text-muted">@T("12 tháng: {0}", Model.Invoiced12m.ToShortMoney())</div></div></div>
+    <div class="col-6 col-lg-2"><div class="card stat h-100"><div class="label">@Icon("receivable", "stat-ico")@T("Còn phải thu")</div><div class="value @(Model.Overdue > 0 ? "text-danger" : "")">@Model.Receivable.ToShortMoney()</div><div class="small @(Model.Overdue > 0 ? "text-danger" : "text-muted")">@T("Quá hạn {0}", Model.Overdue.ToShortMoney())</div></div></div>
+    <div class="col-6 col-lg-2"><div class="card stat h-100"><div class="label">@Icon("trending", "stat-ico")@T("Pipeline đang mở")</div><div class="value">@Model.OpenPipeline.ToShortMoney()</div><div class="small text-muted">@T("{0} cơ hội · trọng số {1}", Model.OpenOpportunities, Model.WeightedPipeline.ToShortMoney())</div></div></div>
+    <div class="col-6 col-lg-2"><div class="card stat h-100"><div class="label">@Icon("trophy", "stat-ico")@T("Đã thắng")</div><div class="value text-success">@Model.WonTotal.ToShortMoney()</div><div class="small text-muted">@(Model.ClosedCount > 0 ? T("Tỷ lệ thắng {0}%", Model.WinRate) : T("Chưa có cơ hội đóng"))</div></div></div>
+    <div class="col-6 col-lg-2"><div class="card stat h-100"><div class="label">@Icon("contract", "stat-ico")@T("Hợp đồng")</div><div class="value">@Model.ContractValue.ToShortMoney()</div><div class="small text-muted">@T("{0} đang thực hiện / {1}", Model.ActiveContracts, Model.Contracts.Count)</div></div></div>
+    <div class="col-6 col-lg-2"><div class="card stat h-100"><div class="label">@Icon("call", "stat-ico")@T("Tương tác gần nhất")</div>
+        <div class="value @(Model.DaysSinceInteraction is null or > Customer360Service.InactiveDays ? "text-warning" : "")">@(Model.DaysSinceInteraction is int d ? (d == 0 ? T("Hôm nay") : T("{0} ngày", d)) : "—")</div>
+        <div class="small text-muted">@T("{0} việc sắp tới", Model.Upcoming.Count)</div></div></div>
+</div>
+
+@* ---------- Tabs ---------- *@
+<ul class="nav nav-tabs c360-tabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-overview" data-tab="overview" type="button">@Icon("dashboard") @T("Tổng quan")
+        @if (Model.Alerts.Any(a => a.Level != "info")) { <span class="badge rounded-pill bg-danger">@Model.Alerts.Count(a => a.Level != "info")</span> }</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-timeline" data-tab="timeline" type="button">@Icon("calendar") @T("Dòng thời gian") <span class="badge rounded-pill text-bg-light">@Model.Timeline.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sales" data-tab="sales" type="button">@Icon("opportunity") @T("Bán hàng") <span class="badge rounded-pill text-bg-light">@(Model.Opportunities.Count + Model.Quotes.Count + Model.Plans.Count)</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-finance" data-tab="finance" type="button">@Icon("wallet") @T("Hợp đồng & tài chính") <span class="badge rounded-pill text-bg-light">@(Model.Contracts.Count + Model.Invoices.Count)</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-products" data-tab="products" type="button">@Icon("product") @T("Sản phẩm đã mua") <span class="badge rounded-pill text-bg-light">@Model.Products.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-contacts" data-tab="contacts" type="button">@Icon("contact") @T("Liên hệ & tiếp thị") <span class="badge rounded-pill text-bg-light">@Model.Contacts.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-docs" data-tab="docs" type="button">@Icon("paperclip") @T("Tài liệu")</button></li>
+</ul>
+<div class="tab-content c360-body">
+
+@* ===== Tổng quan ===== *@
+<div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="card mb-3"><div class="card-header">@Icon("alert") @T("Cần chú ý")</div>
+                @if (!Model.Alerts.Any())
+                {
+                    <div class="card-body text-success">@Icon("check") @T("Không có vấn đề cần xử lý. Khách hàng đang được chăm sóc tốt.")</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var a in Model.Alerts)
+                        {
+                            <li class="list-group-item d-flex gap-2 align-items-center c360-alert @a.Level">
+                                @Icon(a.Icon)
+                                <span class="flex-grow-1">@a.Text</span>
+                                @if (a.Tab != null) { <a href="#@a.Tab" class="small text-nowrap" data-tab-link="@a.Tab">@T("Xem →")</a> }
+                            </li>
+                        }
+                    </ul>
+                }
             </div>
-        }
-        <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("contract") @T("Hợp đồng & công nợ")</span>
-            <a class="small fw-normal" asp-controller="Invoices" asp-action="Index" asp-route-CustomerId="@c.Id" asp-route-View="all">@T("Xem hoá đơn")</a></div>
-            <div class="card-body pb-0">
-                <div class="row text-center g-2 mb-3">
-                    <div class="col"><div class="small text-muted">@T("Đã xuất hoá đơn")</div><div class="fw-bold">@Model.Invoiced.ToShortMoney()</div></div>
-                    <div class="col"><div class="small text-muted">@T("Đã thu")</div><div class="fw-bold text-success">@Model.Paid.ToShortMoney()</div></div>
-                    <div class="col"><div class="small text-muted">@T("Còn phải thu")</div><div class="fw-bold">@Model.Receivable.ToShortMoney()</div></div>
-                    <div class="col"><div class="small text-muted">@T("Nợ quá hạn")</div><div class="fw-bold @(Model.Overdue > 0 ? "text-danger" : "")">@Model.Overdue.ToShortMoney()</div></div>
+            <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("calendar") @T("Việc sắp tới")</span>
+                <a class="small fw-normal" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hoạt động")</a></div>
+                <div class="card-body">
+                    @{ ViewData["ReturnUrl"] = Context.Request.Path.Value + "#overview"; }
+                    <partial name="_ActivityList" model="Model.Upcoming" />
                 </div>
             </div>
-            <div class="card-body p-0"><table class="table mb-0">
-                <thead><tr><th>@T("Số hợp đồng")</th><th>@T("Tên hợp đồng")</th><th>@T("Ngày ký")</th><th class="money">@T("Giá trị")</th><th>@T("Trạng thái")</th></tr></thead>
-                <tbody>
-                @foreach (var k in Model.Contracts)
-                {
-                    <tr><td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@k.Id">@k.Number</a></td><td>@k.Title</td><td>@k.SignDate.ToDate()</td>
-                        <td class="money">@k.Total.ToMoney()</td><td><partial name="_Badge" model="k.Status" /></td></tr>
-                }
-                @if (!Model.Contracts.Any()) { <tr><td colspan="5" class="text-muted p-3">@T("Chưa có hợp đồng.")</td></tr> }
-                </tbody>
-            </table></div>
+            <div class="card"><div class="card-header d-flex justify-content-between"><span>@Icon("trending") @T("Diễn biến gần đây")</span>
+                <a href="#timeline" class="small fw-normal" data-tab-link="timeline">@T("Xem toàn bộ →")</a></div>
+                <div class="card-body"><partial name="_Customer360Timeline" model="Model.Timeline.Where(e => e.When <= DateTime.Now).Take(8).ToList()" /></div>
+            </div>
         </div>
-        <div class="card mb-3"><div class="card-header">@T("Báo giá")</div>
-            <div class="card-body p-0"><table class="table mb-0">
-                <thead><tr><th>@T("Số báo giá")</th><th>@T("Ngày")</th><th class="money">@T("Tổng thanh toán")</th><th>@T("Trạng thái")</th></tr></thead>
-                <tbody>
-                @foreach (var q in Model.Quotes)
-                {
-                    <tr><td><a asp-controller="Quotes" asp-action="Details" asp-route-id="@q.Id">@q.Number</a></td><td>@q.QuoteDate.ToDate()</td>
-                        <td class="money">@q.Total.ToMoney()</td><td><partial name="_Badge" model="q.Status" /></td></tr>
-                }
-                @if (!Model.Quotes.Any()) { <tr><td colspan="4" class="text-muted p-3">@T("Chưa có báo giá.")</td></tr> }
-                </tbody>
-            </table></div>
-        </div>
-        <div class="card"><div class="card-header">@T("Lịch sử chăm sóc")</div>
-            <div class="card-body"><partial name="_ActivityList" model="Model.Activities" /></div>
+        <div class="col-lg-5">
+            <div class="card mb-3"><div class="card-header">@Icon("badge") @T("Điểm sức khỏe: {0}/100 – {1}", h.Score, CustomerHealth.LevelText(h.Level))</div>
+                <div class="card-body">
+                    @foreach (var f in h.Factors)
+                    {
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small"><span class="fw-semibold">@f.Name</span><span>@f.Score/@f.Max</span></div>
+                            <div class="kpi-bar"><div style="width:@(f.Max == 0 ? 0 : f.Score * 100 / f.Max)%; background:@(f.Score == f.Max ? "var(--accent)" : f.Score == 0 ? "#dc3545" : "#f59e0b")"></div></div>
+                            <div class="small text-muted">@f.Note</div>
+                        </div>
+                    }
+                    <div class="small text-muted mt-2">@T("≥ 70: Tốt · 40–69: Cần chú ý · < 40: Rủi ro")</div>
+                </div>
+            </div>
+            <div class="card mb-3"><div class="card-header">@Icon("customer") @T("Thông tin chung")</div>
+                <div class="card-body">
+                    <dl class="row small mb-0 info">
+                        <dt class="col-5">MST</dt><dd class="col-7">@c.TaxCode</dd>
+                        <dt class="col-5">@T("Địa chỉ")</dt><dd class="col-7">@c.Address @Catalogs.Text(CatalogGroup.City, c.City)</dd>
+                        <dt class="col-5">@T("Số nhân sự")</dt><dd class="col-7">@c.EmployeeCount</dd>
+                        <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@c.CreatedAt.ToDate()</dd>
+                        @if (Model.SourceLeads.Any())
+                        {
+                            var l = Model.SourceLeads.First();
+                            <dt class="col-5">@T("Nguồn")</dt><dd class="col-7">@l.Source.GetDisplayName() @(l.Campaign != null ? "· " + l.Campaign.Name : "")</dd>
+                        }
+                        <dt class="col-5">@T("Đã thu")</dt><dd class="col-7">@Model.Paid.ToMoney()</dd>
+                        <dt class="col-5">@T("Thời gian thanh toán TB")</dt><dd class="col-7">@(Model.AvgPaymentDays > 0 ? T("{0} ngày", Model.AvgPaymentDays) : "—")</dd>
+                    </dl>
+                    @if (!string.IsNullOrEmpty(c.Description)) { <hr /><div class="small pre">@c.Description</div> }
+                </div>
+            </div>
+            <div class="card"><div class="card-header">@Icon("product") @T("Sản phẩm mua nhiều nhất")</div>
+                <div class="card-body">
+                    @if (!Model.Products.Any()) { <div class="text-muted small">@T("Chưa có hoá đơn phát hành.")</div> }
+                    @{ var maxProd = Math.Max(1m, Model.Products.Count > 0 ? Model.Products.Max(p => p.Amount) : 1); }
+                    @foreach (var p in Model.Products.Take(5))
+                    {
+                        <div class="bar-row">
+                            <div class="lbl text-truncate" title="@p.Name">@p.Name</div>
+                            <div class="bar"><div style="width:@((int)(p.Amount * 100 / maxProd))%"></div></div>
+                            <div class="val">@p.Amount.ToShortMoney()</div>
+                        </div>
+                    }
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Customer, id = c.Id, hint = T("Giấy phép kinh doanh, hồ sơ năng lực, hợp đồng nguyên tắc…") })</div>
+@* ===== Dòng thời gian ===== *@
+<div class="tab-pane fade" id="tab-timeline" role="tabpanel">
+    <div class="card"><div class="card-header d-flex flex-wrap gap-2 align-items-center">
+        <div class="btn-group btn-group-sm c360-filter" role="group">
+            <button type="button" class="btn btn-outline-secondary active" data-kind="">@T("Tất cả")</button>
+            <button type="button" class="btn btn-outline-secondary" data-kind="care">@T("Chăm sóc")</button>
+            <button type="button" class="btn btn-outline-secondary" data-kind="sales">@T("Bán hàng")</button>
+            <button type="button" class="btn btn-outline-secondary" data-kind="finance">@T("Tài chính")</button>
+            <button type="button" class="btn btn-outline-secondary" data-kind="marketing">@T("Tiếp thị")</button>
+        </div>
+        <a class="btn btn-sm btn-primary ms-auto" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hoạt động")</a>
+    </div>
+        <div class="card-body"><partial name="_Customer360Timeline" model="Model.Timeline" /></div>
+    </div>
+</div>
+
+@* ===== Bán hàng ===== *@
+<div class="tab-pane fade" id="tab-sales" role="tabpanel">
+    <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("opportunity") @T("Cơ hội bán hàng")</span>
+        <a class="small fw-normal" asp-controller="Opportunities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Cơ hội")</a></div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Cơ hội")</th><th>@T("Giai đoạn")</th><th class="money">@T("Giá trị")</th><th class="money">@T("Xác suất")</th><th>@T("Dự kiến chốt")</th><th>@T("Phụ trách")</th></tr></thead>
+            <tbody>
+            @foreach (var o in Model.Opportunities)
+            {
+                var late = !o.IsClosed && o.ExpectedCloseDate.HasValue && o.ExpectedCloseDate.Value.Date < today;
+                <tr><td><a asp-controller="Opportunities" asp-action="Details" asp-route-id="@o.Id">@o.Name</a></td><td><partial name="_Badge" model="o.Stage" /></td>
+                    <td class="money">@o.Amount.ToMoney()</td><td class="money">@o.Probability%</td>
+                    <td class="@(late ? "text-danger fw-semibold" : "")">@o.ExpectedCloseDate.ToDate()</td><td>@o.Owner?.FullName</td></tr>
+            }
+            @if (!Model.Opportunities.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có cơ hội.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+    <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("quote") @T("Báo giá")</span>
+        <a class="small fw-normal" asp-controller="Quotes" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Báo giá")</a></div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Số báo giá")</th><th>@T("Ngày")</th><th>@T("Hiệu lực đến")</th><th>@T("Cơ hội")</th><th class="money">@T("Tổng thanh toán")</th><th>@T("Trạng thái")</th></tr></thead>
+            <tbody>
+            @foreach (var q in Model.Quotes)
+            {
+                <tr><td><a asp-controller="Quotes" asp-action="Details" asp-route-id="@q.Id">@q.Number</a></td><td>@q.QuoteDate.ToDate()</td>
+                    <td class="@(q.Status == QuoteStatus.Sent && q.ValidUntil.Date < today ? "text-danger" : "")">@q.ValidUntil.ToDate()</td>
+                    <td>@q.Opportunity?.Name</td><td class="money">@q.Total.ToMoney()</td><td><partial name="_Badge" model="q.Status" /></td></tr>
+            }
+            @if (!Model.Quotes.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có báo giá.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+    <div class="card"><div class="card-header">@Icon("plan") @T("Phương án kinh doanh")</div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Số")</th><th>@T("Tên phương án")</th><th>@T("Ngày")</th><th class="money">@T("Doanh thu")</th><th class="money">@T("Lợi nhuận")</th><th class="money">@T("Tỷ suất")</th><th>@T("Trạng thái")</th></tr></thead>
+            <tbody>
+            @foreach (var p in Model.Plans)
+            {
+                <tr><td><a asp-controller="BusinessPlans" asp-action="Details" asp-route-id="@p.Id">@p.Number</a></td><td>@p.Title</td><td>@p.PlanDate.ToDate()</td>
+                    <td class="money">@p.Revenue.ToMoney()</td><td class="money">@p.Profit.ToMoney()</td><td class="money">@p.MarginPercent.ToString("0.#")%</td><td><partial name="_Badge" model="p.Status" /></td></tr>
+            }
+            @if (!Model.Plans.Any()) { <tr><td colspan="7" class="text-muted p-3">@T("Chưa có phương án kinh doanh.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+</div>
+
+@* ===== Hợp đồng & tài chính ===== *@
+<div class="tab-pane fade" id="tab-finance" role="tabpanel">
+    <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+            <div class="card h-100"><div class="card-body">
+                <div class="row text-center g-2">
+                    <div class="col-6"><div class="small text-muted">@T("Đã xuất hoá đơn")</div><div class="fw-bold fs-5">@Model.Invoiced.ToShortMoney()</div></div>
+                    <div class="col-6"><div class="small text-muted">@T("Đã thu")</div><div class="fw-bold fs-5 text-success">@Model.Paid.ToShortMoney()</div></div>
+                    <div class="col-6"><div class="small text-muted">@T("Còn phải thu")</div><div class="fw-bold fs-5">@Model.Receivable.ToShortMoney()</div></div>
+                    <div class="col-6"><div class="small text-muted">@T("Nợ quá hạn")</div><div class="fw-bold fs-5 @(Model.Overdue > 0 ? "text-danger" : "")">@Model.Overdue.ToShortMoney()</div></div>
+                    <div class="col-6"><div class="small text-muted">@T("Giá trị hợp đồng đã ký")</div><div class="fw-bold">@Model.ContractValue.ToShortMoney()</div></div>
+                    <div class="col-6"><div class="small text-muted">@T("Thời gian thanh toán TB")</div><div class="fw-bold">@(Model.AvgPaymentDays > 0 ? T("{0} ngày", Model.AvgPaymentDays) : "—")</div></div>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card h-100"><div class="card-header d-flex justify-content-between"><span>@Icon("trending") @T("Xuất hoá đơn & thu tiền 12 tháng")</span>
+                <span class="small fw-normal"><span class="kpi-legend" style="background:#93c5fd"></span> @T("Hoá đơn") <span class="kpi-legend ms-2" style="background:var(--accent)"></span> @T("Đã thu")</span></div>
+                <div class="card-body"><div class="kpi-chart" style="min-height:150px">
+                    @foreach (var mo in Model.Monthly)
+                    {
+                        <div class="kpi-col" title="@mo.Month: @T("Hoá đơn") @mo.Invoiced.ToMoney() · @T("Đã thu") @mo.Collected.ToMoney()">
+                            <div class="kpi-bars" style="height:110px">
+                                <div class="kpi-b" style="background:#93c5fd;height:@((int)(mo.Invoiced * 110 / maxMonth))px"></div>
+                                <div class="kpi-b" style="background:var(--accent);height:@((int)(mo.Collected * 110 / maxMonth))px"></div>
+                            </div>
+                            <div class="small text-muted mt-1">@mo.Month</div>
+                        </div>
+                    }
+                </div></div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.UpcomingMilestones.Any())
+    {
+        <div class="card mb-3"><div class="card-header">@Icon("coins") @T("Đợt thanh toán chưa xuất hoá đơn")</div>
+            <div class="card-body p-0"><table class="table mb-0" data-no-grid>
+                <thead><tr><th>@T("Hợp đồng")</th><th>@T("Đợt")</th><th>@T("Hạn")</th><th class="money">@T("Số tiền")</th></tr></thead>
+                <tbody>
+                @foreach (var ms in Model.UpcomingMilestones)
+                {
+                    <tr><td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@ms.ContractId">@ms.ContractNumber</a></td><td>@ms.Name</td>
+                        <td class="@(ms.DueDate.HasValue && ms.DueDate.Value.Date < today ? "text-danger fw-semibold" : "")">@ms.DueDate.ToDate()</td><td class="money">@ms.Amount.ToMoney()</td></tr>
+                }
+                </tbody>
+            </table></div>
+        </div>
+    }
+
+    <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("contract") @T("Hợp đồng")</span>
+        <a class="small fw-normal" asp-controller="Contracts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hợp đồng")</a></div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Số hợp đồng")</th><th>@T("Tên hợp đồng")</th><th>@T("Ngày ký")</th><th>@T("Ngày kết thúc")</th><th class="money">@T("Giá trị")</th><th>@T("Trạng thái")</th></tr></thead>
+            <tbody>
+            @foreach (var k in Model.Contracts)
+            {
+                <tr><td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@k.Id">@k.Number</a></td><td>@k.Title</td><td>@k.SignDate.ToDate()</td><td>@k.EndDate.ToDate()</td>
+                    <td class="money">@k.Total.ToMoney()</td><td><partial name="_Badge" model="k.Status" /></td></tr>
+            }
+            @if (!Model.Contracts.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có hợp đồng.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+
+    <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("invoice") @T("Hoá đơn")</span>
+        <a class="small fw-normal" asp-controller="Invoices" asp-action="Index" asp-route-CustomerId="@c.Id" asp-route-View="all">@T("Mở danh sách hoá đơn")</a></div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Số hoá đơn")</th><th>@T("Ngày")</th><th>@T("Hạn thanh toán")</th><th>@T("Hợp đồng")</th><th class="money">@T("Tổng thanh toán")</th><th class="money">@T("Đã thu")</th><th class="money">@T("Còn lại")</th><th>@T("Trạng thái")</th></tr></thead>
+            <tbody>
+            @foreach (var i in Model.Invoices)
+            {
+                <tr class="@(i.IsOverdue ? "table-danger" : "")"><td><a asp-controller="Invoices" asp-action="Details" asp-route-id="@i.Id">@i.FullNumber</a></td><td>@i.InvoiceDate.ToDate()</td><td>@i.DueDate.ToDate()</td>
+                    <td>@i.Contract?.Number</td><td class="money">@i.Total.ToMoney()</td><td class="money">@i.PaidAmount.ToMoney()</td><td class="money fw-semibold">@i.Outstanding.ToMoney()</td><td><partial name="_Badge" model="i.Status" /></td></tr>
+            }
+            @if (!Model.Invoices.Any()) { <tr><td colspan="8" class="text-muted p-3">@T("Chưa có hoá đơn.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+
+    <div class="card"><div class="card-header">@Icon("wallet") @T("Lịch sử thanh toán")</div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Số phiếu")</th><th>@T("Ngày")</th><th>@T("Phương thức")</th><th>@T("Hoá đơn")</th><th>@T("Hợp đồng")</th><th class="money">@T("Số tiền")</th></tr></thead>
+            <tbody>
+            @foreach (var p in Model.Payments)
+            {
+                <tr><td><a asp-controller="Payments" asp-action="Details" asp-route-id="@p.Id">@p.Number</a></td><td>@p.PaymentDate.ToDate()</td><td>@Catalogs.Text(CatalogGroup.PaymentMethod, p.Method)</td>
+                    <td>@p.Invoice?.FullNumber</td><td>@p.Contract?.Number</td><td class="money">@p.Amount.ToMoney()</td></tr>
+            }
+            @if (!Model.Payments.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có thanh toán.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+</div>
+
+@* ===== Sản phẩm đã mua ===== *@
+<div class="tab-pane fade" id="tab-products" role="tabpanel">
+    <div class="card"><div class="card-header">@Icon("product") @T("Sản phẩm / dịch vụ đã mua (theo hoá đơn đã phát hành, giá trước thuế)")</div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Mã")</th><th>@T("Sản phẩm / dịch vụ")</th><th class="money">@T("Số lượng")</th><th>@T("ĐVT")</th><th class="money">@T("Thành tiền")</th><th class="money">@T("Tỷ trọng")</th><th class="money">@T("Số lần mua")</th><th>@T("Lần mua gần nhất")</th></tr></thead>
+            <tbody>
+            @{ var totalProd = Model.Products.Sum(p => p.Amount); }
+            @foreach (var p in Model.Products)
+            {
+                <tr><td>@p.Code</td><td>@p.Name</td><td class="money">@p.Quantity.ToString("#,##0.##")</td><td>@Catalogs.Text(CatalogGroup.Unit, p.Unit)</td>
+                    <td class="money">@p.Amount.ToMoney()</td><td class="money">@(totalProd > 0 ? (p.Amount * 100 / totalProd).ToString("0.#") : "0")%</td>
+                    <td class="money">@p.Times</td><td>@p.LastDate.ToDate()</td></tr>
+            }
+            @if (!Model.Products.Any()) { <tr><td colspan="8" class="text-muted p-3">@T("Chưa có hoá đơn phát hành.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+</div>
+
+@* ===== Liên hệ & tiếp thị ===== *@
+<div class="tab-pane fade" id="tab-contacts" role="tabpanel">
+    <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("contact") @T("Người liên hệ ({0})", Model.Contacts.Count)</span>
+        <a class="small fw-normal" asp-controller="Contacts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Liên hệ")</a></div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Họ tên")</th><th>@T("Chức vụ")</th><th>@T("Điện thoại")</th><th>Email</th><th>@T("Sinh nhật")</th><th>@T("Hoạt động")</th></tr></thead>
+            <tbody>
+            @foreach (var ct in Model.Contacts)
+            {
+                var bd = ct.BirthDate.HasValue ? Customer360Service.DaysUntilBirthday(ct.BirthDate.Value, today) : (int?)null;
+                <tr><td><a asp-controller="Contacts" asp-action="Edit" asp-route-id="@ct.Id" class="fw-semibold">@ct.FullName</a>
+                        @if (ct.IsPrimary) { <span class="badge bg-success">@T("Chính")</span> }</td>
+                    <td>@ct.JobTitle</td><td>@if (ct.Phone != null) { <a href="tel:@ct.Phone">@ct.Phone</a> }</td><td>@if (ct.Email != null) { <a href="mailto:@ct.Email">@ct.Email</a> }</td>
+                    <td>@ct.BirthDate?.ToString("dd/MM") @if (bd is <= 14) { <span class="badge text-bg-warning">@(bd == 0 ? T("Hôm nay") : T("còn {0} ngày", bd))</span> }</td>
+                    <td class="small">@T("{0} hoạt động", Model.Activities.Count(a => a.ContactId == ct.Id))</td></tr>
+            }
+            @if (!Model.Contacts.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có người liên hệ.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+    @if (Model.SourceLeads.Any())
+    {
+        <div class="card mb-3"><div class="card-header">@Icon("lead") @T("Lead gốc")</div>
+            <div class="card-body p-0"><table class="table mb-0" data-no-grid>
+                <thead><tr><th>@T("Họ tên")</th><th>@T("Nguồn")</th><th>@T("Chiến dịch")</th><th>@T("Ngày tạo")</th><th>@T("Ngày chuyển đổi")</th></tr></thead>
+                <tbody>
+                @foreach (var l in Model.SourceLeads)
+                {
+                    <tr><td><a asp-controller="Leads" asp-action="Details" asp-route-id="@l.Id">@l.FullName</a></td><td>@l.Source.GetDisplayName()</td><td>@l.Campaign?.Name</td>
+                        <td>@l.CreatedAt.ToDate()</td><td>@l.ConvertedAt.ToDate()</td></tr>
+                }
+                </tbody>
+            </table></div>
+        </div>
+    }
+    <div class="card"><div class="card-header">@Icon("campaign") @T("Chiến dịch tiếp thị đã tham gia")</div>
+        <div class="card-body p-0"><table class="table table-hover mb-0">
+            <thead><tr><th>@T("Chiến dịch")</th><th>@T("Kênh")</th><th>@T("Người nhận")</th><th>@T("Trạng thái")</th><th>@T("Lần tiếp cận gần nhất")</th></tr></thead>
+            <tbody>
+            @foreach (var x in Model.Campaigns)
+            {
+                <tr><td>@if (x.Campaign != null && User.CanAccess(x.Campaign)) { <a asp-controller="Campaigns" asp-action="Details" asp-route-id="@x.CampaignId">@x.Campaign.Name</a> } else { @x.Campaign?.Name }</td>
+                    <td>@x.Campaign?.Channel.GetDisplayName()</td><td>@x.FullName</td><td><partial name="_Badge" model="x.Status" /></td><td class="small">@x.LastContactAt?.ToDate()</td></tr>
+            }
+            @if (!Model.Campaigns.Any()) { <tr><td colspan="5" class="text-muted p-3">@T("Chưa tham gia chiến dịch nào.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+</div>
+
+@* ===== Tài liệu ===== *@
+<div class="tab-pane fade" id="tab-docs" role="tabpanel">
+    @await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Customer, id = c.Id, hint = T("Giấy phép kinh doanh, hồ sơ năng lực, hợp đồng nguyên tắc…") })
+</div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    // Mở tab theo #hash (giữ tab sau khi tải lại / quay lại), cập nhật hash khi đổi tab
+    function show(name) {
+        var btn = document.querySelector('.c360-tabs [data-tab="' + name + '"]');
+        if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+    }
+    document.querySelectorAll('.c360-tabs [data-tab]').forEach(function (b) {
+        b.addEventListener('shown.bs.tab', function () { history.replaceState(null, '', '#' + b.dataset.tab); });
+    });
+    document.querySelectorAll('[data-tab-link]').forEach(function (a) {
+        a.addEventListener('click', function (e) { e.preventDefault(); show(a.dataset.tabLink); window.scrollTo({ top: document.querySelector('.c360-tabs').offsetTop - 70, behavior: 'smooth' }); });
+    });
+    if (location.hash) show(location.hash.substring(1));
+
+    // Lọc dòng thời gian theo loại
+    var pane = document.getElementById('tab-timeline');
+    pane.querySelectorAll('.c360-filter [data-kind]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            pane.querySelectorAll('.c360-filter .btn').forEach(function (x) { x.classList.toggle('active', x === btn); });
+            var k = btn.dataset.kind;
+            pane.querySelectorAll('.c360-tl [data-kind]').forEach(function (li) { li.hidden = k && li.dataset.kind !== k; });
+            pane.querySelectorAll('.c360-tl .tl-month').forEach(function (m) {
+                var n = m.nextElementSibling, any = false;
+                while (n && !n.classList.contains('tl-month')) { if (!n.hidden) any = true; n = n.nextElementSibling; }
+                m.hidden = !any;
+            });
+        });
+    });
+})();
+</script>
+}

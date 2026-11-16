@@ -234,3 +234,32 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .campaign-message { max-height: 260px; overflow: auto; background: #f8fafc; border: 1px solid #eef2f6; border-radius: 6px; padding: 10px 12px; }
 .member-bulk { border-bottom: 1px solid #eef2f6; }
 .member-bulk .form-select, .member-bulk .form-control { min-width: 170px; }
+
+/* ---------- Khách hàng 360° ---------- */
+.c360-logo { width: 56px; height: 56px; border-radius: 14px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 700; flex-shrink: 0; }
+.c360-head .ico { width: 14px; height: 14px; vertical-align: -2px; }
+.c360-health { display: flex; align-items: center; gap: 12px; --hc: #198754; }
+.c360-health.warn { --hc: #d97706; }
+.c360-health.risk { --hc: #dc3545; }
+.c360-health .lvl { color: var(--hc); }
+.c360-health .ring { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--hc) calc(var(--p) * 1%), #e9eef3 0); }
+.c360-health .ring span { width: 50px; height: 50px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; font-size: 1.15rem; color: var(--hc); }
+.c360-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+.c360-tabs .nav-link { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.c360-tabs .nav-link .ico { width: 15px; height: 15px; }
+.c360-tabs .badge { font-weight: 500; }
+.c360-body { padding-top: 16px; }
+.c360-alert .ico { width: 18px; height: 18px; flex-shrink: 0; }
+.c360-alert.danger { border-left: 3px solid #dc3545; }
+.c360-alert.danger .ico { color: #dc3545; }
+.c360-alert.warning { border-left: 3px solid #f59e0b; }
+.c360-alert.warning .ico { color: #d97706; }
+.c360-alert.info { border-left: 3px solid #60a5fa; }
+.c360-alert.info .ico { color: #2563eb; }
+.c360-tl .tl-month { border-left: none; padding: 10px 0 4px 0; margin-left: -12px; font-size: .78rem; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: .03em; }
+.c360-tl .tl-month::before { display: none; }
+.c360-tl li.planned::before { border-color: #60a5fa; }
+.c360-tl .act-type.k-sales { background: #e0f2fe; color: #0369a1; }
+.c360-tl .act-type.k-finance { background: #dcfce7; color: #15803d; }
+.c360-tl .act-type.k-marketing { background: #f3e8ff; color: #7e22ce; }

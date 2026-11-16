@@ -71,6 +71,7 @@ builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<KpiService>();
 builder.Services.AddScoped<CampaignService>();
+builder.Services.AddScoped<Customer360Service>();
 
 var app = builder.Build();
 

@@ -128,23 +128,6 @@ public class LeadConvertViewModel
     public DateTime? ExpectedCloseDate { get; set; } = DateTime.Today.AddDays(30);
 }
 
-public class CustomerDetailViewModel
-{
-    public Customer Customer { get; set; } = null!;
-    public List<Contact> Contacts { get; set; } = new();
-    public List<Opportunity> Opportunities { get; set; } = new();
-    public List<Quote> Quotes { get; set; } = new();
-    public List<Contract> Contracts { get; set; } = new();
-    public decimal Invoiced { get; set; }
-    public decimal Paid { get; set; }
-    public decimal Receivable { get; set; }
-    public decimal Overdue { get; set; }
-    public List<Activity> Activities { get; set; } = new();
-    public List<CampaignMember> Campaigns { get; set; } = new();
-    public decimal WonTotal => Opportunities.Where(o => o.Stage == OpportunityStage.ClosedWon).Sum(o => o.Amount);
-    public decimal OpenTotal => Opportunities.Where(o => !o.IsClosed).Sum(o => o.Amount);
-}
-
 public class OpportunityDetailViewModel
 {
     public Opportunity Opportunity { get; set; } = null!;
