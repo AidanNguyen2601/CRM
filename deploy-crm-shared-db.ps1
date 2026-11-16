@@ -102,9 +102,12 @@ else {
 $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
 $rand = -join (1..12 | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
 $crmPwd = "Crm@$rand" + "9x"
+# User trong CRM_DB kiem tra theo SID: neu crm_app da tao CRM_DB thi no la chu DB (user 'dbo') -> khong tao them user (loi 15063)
 $q = "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'crm_app') CREATE LOGIN crm_app WITH PASSWORD = '$crmPwd', CHECK_POLICY = ON " +
      "ELSE ALTER LOGIN crm_app WITH PASSWORD = '$crmPwd'; ALTER SERVER ROLE dbcreator ADD MEMBER crm_app; " +
-     "IF DB_ID('CRM_DB') IS NOT NULL EXEC('USE CRM_DB; IF USER_ID(''crm_app'') IS NULL CREATE USER crm_app FOR LOGIN crm_app; ALTER ROLE db_owner ADD MEMBER crm_app;');"
+     "IF DB_ID('CRM_DB') IS NOT NULL EXEC('USE CRM_DB; " +
+     "IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE sid = SUSER_SID(''crm_app'')) CREATE USER crm_app FOR LOGIN crm_app; " +
+     "IF USER_ID(''crm_app'') IS NOT NULL ALTER ROLE db_owner ADD MEMBER crm_app;');"
 for ($try = 1; $try -le 12; $try++) {
     docker exec $SqlContainer $sqlcmd -S localhost -U sa -P $saPwd @extra -b -Q $q
     if ($LASTEXITCODE -eq 0) { break }
