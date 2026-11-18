@@ -34,10 +34,27 @@ public class DemoDataController : CrmControllerBase
             (I18n.T("Chiến dịch tiếp thị"), "campaign", await Db.Campaigns.CountAsync()),
             (I18n.T("Phiếu hỗ trợ"), "support", await Db.Tickets.CountAsync()),
         };
+        ViewBag.HasSupportAgent = await Db.Users.AnyAsync(u => u.IsActive && u.Role == AppRoles.Support);
         return View();
     }
 
     public static readonly int[] MarketingSizes = { 4, 8, 12 };
+    public static readonly int[] SupportSizes = { 20, 50, 100, 200 };
+
+    /// <summary>Chỉ nạp phiếu hỗ trợ mẫu trên khách hàng / hợp đồng đang có</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenerateSupport(int tickets)
+    {
+        if (!SupportSizes.Contains(tickets)) return BadRequest();
+        if (!await Db.Customers.AnyAsync())
+        {
+            TempData["Error"] = I18n.T("Chưa có khách hàng để tạo phiếu hỗ trợ. Hãy nạp dữ liệu mẫu trước.");
+            return RedirectToAction(nameof(Index));
+        }
+        var r = await DemoDataGenerator.GenerateSupportAsync(Db, tickets);
+        TempData["Success"] = I18n.T("Đã nạp {0} phiếu hỗ trợ ({1} đang mở, {2} đã đóng) với {3} lượt trao đổi.", r.Tickets, r.Open, r.Closed, r.Comments);
+        return RedirectToAction(nameof(Index));
+    }
 
     /// <summary>Chỉ nạp chiến dịch tiếp thị mẫu trên khách hàng / lead đang có</summary>
     [HttpPost, ValidateAntiForgeryToken]

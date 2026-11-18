@@ -28,6 +28,22 @@
                     <button class="btn btn-outline-primary">@T("Nạp dữ liệu tiếp thị")</button>
                 </div>
             </form>
+            <hr />
+            <h6>@Icon("support") @T("Chỉ nạp phiếu hỗ trợ (CSKH)")</h6>
+            <p class="small text-muted">@T("Tạo phiếu hỗ trợ trên khách hàng đang có (ưu tiên khách đã ký hợp đồng, gắn hợp đồng và hàng hoá): đủ các trạng thái từ mới đến đã đóng, trao đổi và ghi chú nội bộ, thời gian xử lý dao động quanh hạn SLA (một phần trễ hạn), điểm hài lòng của khách. Người xử lý là nhân viên CSKH (chưa có thì giao cho quản lý). Không tạo khách hàng mới.")</p>
+            <form asp-action="GenerateSupport" method="post" data-confirm="@T("Nạp phiếu hỗ trợ mẫu? Thao tác này không hoàn tác tự động.")">
+                <label class="form-label">@T("Số phiếu hỗ trợ")</label>
+                <div class="d-flex gap-2">
+                    <select name="tickets" class="form-select" style="max-width:160px">
+                        @foreach (var s in CRM.Web.Controllers.DemoDataController.SupportSizes) { <option value="@s" selected="@(s == 50)">@s</option> }
+                    </select>
+                    <button class="btn btn-outline-primary">@T("Nạp phiếu hỗ trợ")</button>
+                </div>
+                @if (!(bool)ViewBag.HasSupportAgent)
+                {
+                    <div class="form-text text-warning-emphasis">@T("Chưa có người dùng vai trò Nhân viên CSKH – phiếu sẽ được giao cho quản lý / quản trị.")</div>
+                }
+            </form>
         </div></div>
     </div>
     <div class="col-lg-7">

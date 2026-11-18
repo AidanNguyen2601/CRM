@@ -37,6 +37,17 @@ public static class DemoDataGenerator
         return result;
     }
 
+    /// <summary>Chỉ nạp phiếu hỗ trợ mẫu trên khách hàng / hợp đồng đang có</summary>
+    public static async Task<(int Tickets, int Open, int Closed, int Comments)> GenerateSupportAsync(CrmDbContext db, int ticketCount, int? seed = null)
+    {
+        ticketCount = Math.Clamp(ticketCount, 1, 1000);
+        var g = new Gen(db, new Random(seed ?? Environment.TickCount));
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var result = await g.RunSupportAsync(ticketCount);
+        await tx.CommitAsync();
+        return result;
+    }
+
     private sealed class Gen
     {
         private readonly CrmDbContext _db;
@@ -364,7 +375,7 @@ public static class DemoDataGenerator
 
             await EnsureTargetsAsync();
             var campaigns = await GenerateCampaignsAsync(Math.Clamp(n / 12, 3, 12), customers, contactsByCustomer, leads, opps);
-            var tickets = await GenerateTicketsAsync(contracts, contactsByCustomer);
+            var tickets = (await GenerateTicketsAsync(SourcesOf(contracts), contactsByCustomer)).Count;
 
             return new DemoDataResult(newProducts, customers.Count, contacts.Count, leads.Count, opps.Count, acts.Count,
                 quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count, campaigns, tickets);
@@ -617,13 +628,51 @@ public static class DemoDataGenerator
             "Kính gửi Quý khách,\n\nNhân dịp ra mắt gói dịch vụ mới, chúng tôi trân trọng gửi tới Quý khách ưu đãi giảm 10% cho đơn hàng ký trong tháng.\n" +
             "Vui lòng phản hồi email này hoặc liên hệ nhân viên phụ trách để được tư vấn chi tiết.\n\nTrân trọng.";
 
+        /// <summary>Nơi phát sinh phiếu hỗ trợ: khách hàng (+ hợp đồng, hàng hoá nếu có), phiếu chỉ phát sinh từ ngày Since</summary>
+        private record TicketSource(int CustomerId, int? ContractId, int? ProductId, DateTime Since);
+
+        private static List<TicketSource> SourcesOf(IEnumerable<Contract> contracts) => contracts
+            .Where(c => c.SignDate.HasValue && c.CustomerId.HasValue)
+            .Select(c => new TicketSource(c.CustomerId!.Value, c.Id, c.Lines.Where(l => l.ProductId != null).Select(l => l.ProductId).FirstOrDefault(), c.SignDate!.Value.AddDays(5)))
+            .ToList();
+
         /// <summary>
-        /// Phiếu hỗ trợ mẫu cho khách hàng đã ký hợp đồng: phát sinh sau ngày ký, thời gian phản hồi / giải quyết
-        /// dao động quanh hạn SLA (khoảng 15% trễ hạn), phiếu cũ phần lớn đã đóng kèm điểm hài lòng.
+        /// Chỉ nạp phiếu hỗ trợ mẫu trên dữ liệu đang có: ưu tiên khách hàng có hợp đồng đã ký (phiếu gắn hợp đồng + hàng hoá),
+        /// sau đó đến khách hàng đang giao dịch chưa có hợp đồng. Không tạo khách hàng mới.
         /// </summary>
-        private async Task<int> GenerateTicketsAsync(List<Contract> contracts, Dictionary<int, List<Contact>> contactsByCustomer)
+        public async Task<(int Tickets, int Open, int Closed, int Comments)> RunSupportAsync(int count)
         {
-            if (contracts.Count == 0) return 0;
+            await LoadContextAsync();
+            var contracts = await _db.Contracts.Include(c => c.Lines).AsNoTracking()
+                .Where(c => c.SignDate != null && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Completed || c.Status == ContractStatus.Liquidated))
+                .ToListAsync();
+            var sources = SourcesOf(contracts);
+            var withContract = sources.Select(s => s.CustomerId).ToHashSet();
+            var since = _today.AddMonths(-12);
+            sources.AddRange((await _db.Customers.AsNoTracking().Where(c => c.Type == CustomerType.Customer || c.Type == CustomerType.Partner).ToListAsync())
+                .Where(c => !withContract.Contains(c.Id))
+                .Select(c => new TicketSource(c.Id, null, null, c.CreatedAt > since ? c.CreatedAt : since)));
+            if (sources.Count == 0)
+                sources = (await _db.Customers.AsNoTracking().Where(c => c.Type != CustomerType.Inactive).ToListAsync())
+                    .Select(c => new TicketSource(c.Id, null, null, c.CreatedAt > since ? c.CreatedAt : since)).ToList();
+            if (sources.Count == 0) throw new InvalidOperationException("Chưa có khách hàng để tạo phiếu hỗ trợ.");
+
+            var contactsByCustomer = (await _db.Contacts.Where(x => x.CustomerId != null)
+                    .OrderByDescending(x => x.IsPrimary).ThenBy(x => x.Id).ToListAsync())
+                .GroupBy(x => x.CustomerId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+            var tickets = await GenerateTicketsAsync(sources, contactsByCustomer, count);
+            return (tickets.Count, tickets.Count(t => t.IsOpen), tickets.Count(t => t.Status == TicketStatus.Closed), tickets.Sum(t => t.Comments.Count));
+        }
+
+        /// <summary>
+        /// Phiếu hỗ trợ mẫu: phát sinh sau ngày ký hợp đồng (hoặc từ ngày Since của nguồn), thời gian phản hồi / giải quyết
+        /// dao động quanh hạn SLA (khoảng 15% trễ hạn), phiếu cũ phần lớn đã đóng kèm điểm hài lòng.
+        /// <paramref name="target"/> = null: mỗi nguồn 0–4 phiếu; có giá trị: sinh đúng số phiếu đó, rải ngẫu nhiên trên các nguồn.
+        /// </summary>
+        private async Task<List<Ticket>> GenerateTicketsAsync(List<TicketSource> sources, Dictionary<int, List<Contact>> contactsByCustomer, int? target = null)
+        {
+            sources = sources.Where(s => s.Since < _today).ToList();
+            if (sources.Count == 0) return new();
             var users = await _db.Users.Where(u => u.IsActive).ToListAsync();
             var agents = users.Where(u => u.Role == AppRoles.Support).ToList();
             // Người xử lý: nhân viên CSKH (2 phần) + quản lý (1 phần); chưa có CSKH thì dùng quản lý / admin
@@ -636,24 +685,25 @@ public static class DemoDataGenerator
 
             var now = DateTime.Now;
             var tickets = new List<Ticket>();
-            foreach (var c in contracts)
+            // Danh sách lượt sinh: mỗi phần tử là một nguồn → một phiếu
+            var plan = target.HasValue
+                ? Enumerable.Range(0, Math.Max(0, target.Value)).Select(_ => Pick(sources)).ToList()
+                : sources.SelectMany(s => Enumerable.Repeat(s, Weighted((0, 25), (1, 35), (2, 25), (3, 10), (4, 5)))).ToList();
+            foreach (var c in plan)
             {
-                var since = c.SignDate!.Value.AddDays(5);
-                if (since >= _today) continue;
-                for (var k = Weighted((0, 25), (1, 35), (2, 25), (3, 10), (4, 5)); k > 0; k--)
+                var since = c.Since;
                 {
                     // Khoảng 1/3 phiếu phát sinh trong 10 ngày gần đây để luôn có phiếu đang mở / sắp đến hạn
                     var spanDays = Math.Max(1, (_today - since).Days + 1);
-                    var created = since.AddDays(_r.Next(100) < 35 ? Math.Max(0, spanDays - 1 - _r.Next(0, 10)) : _r.Next(0, spanDays)).AddHours(_r.Next(8, 18)).AddMinutes(_r.Next(60));
+                    var created = since.AddDays(_r.Next(100) < 35 ? Math.Max(0, spanDays - 1 - (_r.Next(100) < 40 ? _r.Next(0, 3) : _r.Next(0, 10))) : _r.Next(0, spanDays)).AddHours(_r.Next(8, 18)).AddMinutes(_r.Next(60));
                     if (created > now) created = now.AddMinutes(-_r.Next(10, 300));
                     var category = Pick(categories);
                     var subjects = TicketSubjects.TryGetValue(category, out var s) ? s : TicketSubjects["Hỗ trợ kỹ thuật"];
-                    var product = c.Lines.Where(l => l.ProductId != null).Select(l => l.ProductId).FirstOrDefault();
-                    var contacts = (c.CustomerId is int cid ? contactsByCustomer.GetValueOrDefault(cid) : null) ?? new List<Contact>();
+                    var contacts = contactsByCustomer.GetValueOrDefault(c.CustomerId) ?? new List<Contact>();
                     var agent = Pick(agents);
                     var t = new Ticket
                     {
-                        Number = NextNumber("YC", created), Subject = Pick(subjects), CustomerId = c.CustomerId, ContractId = c.Id, ProductId = product,
+                        Number = NextNumber("YC", created), Subject = Pick(subjects), CustomerId = c.CustomerId, ContractId = c.ContractId, ProductId = c.ProductId,
                         ContactId = contacts.Count > 0 ? Pick(contacts).Id : null, Category = category, CreatedAt = created,
                         Channel = Weighted((TicketChannel.Phone, 40), (TicketChannel.Email, 30), (TicketChannel.Zalo, 20), (TicketChannel.Web, 8), (TicketChannel.InPerson, 2)),
                         Priority = Weighted((TicketPriority.Low, 20), (TicketPriority.Normal, 50), (TicketPriority.High, 22), (TicketPriority.Urgent, 8)),
@@ -713,7 +763,7 @@ public static class DemoDataGenerator
             }
             _db.Tickets.AddRange(tickets);
             await _db.SaveChangesAsync();
-            return tickets.Count;
+            return tickets;
         }
 
         private static readonly Dictionary<string, string[]> TicketSubjects = new()

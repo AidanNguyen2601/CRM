@@ -144,4 +144,15 @@ if (mktArg >= 0)
     return;
 }
 
+// Chỉ nạp phiếu hỗ trợ mẫu trên dữ liệu đang có rồi thoát: dotnet CRM.Web.dll --seed-support [số phiếu]
+var supArg = Array.IndexOf(args, "--seed-support");
+if (supArg >= 0)
+{
+    var count = supArg + 1 < args.Length && int.TryParse(args[supArg + 1], out var c) ? c : 50;
+    using var scope = app.Services.CreateScope();
+    var r = await DemoDataGenerator.GenerateSupportAsync(scope.ServiceProvider.GetRequiredService<CrmDbContext>(), count);
+    app.Logger.LogInformation("Đã nạp phiếu hỗ trợ: {Tickets} phiếu ({Open} đang mở, {Closed} đã đóng), {Comments} lượt trao đổi", r.Tickets, r.Open, r.Closed, r.Comments);
+    return;
+}
+
 app.Run();
