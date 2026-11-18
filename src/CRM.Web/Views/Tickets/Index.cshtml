@@ -1,0 +1,70 @@
+@model PagedList<Ticket>
+@{
+    ViewData["Title"] = T("Phiếu hỗ trợ");
+    var f = (TicketFilter)ViewBag.Filter;
+    var counts = (Dictionary<string, int>)ViewBag.Counts;
+    var onTime = (int?)ViewBag.OnTime30;
+    var avgHours = (double?)ViewBag.AvgResolveHours;
+    var csat = (double?)ViewBag.Csat;
+    var tabs = new (string Key, string Label, string Icon)[]
+    {
+        ("open", T("Đang mở"), "support"), ("mine", T("Của tôi"), "user"), ("unassigned", T("Chưa phân công"), "users"),
+        ("breach", T("Trễ hạn SLA"), "clock"), ("closed", T("Đã xong"), "check"), ("all", T("Tất cả"), "list")
+    };
+}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg"><div class="card stat"><div class="label">@Icon("support", "stat-ico")@T("Đang mở")</div><div class="value">@counts["open"]</div><div class="small text-muted">@T("{0} chưa phân công", counts["unassigned"])</div></div></div>
+    <div class="col-6 col-lg"><div class="card stat"><div class="label">@Icon("clock", "stat-ico")@T("Trễ hạn SLA")</div><div class="value @(counts["breach"] > 0 ? "text-danger" : "")">@counts["breach"]</div><div class="small text-muted">@T("trong số phiếu đang mở")</div></div></div>
+    <div class="col-6 col-lg"><div class="card stat"><div class="label">@Icon("check", "stat-ico")@T("Giải quyết đúng hạn")</div><div class="value">@(onTime.HasValue ? onTime + "%" : "–")</div><div class="small text-muted">@T("{0} phiếu giải quyết / 30 ngày", (int)ViewBag.Resolved30)</div></div></div>
+    <div class="col-6 col-lg"><div class="card stat"><div class="label">@Icon("trending", "stat-ico")@T("Thời gian xử lý TB")</div><div class="value">@(avgHours.HasValue ? T("{0} giờ", avgHours.Value.ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"))) : "–")</div><div class="small text-muted">@T("{0} phiếu mới / 30 ngày", (int)ViewBag.New30)</div></div></div>
+    <div class="col-12 col-lg"><div class="card stat"><div class="label">@Icon("star", "stat-ico")@T("Mức hài lòng (CSAT)")</div><div class="value">@(csat.HasValue ? csat.Value.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " / 5" : "–")</div>
+        <div class="small csat-stars">@for (var i = 1; i <= 5; i++) { <span class="@(csat.HasValue && csat.Value >= i - 0.25 ? "on" : "")">★</span> }</div></div></div>
+</div>
+
+<ul class="nav nav-pills mb-3 flex-wrap">
+    @foreach (var tab in tabs)
+    {
+        <li class="nav-item"><a class="nav-link @(f.Scope == tab.Key ? "active" : "")" asp-route-Scope="@tab.Key" asp-route-Keyword="@f.Keyword" asp-route-OwnerId="@f.OwnerId" asp-route-Priority="@f.Priority" asp-route-Category="@f.Category" asp-route-CustomerId="@f.CustomerId">@tab.Label
+            <span class="badge @(tab.Key == "breach" && counts[tab.Key] > 0 ? "bg-danger" : "bg-secondary")">@counts[tab.Key]</span></a></li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="Scope" value="@f.Scope" />
+    @if (f.CustomerId.HasValue) { <input type="hidden" name="CustomerId" value="@f.CustomerId" /> }
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Mã phiếu, tiêu đề, khách hàng")" /></div>
+    <div><label class="form-label small mb-1">@T("Độ ưu tiên")</label><select name="Priority" class="form-select" asp-items="Html.GetEnumSelectList<TicketPriority>()"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Loại yêu cầu")</label><select name="Category" class="form-select" asp-items="Catalogs.Options(CatalogGroup.TicketCategory, f.Category)"><option value="">@T("-- Tất cả --")</option></select></div>
+    @if (User.IsSupportDesk()) { <div><label class="form-label small mb-1">@T("Người xử lý")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    <a class="btn btn-primary ms-auto" asp-action="Create" asp-route-customerId="@f.CustomerId">@Icon("plus") @T("Tạo phiếu hỗ trợ")</a>
+</form>
+@if (f.CustomerId.HasValue)
+{
+    <div class="alert alert-info py-2 small">@T("Đang lọc theo khách hàng:") <b>@ViewBag.CustomerName</b> · <a asp-route-Scope="@f.Scope">@T("Bỏ lọc")</a></div>
+}
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0" data-grid="tickets">
+    <thead><tr><th>@T("Mã phiếu")</th><th>@T("Tiêu đề")</th><th>@T("Khách hàng")</th><th>@T("Loại yêu cầu")</th><th>@T("Độ ưu tiên")</th><th>@T("Trạng thái")</th><th>SLA</th><th>@T("Người xử lý")</th><th>@T("Ngày tiếp nhận")</th></tr></thead>
+    <tbody>
+    @foreach (var t in Model.Items)
+    {
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@t.Id" class="fw-semibold text-nowrap">@t.Number</a></td>
+            <td>@t.Subject<div class="small text-muted">@t.Channel.GetDisplayName()@if (t.Contact != null) { <text> · @t.Contact.FullName</text> }</div></td>
+            <td>@t.Customer?.Name</td>
+            <td>@Catalogs.Text(CatalogGroup.TicketCategory, t.Category)</td>
+            <td><partial name="_Badge" model="t.Priority" /></td>
+            <td><partial name="_Badge" model="t.Status" /></td>
+            <td class="text-nowrap"><partial name="_TicketSla" model="t" /></td>
+            <td>@(t.Owner?.FullName ?? (object)Html.Raw($"<span class=\"text-muted fst-italic\">{T("Chưa phân công")}</span>"))</td>
+            <td class="text-nowrap">@t.CreatedAt.ToDateTime()</td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Không có phiếu hỗ trợ.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-muted">@T("{0} phiếu", Model.TotalCount)</span>
+    <partial name="_Pager" model="Model" />
+</div></div>

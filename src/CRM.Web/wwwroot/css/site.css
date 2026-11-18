@@ -263,6 +263,7 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .c360-tl .act-type.k-sales { background: #e0f2fe; color: #0369a1; }
 .c360-tl .act-type.k-finance { background: #dcfce7; color: #15803d; }
 .c360-tl .act-type.k-marketing { background: #f3e8ff; color: #7e22ce; }
+.c360-tl .act-type.k-support { background: #ffedd5; color: #c2410c; }
 
 /* ---------- Báo cáo ---------- */
 .report-link .report-ico { width: 20px; height: 20px; margin-top: 2px; color: var(--accent); flex-shrink: 0; }
@@ -288,3 +289,27 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .schema-browser a:hover { color: var(--accent); text-decoration: underline; }
 .print-only { display: none; }
 @media print { .print-only { display: block; } .report-table td, .report-table th { white-space: normal; } }
+
+/* ===== Chăm sóc khách hàng: phiếu hỗ trợ ===== */
+.sla { display: inline-flex; align-items: center; gap: 4px; font-size: .8rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.sla svg { width: 14px; height: 14px; }
+.sla-ok { background: #e7f5ef; color: #146c43; }
+.sla-warn { background: #fff4d6; color: #8a5a00; }
+.sla-breach { background: #fde2e4; color: #b02a37; font-weight: 600; }
+.sla-done { background: #eef2f7; color: #475569; }
+.csat-stars span { color: #cbd5e1; font-size: 1.05rem; letter-spacing: 1px; }
+.csat-stars span.on { color: #f5a524; }
+.csat-pick { display: inline-flex; flex-direction: row-reverse; gap: 2px; }
+.csat-pick input { display: none; }
+.csat-pick label { font-size: 1.9rem; line-height: 1; color: #cbd5e1; cursor: pointer; transition: color .1s; }
+.csat-pick label:hover, .csat-pick label:hover ~ label, .csat-pick input:checked ~ label { color: #f5a524; }
+.ticket-desc { white-space: pre-wrap; background: #f8fafc; border-radius: 8px; padding: 10px 12px; }
+.ticket-resolution .ticket-desc { background: #ecf8f2; }
+.ticket-thread { display: flex; flex-direction: column; gap: 10px; }
+.tc { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; }
+.tc-public { border-left: 4px solid #0d6efd; }
+.tc-internal { border-left: 4px solid #f5a524; background: #fffbeb; }
+.tc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.tc-body { white-space: pre-wrap; }
+.tc-system { font-size: .8rem; color: #475569; display: flex; gap: 6px; align-items: center; padding-left: 4px; }
+.tc-system svg { width: 14px; height: 14px; flex: none; }

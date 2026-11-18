@@ -30,6 +30,12 @@ public class Customer360ViewModel
     public List<Activity> Upcoming { get; set; } = new();
     public List<TimelineEvent> Timeline { get; set; } = new();
 
+    // ---- Hỗ trợ (CSKH) ----
+    public List<Ticket> Tickets { get; set; } = new();
+    public int OpenTickets { get; set; }
+    public int BreachedTickets { get; set; }
+    public double? Csat { get; set; }
+
     // ---- Chỉ số ----
     public decimal Invoiced { get; set; }
     public decimal Invoiced12m { get; set; }

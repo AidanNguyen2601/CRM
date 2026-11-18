@@ -57,6 +57,13 @@ public class AttachmentService
             AttachmentTarget.Campaign => await _db.Campaigns.FindAsync(id),
             _ => null
         };
+        if (type == AttachmentTarget.Ticket)
+        {
+            var t = await _db.Tickets.Include(x => x.Customer).FirstOrDefaultAsync(x => x.Id == id);
+            if (t == null) return (false, false, false);
+            var ok = user.CanAccessTicket(t, t.Customer?.OwnerId);
+            return (true, ok, ok);
+        }
         if (type == AttachmentTarget.Product)
         {
             var exists = await _db.Products.AnyAsync(p => p.Id == id);

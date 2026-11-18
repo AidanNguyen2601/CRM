@@ -19,6 +19,15 @@
         CampaignMemberStatus.Responded => "bg-info text-dark",
         CampaignMemberStatus.Declined => "bg-warning text-dark",
         CampaignMemberStatus.Failed => "bg-light text-dark border",
+        TicketStatus.New => "bg-info text-dark",
+        TicketStatus.InProgress => "bg-primary",
+        TicketStatus.WaitingCustomer => "bg-warning text-dark",
+        TicketStatus.Resolved => "bg-success",
+        TicketStatus.Closed => "bg-dark",
+        TicketPriority.Low => "bg-light text-dark border",
+        TicketPriority.Normal => "bg-secondary",
+        TicketPriority.High => "bg-warning text-dark",
+        TicketPriority.Urgent => "bg-danger",
         _ => "bg-light text-dark border"
     };
 }

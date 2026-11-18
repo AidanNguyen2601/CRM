@@ -101,7 +101,7 @@ public class ContactsController : CrmControllerBase
         if (c == null) return NotFound();
         if (!User.CanAccess(c)) return NotAllowed();
         if (await Db.Opportunities.AnyAsync(o => o.ContactId == id) || await Db.Quotes.AnyAsync(q => q.ContactId == id)
-            || await Db.Activities.AnyAsync(a => a.ContactId == id))
+            || await Db.Activities.AnyAsync(a => a.ContactId == id) || await Db.Tickets.AnyAsync(t => t.ContactId == id))
         {
             TempData["Error"] = I18n.T("Người liên hệ đang gắn với cơ hội, báo giá hoặc hoạt động nên không thể xóa.");
             return RedirectToAction(nameof(Index));

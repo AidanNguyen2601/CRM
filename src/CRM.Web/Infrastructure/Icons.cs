@@ -30,6 +30,9 @@ public static class Icons
         ["key"] = "<path d='M2.59 17.41A2 2 0 0 0 2 18.83V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.17a2 2 0 0 0 1.42-.59l.81-.81a6.5 6.5 0 1 0-4-4z'/><circle cx='16.5' cy='7.5' r='1.2'/>",
         ["logout"] = "<path d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9'/>",
         ["report"] = "<path d='M3 3v18h18'/><path d='M18 17V9M13 17V5M8 17v-3'/>",
+        ["support"] = "<path d='M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z'/><path d='M21 16v2a4 4 0 0 1-4 4h-5'/>",
+        ["star"] = "<path d='M11.52 2.3a.53.53 0 0 1 .96 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.16.75a.53.53 0 0 1 .3.91l-3.74 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.77.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.01a.53.53 0 0 1-.77-.56l.88-5.14a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .3-.91l5.16-.75a2.12 2.12 0 0 0 1.6-1.16z'/>",
+        ["clock"] = "<circle cx='12' cy='12' r='10'/><path d='M12 6v6l4 2'/>",
         ["plus"] = "<path d='M5 12h14M12 5v14'/>",
         ["trending"] = "<path d='M22 7l-8.5 8.5-5-5L2 17'/><path d='M16 7h6v6'/>",
         ["trophy"] = "<path d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/><path d='M18 2H6v7a6 6 0 0 0 12 0z'/>",
@@ -90,6 +93,7 @@ public static class Icons
         CatalogGroup.Brand => "badge",
         CatalogGroup.Origin => "globe",
         CatalogGroup.PaymentMethod => "card",
+        CatalogGroup.TicketCategory => "support",
         _ => "catalog"
     };
 
@@ -131,6 +135,7 @@ public static class Icons
         "DemoData" => "receivable",
         "Kpi" => "trending",
         "Reports" => "report",
+        "Tickets" => "support",
         "Campaigns" => action == "Segment" ? "target" : "campaign",
         "Account" => "key",
         _ => null

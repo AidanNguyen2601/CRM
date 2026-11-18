@@ -152,6 +152,26 @@ public static class ReportingSchema
         LEFT JOIN dbo.Contracts k ON k.Id = p.ContractId
         LEFT JOIN dbo.Users u ON u.Id = COALESCE(k.OwnerId, i.OwnerId, p.OwnerId)
         """,
+        """
+        CREATE OR ALTER VIEW [dbo].[vw_Tickets] AS
+        SELECT t.Id, t.Number, t.Subject, c.Code AS CustomerCode, c.Name AS CustomerName, ct.FullName AS ContactName,
+               CASE t.Channel WHEN 1 THEN N'Điện thoại / Hotline' WHEN 2 THEN N'Email' WHEN 3 THEN N'Zalo / OTT' WHEN 4 THEN N'Website / Cổng hỗ trợ'
+                              WHEN 5 THEN N'Trực tiếp' ELSE N'Khác' END AS ChannelName,
+               t.Category,
+               CASE t.Priority WHEN 1 THEN N'Thấp' WHEN 2 THEN N'Trung bình' WHEN 3 THEN N'Cao' WHEN 4 THEN N'Khẩn cấp' END AS PriorityName,
+               CASE t.Status WHEN 1 THEN N'Mới' WHEN 2 THEN N'Đang xử lý' WHEN 3 THEN N'Chờ khách phản hồi' WHEN 4 THEN N'Đã giải quyết' WHEN 5 THEN N'Đã đóng' END AS StatusName,
+               CAST(CASE WHEN t.Status IN (1, 2, 3) THEN 1 ELSE 0 END AS bit) AS IsOpen,
+               t.CreatedAt, t.ResponseDueAt, t.FirstResponseAt, t.ResolveDueAt, t.ResolvedAt, t.ClosedAt,
+               CAST(DATEDIFF(minute, t.CreatedAt, t.FirstResponseAt) / 60.0 AS decimal(10,1)) AS ResponseHours,
+               CAST(DATEDIFF(minute, t.CreatedAt, t.ResolvedAt) / 60.0 AS decimal(10,1)) AS ResolveHours,
+               CAST(CASE WHEN COALESCE(t.FirstResponseAt, CASE WHEN t.Status IN (1, 2, 3) THEN GETDATE() END, t.ResolvedAt, t.ClosedAt) > t.ResponseDueAt THEN 1 ELSE 0 END AS bit) AS ResponseBreached,
+               CAST(CASE WHEN COALESCE(t.ResolvedAt, CASE WHEN t.Status IN (1, 2, 3) THEN GETDATE() END, t.ClosedAt) > t.ResolveDueAt THEN 1 ELSE 0 END AS bit) AS ResolveBreached,
+               t.SatisfactionScore, t.OwnerId, u.FullName AS OwnerName, c.OwnerId AS AccountOwnerId
+        FROM dbo.Tickets t
+        LEFT JOIN dbo.Customers c ON c.Id = t.CustomerId
+        LEFT JOIN dbo.Contacts ct ON ct.Id = t.ContactId
+        LEFT JOIN dbo.Users u ON u.Id = t.OwnerId
+        """,
     };
 
     /// <summary>Báo cáo động mẫu (chỉ nạp khi bảng còn trống) – minh hoạ cả 2 cách: SQL và View</summary>

@@ -421,5 +421,62 @@ public static class SchemaUpgrader
             EXEC(N'CREATE INDEX [IX_Opportunities_CampaignId] ON [dbo].[Opportunities] ([CampaignId])');
         END
         """,
+
+        // ---------- Chăm sóc khách hàng: phiếu hỗ trợ ----------
+        """
+        IF OBJECT_ID(N'[dbo].[Tickets]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [dbo].[Tickets] (
+                [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_Tickets] PRIMARY KEY,
+                [Number] nvarchar(30) NOT NULL,
+                [Subject] nvarchar(200) NOT NULL,
+                [Description] nvarchar(4000) NULL,
+                [CustomerId] int NOT NULL CONSTRAINT [FK_Tickets_Customers_CustomerId] REFERENCES [dbo].[Customers] ([Id]),
+                [ContactId] int NULL CONSTRAINT [FK_Tickets_Contacts_ContactId] REFERENCES [dbo].[Contacts] ([Id]),
+                [ContractId] int NULL CONSTRAINT [FK_Tickets_Contracts_ContractId] REFERENCES [dbo].[Contracts] ([Id]),
+                [ProductId] int NULL CONSTRAINT [FK_Tickets_Products_ProductId] REFERENCES [dbo].[Products] ([Id]),
+                [Channel] int NOT NULL,
+                [Category] nvarchar(200) NULL,
+                [Priority] int NOT NULL,
+                [Status] int NOT NULL,
+                [OwnerId] int NULL CONSTRAINT [FK_Tickets_Users_OwnerId] REFERENCES [dbo].[Users] ([Id]),
+                [CreatedById] int NULL CONSTRAINT [FK_Tickets_Users_CreatedById] REFERENCES [dbo].[Users] ([Id]),
+                [CreatedAt] datetime2 NOT NULL,
+                [UpdatedAt] datetime2 NULL,
+                [ResponseDueAt] datetime2 NOT NULL,
+                [ResolveDueAt] datetime2 NOT NULL,
+                [FirstResponseAt] datetime2 NULL,
+                [ResolvedAt] datetime2 NULL,
+                [ClosedAt] datetime2 NULL,
+                [Resolution] nvarchar(2000) NULL,
+                [SatisfactionScore] int NULL,
+                [SatisfactionComment] nvarchar(500) NULL
+            );
+            CREATE UNIQUE INDEX [IX_Tickets_Number] ON [dbo].[Tickets] ([Number]);
+            CREATE INDEX [IX_Tickets_Status_OwnerId] ON [dbo].[Tickets] ([Status], [OwnerId]);
+            CREATE INDEX [IX_Tickets_CustomerId] ON [dbo].[Tickets] ([CustomerId]);
+            CREATE INDEX [IX_Tickets_ContactId] ON [dbo].[Tickets] ([ContactId]);
+            CREATE INDEX [IX_Tickets_ContractId] ON [dbo].[Tickets] ([ContractId]);
+            CREATE INDEX [IX_Tickets_ProductId] ON [dbo].[Tickets] ([ProductId]);
+            CREATE INDEX [IX_Tickets_OwnerId] ON [dbo].[Tickets] ([OwnerId]);
+            CREATE INDEX [IX_Tickets_CreatedById] ON [dbo].[Tickets] ([CreatedById]);
+        END
+        """,
+        """
+        IF OBJECT_ID(N'[dbo].[TicketComments]', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [dbo].[TicketComments] (
+                [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_TicketComments] PRIMARY KEY,
+                [TicketId] int NOT NULL CONSTRAINT [FK_TicketComments_Tickets_TicketId] REFERENCES [dbo].[Tickets] ([Id]),
+                [Body] nvarchar(4000) NOT NULL,
+                [IsInternal] bit NOT NULL,
+                [IsSystem] bit NOT NULL,
+                [AuthorId] int NULL CONSTRAINT [FK_TicketComments_Users_AuthorId] REFERENCES [dbo].[Users] ([Id]),
+                [CreatedAt] datetime2 NOT NULL
+            );
+            CREATE INDEX [IX_TicketComments_TicketId] ON [dbo].[TicketComments] ([TicketId]);
+            CREATE INDEX [IX_TicketComments_AuthorId] ON [dbo].[TicketComments] ([AuthorId]);
+        END
+        """,
     };
 }

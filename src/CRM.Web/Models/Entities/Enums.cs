@@ -89,7 +89,8 @@ public enum CatalogGroup
     [Display(Name = "Loại chi phí")] CostType = 6,
     [Display(Name = "Hãng sản xuất")] Brand = 7,
     [Display(Name = "Xuất xứ")] Origin = 8,
-    [Display(Name = "Phương thức thanh toán")] PaymentMethod = 9
+    [Display(Name = "Phương thức thanh toán")] PaymentMethod = 9,
+    [Display(Name = "Loại yêu cầu hỗ trợ")] TicketCategory = 10
 }
 
 /// <summary>Trạng thái phương án kinh doanh (quy trình duyệt)</summary>
@@ -138,5 +139,6 @@ public enum AttachmentTarget
     Payment = 8,
     Activity = 9,
     Product = 10,
-    Campaign = 11
+    Campaign = 11,
+    Ticket = 12
 }

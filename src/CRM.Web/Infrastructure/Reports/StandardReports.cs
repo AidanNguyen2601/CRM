@@ -15,6 +15,7 @@ public static class StandardReports
     public static string GroupMarketing => T("Khách hàng & tiếp thị");
     public static string GroupFinance => T("Tài chính & công nợ");
     public static string GroupActivity => T("Hoạt động");
+    public static string GroupSupport => T("Chăm sóc khách hàng");
 
     public static IReadOnlyList<ReportDefinition> All => new ReportDefinition[]
     {
@@ -47,6 +48,13 @@ public static class StandardReports
 
         new("activities-by-rep", GroupActivity, T("Hoạt động theo nhân viên"), T("Số cuộc gọi, cuộc họp, email, công việc hoàn thành trong kỳ và số việc đang quá hạn của từng nhân viên."), "calendar",
             ReportFilters.Period, ActivitiesByRep),
+
+        new("support-by-agent", GroupSupport, T("Hiệu suất xử lý theo nhân viên"), T("Số phiếu tiếp nhận, đã giải quyết, tỷ lệ đúng hạn SLA, thời gian phản hồi / giải quyết trung bình, phiếu đang mở, trễ hạn và mức hài lòng của từng người xử lý."), "support",
+            ReportFilters.Period | ReportFilters.Owner, SupportByAgent),
+        new("support-by-category", GroupSupport, T("Yêu cầu hỗ trợ theo loại"), T("Số phiếu tiếp nhận trong kỳ theo loại yêu cầu: tỷ trọng, mức ưu tiên, trễ hạn, thời gian giải quyết và mức hài lòng."), "category",
+            ReportFilters.Period | ReportFilters.Owner, SupportByCategory),
+        new("support-by-month", GroupSupport, T("Chất lượng dịch vụ theo tháng"), T("Phiếu tiếp nhận, đã giải quyết, tỷ lệ đúng hạn SLA, thời gian xử lý trung bình và CSAT theo từng tháng trong năm."), "trending",
+            ReportFilters.Year | ReportFilters.Owner, SupportByMonth),
     };
 
     public static ReportDefinition? Find(string key) => All.FirstOrDefault(r => r.Key == key);
@@ -329,6 +337,123 @@ public static class StandardReports
         }
         r.Rows.Sort((a, b) => ((int)b[^2]!).CompareTo((int)a[^2]!));
         return r.AutoTotals(T("Tổng cộng")).Chart(0, r.Columns.Count - 2);
+    }
+
+    // ================== CHĂM SÓC KHÁCH HÀNG ==================
+
+    private record TicketRow(int? OwnerId, string? Category, TicketPriority Priority, TicketStatus Status, DateTime CreatedAt,
+        DateTime ResponseDueAt, DateTime ResolveDueAt, DateTime? FirstResponseAt, DateTime? ResolvedAt, DateTime? ClosedAt, int? Score);
+
+    /// <summary>Phiếu hỗ trợ theo quyền: CSKH / quản lý thấy tất cả (lọc theo người xử lý nếu chọn); Sales thấy phiếu của mình hoặc khách mình phụ trách</summary>
+    private static IQueryable<Ticket> TicketsQuery(ReportContext x)
+    {
+        var q = x.Db.Tickets.VisibleTickets(x.User);
+        if (x.User.IsSupportDesk() && x.Filter.OwnerId.HasValue) q = q.Where(t => t.OwnerId == x.Filter.OwnerId);
+        return q;
+    }
+
+    private static Task<List<TicketRow>> TicketRows(IQueryable<Ticket> q) =>
+        q.Select(t => new TicketRow(t.OwnerId, t.Category, t.Priority, t.Status, t.CreatedAt, t.ResponseDueAt, t.ResolveDueAt,
+            t.FirstResponseAt, t.ResolvedAt, t.ClosedAt, t.SatisfactionScore)).ToListAsync();
+
+    private static bool IsOpen(TicketRow t) => t.Status is TicketStatus.New or TicketStatus.InProgress or TicketStatus.WaitingCustomer;
+    private static bool Breached(TicketRow t, DateTime now) => IsOpen(t) && (t.ResolveDueAt < now || (t.FirstResponseAt == null && t.ResponseDueAt < now));
+    private static decimal? Pct(int part, int whole) => whole == 0 ? null : Math.Round(part * 100m / whole, 1);
+    private static decimal? AvgHours(IEnumerable<(DateTime From, DateTime? To)> xs)
+    {
+        var l = xs.Where(v => v.To.HasValue).Select(v => (v.To!.Value - v.From).TotalHours).ToList();
+        return l.Count == 0 ? null : Math.Round((decimal)l.Average(), 1);
+    }
+    private static decimal? AvgScore(IEnumerable<TicketRow> xs)
+    {
+        var l = xs.Where(t => t.Score.HasValue).Select(t => t.Score!.Value).ToList();
+        return l.Count == 0 ? null : Math.Round((decimal)l.Average(), 2);
+    }
+
+    private static async Task<ReportResult> SupportByAgent(ReportContext x)
+    {
+        var f = x.Filter; var now = DateTime.Now;
+        var q = TicketsQuery(x);
+        var created = await TicketRows(q.Where(t => t.CreatedAt >= f.FromDate && t.CreatedAt < f.ToExclusive));
+        var resolved = await TicketRows(q.Where(t => t.ResolvedAt >= f.FromDate && t.ResolvedAt < f.ToExclusive));
+        var open = await TicketRows(q.Where(t => t.Status == TicketStatus.New || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingCustomer));
+        var ownerIds = created.Concat(resolved).Concat(open).Select(t => t.OwnerId).Distinct().ToList();
+        var idList = ownerIds.Where(i => i.HasValue).Select(i => i!.Value).ToList();
+        var names = await x.Db.Users.Where(u => idList.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.FullName);
+
+        var r = new ReportResult().Col(T("Người xử lý")).Col(T("Tiếp nhận"), K.Number).Col(T("Đã giải quyết"), K.Number)
+            .Col(T("Đúng hạn"), K.Percent).Col(T("Phản hồi TB (giờ)"), K.Number, false).Col(T("Giải quyết TB (giờ)"), K.Number, false)
+            .Col(T("Đang mở"), K.Number).Col(T("Trễ hạn SLA"), K.Number).Col("CSAT", K.Number, false);
+        foreach (var id in ownerIds)
+        {
+            var c = created.Where(t => t.OwnerId == id).ToList();
+            var s = resolved.Where(t => t.OwnerId == id).ToList();
+            var o = open.Where(t => t.OwnerId == id).ToList();
+            r.Add(id.HasValue ? names.GetValueOrDefault(id.Value) : T("(Chưa phân công)"), c.Count, s.Count,
+                Pct(s.Count(t => t.ResolvedAt <= t.ResolveDueAt), s.Count),
+                AvgHours(c.Select(t => (t.CreatedAt, t.FirstResponseAt))), AvgHours(s.Select(t => (t.CreatedAt, t.ResolvedAt))),
+                o.Count, o.Count(t => Breached(t, now)), AvgScore(s));
+        }
+        r.Rows.Sort((a, b) => ((int)b[2]!).CompareTo((int)a[2]!));
+        r.AutoTotals(T("Tổng cộng"));
+        r.Totals![3] = Pct(resolved.Count(t => t.ResolvedAt <= t.ResolveDueAt), resolved.Count);
+        r.Totals[4] = AvgHours(created.Select(t => (t.CreatedAt, t.FirstResponseAt)));
+        r.Totals[5] = AvgHours(resolved.Select(t => (t.CreatedAt, t.ResolvedAt)));
+        r.Totals[8] = AvgScore(resolved);
+        r.Note = T("Tiếp nhận, phản hồi TB: phiếu tạo trong kỳ. Đã giải quyết, đúng hạn, giải quyết TB, CSAT: phiếu giải quyết trong kỳ. Đang mở, trễ hạn: tại thời điểm xem.");
+        return r.Chart(0, 2);
+    }
+
+    private static async Task<ReportResult> SupportByCategory(ReportContext x)
+    {
+        var f = x.Filter; var now = DateTime.Now;
+        var rows = await TicketRows(TicketsQuery(x).Where(t => t.CreatedAt >= f.FromDate && t.CreatedAt < f.ToExclusive));
+        var r = new ReportResult().Col(T("Loại yêu cầu")).Col(T("Số phiếu"), K.Number).Col(T("Tỷ trọng"), K.Percent)
+            .Col(T("Khẩn cấp / cao"), K.Number).Col(T("Đang mở"), K.Number).Col(T("Trễ hạn SLA"), K.Number)
+            .Col(T("Đã giải quyết"), K.Number).Col(T("Đúng hạn"), K.Percent).Col(T("Giải quyết TB (giờ)"), K.Number, false).Col("CSAT", K.Number, false);
+        foreach (var g in rows.GroupBy(t => t.Category ?? "").OrderByDescending(g => g.Count()))
+        {
+            var s = g.Where(t => t.ResolvedAt.HasValue).ToList();
+            r.Add(g.Key.Length == 0 ? T("(Chưa phân loại)") : g.Key,
+                g.Count(), Pct(g.Count(), rows.Count), g.Count(t => t.Priority >= TicketPriority.High),
+                g.Count(IsOpen), g.Count(t => Breached(t, now) || (!IsOpen(t) && t.ResolvedAt > t.ResolveDueAt)),
+                s.Count, Pct(s.Count(t => t.ResolvedAt <= t.ResolveDueAt), s.Count),
+                AvgHours(s.Select(t => (t.CreatedAt, t.ResolvedAt))), AvgScore(g));
+        }
+        r.AutoTotals(T("Tổng cộng"));
+        var all = rows.Where(t => t.ResolvedAt.HasValue).ToList();
+        r.Totals![2] = rows.Count > 0 ? 100m : null;
+        r.Totals[7] = Pct(all.Count(t => t.ResolvedAt <= t.ResolveDueAt), all.Count);
+        r.Totals[8] = AvgHours(all.Select(t => (t.CreatedAt, t.ResolvedAt)));
+        r.Totals[9] = AvgScore(rows);
+        r.Note = T("Phiếu tiếp nhận trong kỳ. Trễ hạn SLA gồm phiếu đang mở đã quá hạn và phiếu giải quyết sau hạn.");
+        return r.Chart(0, 1);
+    }
+
+    private static async Task<ReportResult> SupportByMonth(ReportContext x)
+    {
+        var y = x.Filter.YearValue;
+        var from = new DateTime(y, 1, 1); var to = from.AddYears(1);
+        var q = TicketsQuery(x);
+        var created = await TicketRows(q.Where(t => t.CreatedAt >= from && t.CreatedAt < to));
+        var resolved = await TicketRows(q.Where(t => t.ResolvedAt >= from && t.ResolvedAt < to));
+        var r = new ReportResult().Col(T("Tháng")).Col(T("Tiếp nhận"), K.Number).Col(T("Đã giải quyết"), K.Number)
+            .Col(T("Đúng hạn"), K.Percent).Col(T("Phản hồi TB (giờ)"), K.Number, false).Col(T("Giải quyết TB (giờ)"), K.Number, false)
+            .Col(T("Lượt đánh giá"), K.Number).Col("CSAT", K.Number, false);
+        for (var m = 1; m <= 12; m++)
+        {
+            var c = created.Where(t => t.CreatedAt.Month == m).ToList();
+            var s = resolved.Where(t => t.ResolvedAt!.Value.Month == m).ToList();
+            r.Add($"{m:00}/{y}", c.Count, s.Count, Pct(s.Count(t => t.ResolvedAt <= t.ResolveDueAt), s.Count),
+                AvgHours(c.Select(t => (t.CreatedAt, t.FirstResponseAt))), AvgHours(s.Select(t => (t.CreatedAt, t.ResolvedAt))),
+                s.Count(t => t.Score.HasValue), AvgScore(s));
+        }
+        r.AutoTotals(T("Cả năm"));
+        r.Totals![3] = Pct(resolved.Count(t => t.ResolvedAt <= t.ResolveDueAt), resolved.Count);
+        r.Totals[4] = AvgHours(created.Select(t => (t.CreatedAt, t.FirstResponseAt)));
+        r.Totals[5] = AvgHours(resolved.Select(t => (t.CreatedAt, t.ResolvedAt)));
+        r.Totals[7] = AvgScore(resolved);
+        return r.Chart(0, 1);
     }
 
     // ================== TIỆN ÍCH ==================

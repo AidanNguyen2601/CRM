@@ -45,14 +45,19 @@ public static class AppRoles
     public const string Admin = "Admin";
     public const string Manager = "Manager";
     public const string Sales = "Sales";
+    /// <summary>Nhân viên chăm sóc khách hàng: xử lý mọi phiếu hỗ trợ; dữ liệu bán hàng chỉ thấy phần mình phụ trách (như Sales)</summary>
+    public const string Support = "Support";
 
     public const string ManagerGroup = Admin + "," + Manager;
-    public static readonly string[] All = { Admin, Manager, Sales };
+    /// <summary>Vai trò được xem / xử lý mọi phiếu hỗ trợ</summary>
+    public const string SupportGroup = Admin + "," + Manager + "," + Support;
+    public static readonly string[] All = { Admin, Manager, Sales, Support };
 
     public static string DisplayName(string role) => CRM.Web.Infrastructure.I18n.T(role switch
     {
         Admin => "Quản trị hệ thống",
         Manager => "Quản lý kinh doanh",
+        Support => "Nhân viên chăm sóc khách hàng",
         _ => "Nhân viên kinh doanh"
     });
 }

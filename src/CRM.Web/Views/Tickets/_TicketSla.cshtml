@@ -1,0 +1,28 @@
+@* Trạng thái SLA của phiếu: còn hạn / sắp đến hạn / trễ hạn / đã xong *@
+@model Ticket
+@{
+    string Span(TimeSpan d)
+    {
+        var a = d.Duration();
+        return a.TotalHours >= 48 ? T("{0} ngày", (int)a.TotalDays) : a.TotalMinutes >= 60 ? T("{0} giờ", (int)a.TotalHours) : T("{0} phút", Math.Max(1, (int)a.TotalMinutes));
+    }
+    var state = Model.SlaState;
+    var due = Model.CurrentDue;
+    var left = due - DateTime.Now;
+    var what = Model.FirstResponseAt == null && Model.IsOpen ? T("phản hồi") : T("giải quyết");
+}
+@switch (state)
+{
+    case "done":
+        <span class="sla sla-done" title="@T("Giải quyết đúng hạn")">@Icon("check") @T("Đúng hạn")</span>
+        break;
+    case "breach" when !Model.IsOpen:
+        <span class="sla sla-breach" title="@T("Hạn giải quyết: {0}", Model.ResolveDueAt.ToDateTime())">@Icon("clock") @T("Trễ {0}", Span((Model.ResolvedAt ?? Model.ClosedAt ?? DateTime.Now) - Model.ResolveDueAt))</span>
+        break;
+    case "breach":
+        <span class="sla sla-breach" title="@T("Hạn {0}: {1}", what, due.ToDateTime())">@Icon("clock") @T("Quá hạn {0} {1}", what, Span(left))</span>
+        break;
+    default:
+        <span class="sla sla-@state" title="@T("Hạn {0}: {1}", what, due.ToDateTime())">@Icon("clock") @T("Còn {0} để {1}", Span(left), what)</span>
+        break;
+}

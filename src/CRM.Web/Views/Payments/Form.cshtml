@@ -41,7 +41,7 @@
         }
         function showHint() {
             const i = open.find(x => String(x.id) === invSel.value);
-            hint.textContent = i ? '@T("Còn phải thu:") ' + crmFmt(i.outstanding) : '';
+            hint.textContent = i ? @Json.Serialize(T("Còn phải thu:") + " ") + crmFmt(i.outstanding) : '';
             return i;
         }
         cust.addEventListener('change', () => loadInvoices(false));

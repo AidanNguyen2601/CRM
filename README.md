@@ -48,6 +48,7 @@ deploy-crm-shared-db.ps1 + run-crm-B.cmd   (tự triển khai PA B trên Windows
 | manager | Manager@123 | Quản lý kinh doanh |
 | sales1 | Sales@123 | Nhân viên kinh doanh |
 | sales2 | Sales@123 | Nhân viên kinh doanh |
+| support1 | Support@123 | Nhân viên chăm sóc khách hàng (phiếu hỗ trợ) |
 
 ## 4. Chạy bằng Docker
 

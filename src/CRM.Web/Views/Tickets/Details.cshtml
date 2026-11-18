@@ -1,0 +1,236 @@
+@model Ticket
+@{
+    var t = Model;
+    ViewData["Title"] = T("Phiếu hỗ trợ {0}", t.Number);
+    var others = (List<Ticket>)ViewBag.OtherTickets;
+    var custOpen = (int)ViewBag.CustomerOpenTickets;
+    var me = User.GetUserId();
+    var desk = User.IsSupportDesk();
+    var vi = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    string Dur(DateTime from, DateTime? to)
+    {
+        if (!to.HasValue) return "";
+        var d = to.Value - from;
+        return d.TotalHours >= 48 ? T("{0} ngày", d.TotalDays.ToString("0.#", vi)) : d.TotalMinutes >= 60 ? T("{0} giờ", d.TotalHours.ToString("0.#", vi)) : T("{0} phút", Math.Max(0, (int)d.TotalMinutes));
+    }
+}
+<div class="toolbar no-print">
+    @if (t.IsOpen)
+    {
+        @if (t.OwnerId != me && (desk || t.OwnerId == null))
+        {
+            <form asp-action="Take" asp-route-id="@t.Id" method="post"><button class="btn btn-primary">@Icon("check") @T("Nhận xử lý")</button></form>
+        }
+        @if (t.Status == TicketStatus.WaitingCustomer)
+        {
+            <form asp-action="SetStatus" asp-route-id="@t.Id" method="post"><input type="hidden" name="status" value="@((int)TicketStatus.InProgress)" /><button class="btn btn-outline-primary">@T("Tiếp tục xử lý")</button></form>
+        }
+        else
+        {
+            <form asp-action="SetStatus" asp-route-id="@t.Id" method="post"><input type="hidden" name="status" value="@((int)TicketStatus.WaitingCustomer)" /><button class="btn btn-outline-warning">@T("Chờ khách phản hồi")</button></form>
+        }
+        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#resolvePanel">@Icon("check") @T("Đã giải quyết")</button>
+    }
+    @if (t.Status == TicketStatus.Resolved)
+    {
+        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#closePanel">@Icon("star") @T("Đóng phiếu & ghi nhận hài lòng")</button>
+    }
+    @if (!t.IsOpen)
+    {
+        <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#reopenPanel">@Icon("undo") @T("Mở lại")</button>
+    }
+    <a class="btn btn-outline-primary ms-auto" asp-action="Edit" asp-route-id="@t.Id">@T("Sửa")</a>
+    @if (User.SeesAll())
+    {
+        <form asp-action="Delete" asp-route-id="@t.Id" method="post" data-confirm="@T("Xóa phiếu hỗ trợ {0}?", t.Number)"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
+    }
+</div>
+
+@if (t.IsOpen)
+{
+    <div class="collapse mb-3" id="resolvePanel"><div class="card border-success"><div class="card-body">
+        <form asp-action="Resolve" asp-route-id="@t.Id" method="post">
+            <label class="form-label fw-semibold" for="resolution">@T("Cách giải quyết")</label>
+            <textarea name="resolution" id="resolution" rows="3" class="form-control" required maxlength="2000" placeholder="@T("Nguyên nhân, cách xử lý, hướng dẫn đã gửi khách…")"></textarea>
+            <div class="mt-2"><button class="btn btn-success">@Icon("check") @T("Xác nhận đã giải quyết")</button></div>
+        </form>
+    </div></div></div>
+}
+@if (t.Status == TicketStatus.Resolved)
+{
+    <div class="collapse mb-3" id="closePanel"><div class="card border-success"><div class="card-body">
+        <form asp-action="Close" asp-route-id="@t.Id" method="post">
+            <div class="fw-semibold mb-1">@T("Mức hài lòng của khách (không bắt buộc)")</div>
+            <div class="csat-pick mb-2">
+                @for (var i = 5; i >= 1; i--)
+                {
+                    <input type="radio" name="score" value="@i" id="score@(i)" /><label for="score@(i)" title="@i/5">★</label>
+                }
+            </div>
+            <input name="comment" class="form-control" maxlength="500" placeholder="@T("Nhận xét của khách")" />
+            <div class="mt-2"><button class="btn btn-success">@T("Đóng phiếu")</button></div>
+        </form>
+    </div></div></div>
+}
+@if (!t.IsOpen)
+{
+    <div class="collapse mb-3" id="reopenPanel"><div class="card"><div class="card-body">
+        <form asp-action="Reopen" asp-route-id="@t.Id" method="post" class="d-flex gap-2 flex-wrap">
+            <input name="reason" class="form-control" style="max-width:600px" maxlength="500" placeholder="@T("Lý do mở lại (vd. lỗi tái diễn)")" />
+            <button class="btn btn-outline-secondary">@Icon("undo") @T("Mở lại phiếu")</button>
+        </form>
+    </div></div></div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between gap-3 flex-wrap mb-2">
+                <div>
+                    <div class="text-muted small">@t.Number · @t.Channel.GetDisplayName() · @t.CreatedAt.ToDateTime()</div>
+                    <h4 class="mb-1">@t.Subject</h4>
+                    <div class="d-flex gap-1 flex-wrap align-items-center">
+                        <partial name="_Badge" model="t.Status" /> <partial name="_Badge" model="t.Priority" />
+                        @if (!string.IsNullOrEmpty(t.Category)) { <span class="badge bg-light text-dark border">@Catalogs.Text(CatalogGroup.TicketCategory, t.Category)</span> }
+                        <partial name="_TicketSla" model="t" />
+                    </div>
+                </div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(t.Description))
+            {
+                <div class="ticket-desc">@t.Description</div>
+            }
+            @if (!string.IsNullOrEmpty(t.Resolution))
+            {
+                <div class="ticket-resolution mt-3">
+                    <div class="fw-semibold text-success">@Icon("check") @T("Cách giải quyết") <span class="small text-muted fw-normal">· @t.ResolvedAt?.ToDateTime()</span></div>
+                    <div class="ticket-desc">@t.Resolution</div>
+                </div>
+            }
+            @if (t.SatisfactionScore.HasValue)
+            {
+                <div class="mt-3"><span class="fw-semibold">@T("Mức hài lòng"):</span>
+                    <span class="csat-stars">@for (var i = 1; i <= 5; i++) { <span class="@(t.SatisfactionScore >= i ? "on" : "")">★</span> }</span>
+                    @if (!string.IsNullOrEmpty(t.SatisfactionComment)) { <span class="text-muted">“@t.SatisfactionComment”</span> }
+                </div>
+            }
+        </div></div>
+
+        <div class="card mb-3" id="comments">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@Icon("email") @T("Trao đổi & lịch sử xử lý")</span>
+                <div class="form-check form-switch small mb-0"><input class="form-check-input" type="checkbox" id="showSystem" checked /><label class="form-check-label" for="showSystem">@T("Hiện ghi nhận hệ thống")</label></div>
+            </div>
+            <div class="card-body">
+                <div class="ticket-thread">
+                    @foreach (var c in t.Comments)
+                    {
+                        if (c.IsSystem)
+                        {
+                            <div class="tc-system">@Icon("clock") <span>@c.Body</span> <span class="text-muted">— @c.Author?.FullName, @c.CreatedAt.ToDateTime()</span></div>
+                        }
+                        else
+                        {
+                            <div class="tc @(c.IsInternal ? "tc-internal" : "tc-public")">
+                                <div class="tc-head"><b>@c.Author?.FullName</b>
+                                    <span class="badge @(c.IsInternal ? "bg-warning text-dark" : "bg-primary")">@(c.IsInternal ? T("Ghi chú nội bộ") : T("Phản hồi khách"))</span>
+                                    <span class="text-muted small ms-auto">@c.CreatedAt.ToDateTime()</span></div>
+                                <div class="tc-body">@c.Body</div>
+                            </div>
+                        }
+                    }
+                    @if (!t.Comments.Any()) { <div class="text-muted small">@T("Chưa có trao đổi.")</div> }
+                </div>
+
+                <form asp-action="Comment" asp-route-id="@t.Id" method="post" class="mt-3 no-print">
+                    <textarea name="body" rows="3" class="form-control" maxlength="4000" required placeholder="@T("Nội dung trả lời khách hoặc ghi chú nội bộ…")"></textarea>
+                    <div class="d-flex gap-2 align-items-center flex-wrap mt-2">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="isInternal" id="kindPublic" value="false" checked />
+                            <label class="btn btn-outline-primary" for="kindPublic">@T("Phản hồi khách")</label>
+                            <input type="radio" class="btn-check" name="isInternal" id="kindInternal" value="true" />
+                            <label class="btn btn-outline-warning" for="kindInternal">@T("Ghi chú nội bộ")</label>
+                        </div>
+                        @if (t.IsOpen)
+                        {
+                            <select name="then" class="form-select form-select-sm" style="width:auto">
+                                <option value="">@T("Giữ nguyên trạng thái")</option>
+                                <option value="@((int)TicketStatus.WaitingCustomer)">@T("→ Chờ khách phản hồi")</option>
+                                <option value="@((int)TicketStatus.InProgress)">@T("→ Đang xử lý")</option>
+                            </select>
+                        }
+                        <button class="btn btn-primary btn-sm ms-auto">@Icon("send") @T("Gửi")</button>
+                    </div>
+                    @if (t.FirstResponseAt == null && t.IsOpen)
+                    {
+                        <div class="small text-muted mt-1">@T("Phản hồi khách đầu tiên sẽ được tính là thời điểm phản hồi SLA.")</div>
+                    }
+                </form>
+            </div>
+        </div>
+
+        @await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Ticket, id = t.Id, hint = T("Ảnh chụp lỗi, log, biên bản bảo hành / sửa chữa…") })
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-header">@Icon("clock") @T("Cam kết xử lý (SLA)")</div><div class="card-body small">
+            <table class="table table-sm mb-0">
+                <tr><td class="text-muted">@T("Tiếp nhận")</td><td>@t.CreatedAt.ToDateTime()</td></tr>
+                <tr><td class="text-muted">@T("Hạn phản hồi")</td><td>@t.ResponseDueAt.ToDateTime()</td></tr>
+                <tr><td class="text-muted">@T("Phản hồi lần đầu")</td><td>@if (t.FirstResponseAt.HasValue) { <span class="@(t.FirstResponseAt > t.ResponseDueAt ? "text-danger" : "text-success")">@t.FirstResponseAt.Value.ToDateTime() <span class="text-muted">(@Dur(t.CreatedAt, t.FirstResponseAt))</span></span> } else { <span class="text-muted">–</span> }</td></tr>
+                <tr><td class="text-muted">@T("Hạn giải quyết")</td><td>@t.ResolveDueAt.ToDateTime()</td></tr>
+                <tr><td class="text-muted">@T("Ngày giải quyết")</td><td>@if (t.ResolvedAt.HasValue) { <span class="@(t.ResolvedAt > t.ResolveDueAt ? "text-danger" : "text-success")">@t.ResolvedAt.Value.ToDateTime() <span class="text-muted">(@Dur(t.CreatedAt, t.ResolvedAt))</span></span> } else { <span class="text-muted">–</span> }</td></tr>
+                @if (t.ClosedAt.HasValue) { <tr><td class="text-muted">@T("Ngày đóng")</td><td>@t.ClosedAt.Value.ToDateTime()</td></tr> }
+            </table>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header">@Icon("users") @T("Người xử lý")</div><div class="card-body small">
+            <div class="mb-2">@(t.Owner?.FullName ?? T("Chưa phân công"))</div>
+            @if (desk && t.IsOpen)
+            {
+                <form asp-action="Assign" asp-route-id="@t.Id" method="post" class="d-flex gap-1">
+                    <select name="ownerId" class="form-select form-select-sm" asp-items="ViewBag.Agents"><option value="">@T("-- Chưa phân công --")</option></select>
+                    <button class="btn btn-sm btn-outline-primary">@T("Giao")</button>
+                </form>
+            }
+            <div class="text-muted mt-2">@T("Người tạo: {0}", t.CreatedBy?.FullName ?? "")</div>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header">@Icon("customer") @T("Khách hàng")</div><div class="card-body small">
+            <div class="fw-semibold"><a asp-controller="Customers" asp-action="Details" asp-route-id="@t.CustomerId">@t.Customer?.Name</a></div>
+            <div class="text-muted">@t.Customer?.Code · @t.Customer?.Phone</div>
+            @if (t.Contact != null)
+            {
+                <div class="mt-2">@Icon("contact") <b>@t.Contact.FullName</b> @t.Contact.JobTitle</div>
+                <div class="text-muted">@t.Contact.Phone @t.Contact.Email</div>
+            }
+            @if (t.Contract != null) { <div class="mt-2">@Icon("contract") <a asp-controller="Contracts" asp-action="Details" asp-route-id="@t.ContractId">@t.Contract.Number</a> – @t.Contract.Title</div> }
+            @if (t.Product != null) { <div class="mt-1">@Icon("product") @t.Product.Code – @t.Product.Name</div> }
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>@Icon("support") @T("Phiếu khác của khách hàng")</span>
+            @if (custOpen > 0) { <span class="badge bg-warning text-dark">@T("{0} đang mở", custOpen)</span> }</div>
+            <ul class="list-group list-group-flush small">
+                @foreach (var o in others)
+                {
+                    <li class="list-group-item d-flex justify-content-between gap-2"><span><a asp-action="Details" asp-route-id="@o.Id">@o.Number</a> @o.Subject</span><partial name="_Badge" model="o.Status" /></li>
+                }
+                @if (!others.Any()) { <li class="list-group-item text-muted">@T("Không có.")</li> }
+            </ul>
+            @if (others.Count >= 6) { <div class="card-footer bg-white small"><a asp-action="Index" asp-route-Scope="all" asp-route-CustomerId="@t.CustomerId">@T("Xem tất cả")</a></div> }
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    // Ẩn / hiện các dòng ghi nhận hệ thống (đổi trạng thái, phân công…)
+    (function () {
+        const sw = document.getElementById('showSystem');
+        let on = true;
+        try { on = localStorage.getItem('crm.ticket.sys') !== '0'; } catch (e) { }
+        function apply() { document.querySelectorAll('.tc-system').forEach(x => x.classList.toggle('d-none', !sw.checked)); }
+        sw.checked = on; apply();
+        sw.addEventListener('change', () => { apply(); try { localStorage.setItem('crm.ticket.sys', sw.checked ? '1' : '0'); } catch (e) { } });
+    })();
+</script>
+}

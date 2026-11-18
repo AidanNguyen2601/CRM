@@ -16,6 +16,8 @@ public class HomeController : CrmControllerBase
     /// <summary>Dashboard kinh doanh (Sales: số liệu của mình; Manager/Admin: toàn công ty)</summary>
     public async Task<IActionResult> Index()
     {
+        // Nhân viên CSKH: trang làm việc chính là danh sách phiếu hỗ trợ
+        if (User.IsInRole(AppRoles.Support)) return RedirectToAction("Index", "Tickets");
         var today = DateTime.Today;
         var monthStart = new DateTime(today.Year, today.Month, 1);
         var vm = new DashboardViewModel();

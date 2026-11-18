@@ -543,3 +543,12 @@ public class CampaignSegmentViewModel
     public int SkippedNoInfo { get; set; }
     public int SkippedUnsubscribed { get; set; }
 }
+
+public class TicketFilter : ListFilter
+{
+    /// <summary>open | mine | unassigned | breach | closed | all</summary>
+    public string? Scope { get; set; } = "open";
+    public TicketPriority? Priority { get; set; }
+    public string? Category { get; set; }
+    public int? CustomerId { get; set; }
+}

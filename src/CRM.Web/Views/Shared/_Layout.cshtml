@@ -63,6 +63,12 @@
                             <a class="@Active("Payments")" asp-controller="Payments" asp-action="Index">@Icon("wallet")<span>@T("Thanh toán")</span></a>
                         </div></div>
                     </div>
+                    <div class="nav-block" data-nav="ops-support">
+                        <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Chăm sóc khách hàng")</span>@Icon("chevron", "chev")</button>
+                        <div class="nav-items"><div class="nav-inner">
+                            <a class="@Active("Tickets")" asp-controller="Tickets" asp-action="Index">@Icon("support")<span>@T("Phiếu hỗ trợ")</span></a>
+                        </div></div>
+                    </div>
                     <div class="nav-block" data-nav="ops-customers">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@L("Khách hàng", "Customers")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
@@ -142,6 +148,8 @@
                         <li><a class="dropdown-item" asp-controller="Contracts" asp-action="Create">@Icon("contract")@T("Hợp đồng")</a></li>
                         <li><a class="dropdown-item" asp-controller="Invoices" asp-action="Create">@Icon("invoice")@T("Hoá đơn")</a></li>
                         <li><a class="dropdown-item" asp-controller="Payments" asp-action="Create">@Icon("wallet")@T("Phiếu thu")</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" asp-controller="Tickets" asp-action="Create">@Icon("support")@T("Phiếu hỗ trợ")</a></li>
                     </ul>
                 </div>
                 <div class="dropdown">

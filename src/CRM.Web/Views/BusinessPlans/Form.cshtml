@@ -122,7 +122,7 @@
             const costEl = tr.querySelector('[data-f=CostPrice]');
             const noCost = sale > 0 && cost === 0;
             costEl.classList.toggle('is-missing', noCost);
-            costEl.title = noCost ? '@T("Chưa nhập giá vốn")' : '';
+            costEl.title = noCost ? @Json.Serialize(T("Chưa nhập giá vốn")) : '';
             if (noCost) missing++;
             revenue += sale; cogs += cost;
         });

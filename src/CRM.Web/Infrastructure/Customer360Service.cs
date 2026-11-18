@@ -52,6 +52,12 @@ public class Customer360Service
             .OrderByDescending(p => p.PaymentDate).ThenByDescending(p => p.Id).ToListAsync();
         m.Activities = await _db.Activities.Include(a => a.Owner).Include(a => a.Contact).AsNoTracking()
             .Where(a => a.CustomerId == id).OrderByDescending(a => a.DueDate).ToListAsync();
+        m.Tickets = await _db.Tickets.Include(t => t.Owner).Include(t => t.Contact).AsNoTracking()
+            .Where(t => t.CustomerId == id).OrderByDescending(t => t.CreatedAt).ToListAsync();
+        m.OpenTickets = m.Tickets.Count(t => t.IsOpen);
+        m.BreachedTickets = m.Tickets.Count(t => t.IsOpen && t.SlaState == "breach");
+        var rated = m.Tickets.Where(t => t.SatisfactionScore.HasValue).ToList();
+        m.Csat = rated.Count == 0 ? null : rated.Average(t => t.SatisfactionScore!.Value);
 
         // ---------- Chỉ số tài chính ----------
         var billable = m.Invoices.Where(i => i.IsBillable).ToList();
@@ -88,6 +94,7 @@ public class Customer360Service
         var touches = new List<DateTime>();
         touches.AddRange(m.Activities.Where(a => a.Status == ActivityStatus.Completed).Select(a => a.CompletedAt ?? a.DueDate));
         touches.AddRange(m.Payments.Select(p => p.PaymentDate));
+        touches.AddRange(m.Tickets.Select(t => t.CreatedAt));
         touches.AddRange(m.Quotes.Where(q => q.Status != QuoteStatus.Draft).Select(q => q.QuoteDate));
         touches.AddRange(m.Contracts.Where(k => k.SignDate.HasValue).Select(k => k.SignDate!.Value));
         touches.AddRange(m.Campaigns.Where(x => x.Status is CampaignMemberStatus.Responded or CampaignMemberStatus.Converted
@@ -150,6 +157,13 @@ public class Customer360Service
         if (m.OverdueInvoices > 0)
             list.Add(new("danger", "invoice", T("{0} hoá đơn quá hạn, còn nợ {1}", m.OverdueInvoices, m.Overdue.ToShortMoney()), "finance"));
 
+        if (m.BreachedTickets > 0)
+            list.Add(new("danger", "support", T("{0} phiếu hỗ trợ đã trễ hạn SLA", m.BreachedTickets), "support"));
+        else if (m.OpenTickets > 0)
+            list.Add(new("info", "support", T("Khách hàng đang có {0} phiếu hỗ trợ chưa xong", m.OpenTickets), "support"));
+        var unhappy = m.Tickets.Where(t => t.SatisfactionScore <= 2 && t.ClosedAt >= today.AddDays(-90)).ToList();
+        if (unhappy.Count > 0)
+            list.Add(new("warning", "star", T("Khách không hài lòng ({0}/5) với phiếu {1} – nên liên hệ lại", unhappy[0].SatisfactionScore, unhappy[0].Number), "support"));
         var overdueTasks = m.Activities.Count(a => a.IsOverdue);
         if (overdueTasks > 0)
             list.Add(new("danger", "alert", T("{0} hoạt động chăm sóc đã quá hạn", overdueTasks), "timeline"));
@@ -251,6 +265,16 @@ public class Customer360Service
             t.Add(new(p.PaymentDate, "finance", "wallet", T("Thu tiền {0}", p.Number),
                 string.Join(" · ", new[] { catalogs.Text(CatalogGroup.PaymentMethod, p.Method), p.Invoice?.FullNumber, p.Contract?.Number }.Where(s => !string.IsNullOrEmpty(s))),
                 "Payments", "Details", p.Id, p.Amount, "done"));
+        foreach (var k in m.Tickets)
+        {
+            var detail = string.Join(" · ", new[] { k.Status.GetDisplayName(), k.Priority.GetDisplayName(), catalogs.Text(CatalogGroup.TicketCategory, k.Category), k.Owner?.FullName }
+                .Where(s => !string.IsNullOrEmpty(s)));
+            t.Add(new(k.CreatedAt, "support", "support", T("Yêu cầu hỗ trợ {0}: {1}", k.Number, k.Subject), detail,
+                "Tickets", "Details", k.Id, null, k.IsOpen ? (k.SlaState == "breach" ? "overdue" : "planned") : "done"));
+            if (k.SatisfactionScore.HasValue && k.ClosedAt.HasValue)
+                t.Add(new(k.ClosedAt.Value, "support", "star", T("Khách đánh giá {0}/5 – phiếu {1}", k.SatisfactionScore, k.Number), k.SatisfactionComment,
+                    "Tickets", "Details", k.Id, null, k.SatisfactionScore <= 2 ? "overdue" : "done"));
+        }
 
         return t.OrderByDescending(e => e.When).ToList();
     }

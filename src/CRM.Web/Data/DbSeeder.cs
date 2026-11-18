@@ -1,4 +1,5 @@
 using CRM.Web.Models.Entities;
+using CRM.Web.Infrastructure;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -52,7 +53,8 @@ public static class DbSeeder
         var manager = U("manager", "Nguyễn Hoàng Minh", AppRoles.Manager, "Manager@123");
         var sales1 = U("sales1", "Trần Thu Hà", AppRoles.Sales, "Sales@123");
         var sales2 = U("sales2", "Lê Quốc Bảo", AppRoles.Sales, "Sales@123");
-        db.Users.AddRange(admin, manager, sales1, sales2);
+        var support1 = U("support1", "Võ Minh Thư", AppRoles.Support, "Support@123");
+        db.Users.AddRange(admin, manager, sales1, sales2, support1);
 
         // ---------- Sản phẩm ----------
         var products = new List<Product>
@@ -216,6 +218,47 @@ public static class DbSeeder
             Q(1, opps[4], QuoteStatus.Sent, (products[3], 1), (products[4], 40), (products[5], 6), (products[7], 1)),
             Q(2, opps[5], QuoteStatus.Draft, (products[1], 3), (products[4], 30), (products[6], 1)),
             Q(3, opps[8], QuoteStatus.Sent, (products[4], 25), (products[5], 4)));
+
+        // ---------- Phiếu hỗ trợ (CSKH) ----------
+        var now = DateTime.Now;
+        var ticketNo = 0;
+        Ticket Tk(int ci, string subject, string category, TicketPriority prio, TicketChannel ch, double hoursAgo, AppUser? agent,
+            TicketStatus st, double? respAfter = null, double? resolveAfter = null, int? score = null, string? resolution = null)
+        {
+            var created = now.AddHours(-hoursAgo);
+            var t = new Ticket
+            {
+                Number = $"YC-{created:yyyy}-{++ticketNo:0000}", Subject = subject, CustomerId = customers[ci].Id, ContactId = contacts[ci].Id,
+                Category = category, Priority = prio, Channel = ch, Status = st, OwnerId = agent?.Id, CreatedById = support1.Id, CreatedAt = created
+            };
+            t.ApplySla();
+            t.Comments.Add(new TicketComment { Body = $"Tiếp nhận yêu cầu qua kênh {ch.GetDisplayName()}.", IsSystem = true, IsInternal = true, AuthorId = support1.Id, CreatedAt = created });
+            if (respAfter.HasValue)
+            {
+                t.FirstResponseAt = created.AddHours(respAfter.Value);
+                t.Comments.Add(new TicketComment { Body = "Chào anh/chị, bộ phận hỗ trợ đã tiếp nhận và đang kiểm tra. Chúng tôi sẽ cập nhật sớm nhất.", AuthorId = agent?.Id ?? support1.Id, CreatedAt = t.FirstResponseAt.Value });
+            }
+            if (resolveAfter.HasValue)
+            {
+                t.ResolvedAt = created.AddHours(resolveAfter.Value);
+                t.Resolution = resolution;
+                t.Comments.Add(new TicketComment { Body = "Đã giải quyết.", IsSystem = true, IsInternal = true, AuthorId = agent?.Id ?? support1.Id, CreatedAt = t.ResolvedAt.Value });
+            }
+            if (st == TicketStatus.Closed)
+            {
+                t.ClosedAt = t.ResolvedAt!.Value.AddDays(1);
+                t.SatisfactionScore = score;
+                t.Comments.Add(new TicketComment { Body = "Đóng phiếu." + (score.HasValue ? $" Khách đánh giá {score}/5." : ""), IsSystem = true, IsInternal = true, AuthorId = support1.Id, CreatedAt = t.ClosedAt.Value });
+            }
+            return t;
+        }
+        db.Tickets.AddRange(
+            Tk(0, "Không tính được lương tháng cho nhân viên mới", "Hỗ trợ kỹ thuật", TicketPriority.High, TicketChannel.Phone, 300, support1, TicketStatus.Closed, 1.5, 20, 5, "Bổ sung cấu hình ca làm việc cho nhóm nhân viên mới, tính lại lương thành công."),
+            Tk(1, "Hướng dẫn phân quyền cho trưởng khoa", "Hướng dẫn sử dụng", TicketPriority.Low, TicketChannel.Email, 200, support1, TicketStatus.Closed, 6, 30, 4, "Gửi tài liệu và hướng dẫn trực tiếp qua điện thoại."),
+            Tk(4, "Xuất lại hoá đơn sai mã số thuế", "Hoá đơn / thanh toán", TicketPriority.Normal, TicketChannel.Zalo, 150, sales1, TicketStatus.Closed, 2, 90, 2, "Xuất hoá đơn điều chỉnh và gửi lại cho khách."),
+            Tk(1, "Máy chấm công khu B không đồng bộ dữ liệu", "Bảo hành / sửa chữa", TicketPriority.Urgent, TicketChannel.Phone, 6, support1, TicketStatus.InProgress, 0.5),
+            Tk(6, "Đề nghị bổ sung báo cáo tồn kho theo lô", "Yêu cầu thay đổi / nâng cấp", TicketPriority.Normal, TicketChannel.Email, 30, support1, TicketStatus.WaitingCustomer, 3),
+            Tk(0, "Lỗi đăng nhập sau khi đổi mật khẩu", "Hỗ trợ kỹ thuật", TicketPriority.High, TicketChannel.Web, 5, null, TicketStatus.New));
 
         await db.SaveChangesAsync();
     }

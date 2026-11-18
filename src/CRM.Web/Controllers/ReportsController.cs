@@ -21,6 +21,8 @@ public class ReportPageModel
     public object RouteValues { get; set; } = new { };
     public CustomReport? Custom { get; set; }
     public string? Sql { get; set; }
+    /// <summary>Nhóm báo cáo chuẩn (null với báo cáo động)</summary>
+    public string? Group { get; set; }
 }
 
 /// <summary>Báo cáo chuẩn (viết sẵn) và báo cáo động (SQL / View do quản trị định nghĩa)</summary>
@@ -46,7 +48,7 @@ public class ReportsController : CrmControllerBase
         Defaults(f, def.Filters);
         var m = new ReportPageModel
         {
-            Title = def.Title, Description = def.Description, Icon = def.Icon, Filters = def.Filters, Filter = f,
+            Title = def.Title, Description = def.Description, Icon = def.Icon, Filters = def.Filters, Filter = f, Group = def.Group,
             RouteValues = new { id }, ExportAction = nameof(Export),
             Result = await def.Run(new ReportContext { Db = Db, User = User, Filter = f })
         };

@@ -16,6 +16,7 @@
     <a class="btn btn-outline-secondary" asp-controller="Quotes" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Báo giá")</a>
     <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hợp đồng")</a>
     <a class="btn btn-outline-secondary" asp-controller="Contacts" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Liên hệ")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Tickets" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Phiếu hỗ trợ")</a>
     <form asp-action="Delete" asp-route-id="@c.Id" method="post" data-confirm="@T("Xóa khách hàng {0}?", c.Name)" class="ms-auto"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
 </div>
 
@@ -68,6 +69,7 @@
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sales" data-tab="sales" type="button">@Icon("opportunity") @T("Bán hàng") <span class="badge rounded-pill text-bg-light">@(Model.Opportunities.Count + Model.Quotes.Count + Model.Plans.Count)</span></button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-finance" data-tab="finance" type="button">@Icon("wallet") @T("Hợp đồng & tài chính") <span class="badge rounded-pill text-bg-light">@(Model.Contracts.Count + Model.Invoices.Count)</span></button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-products" data-tab="products" type="button">@Icon("product") @T("Sản phẩm đã mua") <span class="badge rounded-pill text-bg-light">@Model.Products.Count</span></button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-support" data-tab="support" type="button">@Icon("support") @T("Hỗ trợ") <span class="badge rounded-pill @(Model.BreachedTickets > 0 ? "bg-danger" : Model.OpenTickets > 0 ? "bg-warning text-dark" : "text-bg-light")">@(Model.OpenTickets > 0 ? Model.OpenTickets : Model.Tickets.Count)</span></button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-contacts" data-tab="contacts" type="button">@Icon("contact") @T("Liên hệ & tiếp thị") <span class="badge rounded-pill text-bg-light">@Model.Contacts.Count</span></button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-docs" data-tab="docs" type="button">@Icon("paperclip") @T("Tài liệu")</button></li>
 </ul>
@@ -167,6 +169,7 @@
             <button type="button" class="btn btn-outline-secondary" data-kind="sales">@T("Bán hàng")</button>
             <button type="button" class="btn btn-outline-secondary" data-kind="finance">@T("Tài chính")</button>
             <button type="button" class="btn btn-outline-secondary" data-kind="marketing">@T("Tiếp thị")</button>
+            <button type="button" class="btn btn-outline-secondary" data-kind="support">@T("Hỗ trợ")</button>
         </div>
         <a class="btn btn-sm btn-primary ms-auto" asp-controller="Activities" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Hoạt động")</a>
     </div>
@@ -331,6 +334,39 @@
                     <td class="money">@p.Times</td><td>@p.LastDate.ToDate()</td></tr>
             }
             @if (!Model.Products.Any()) { <tr><td colspan="8" class="text-muted p-3">@T("Chưa có hoá đơn phát hành.")</td></tr> }
+            </tbody>
+        </table></div>
+    </div>
+</div>
+
+@* ===== Hỗ trợ (CSKH) ===== *@
+<div class="tab-pane fade" id="tab-support" role="tabpanel">
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@Icon("support", "stat-ico")@T("Đang mở")</div><div class="value">@Model.OpenTickets</div><div class="small text-muted">@T("{0} phiếu tất cả", Model.Tickets.Count)</div></div></div>
+        <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@Icon("clock", "stat-ico")@T("Trễ hạn SLA")</div><div class="value @(Model.BreachedTickets > 0 ? "text-danger" : "")">@Model.BreachedTickets</div><div class="small text-muted">@T("trong số phiếu đang mở")</div></div></div>
+        <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@Icon("check", "stat-ico")@T("Giải quyết đúng hạn")</div>
+            @{ var doneT = Model.Tickets.Where(x => x.ResolvedAt.HasValue).ToList(); }
+            <div class="value">@(doneT.Count > 0 ? (int)Math.Round(100.0 * doneT.Count(x => x.ResolvedAt <= x.ResolveDueAt) / doneT.Count) + "%" : "–")</div><div class="small text-muted">@T("{0} phiếu đã giải quyết", doneT.Count)</div></div></div>
+        <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@Icon("star", "stat-ico")@T("Mức hài lòng (CSAT)")</div>
+            <div class="value">@(Model.Csat.HasValue ? Model.Csat.Value.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " / 5" : "–")</div>
+            <div class="small csat-stars">@for (var i = 1; i <= 5; i++) { <span class="@(Model.Csat.HasValue && Model.Csat.Value >= i - 0.25 ? "on" : "")">★</span> }</div></div></div>
+    </div>
+    <div class="card"><div class="card-header d-flex justify-content-between"><span>@Icon("support") @T("Phiếu hỗ trợ")</span>
+        <a class="small fw-normal" asp-controller="Tickets" asp-action="Create" asp-route-customerId="@c.Id">@T("+ Phiếu hỗ trợ")</a></div>
+        <div class="card-body p-0"><table class="table table-hover mb-0" data-grid="c360-tickets">
+            <thead><tr><th>@T("Mã phiếu")</th><th>@T("Tiêu đề")</th><th>@T("Loại yêu cầu")</th><th>@T("Độ ưu tiên")</th><th>@T("Trạng thái")</th><th>SLA</th><th>@T("Người xử lý")</th><th>@T("Ngày tiếp nhận")</th><th>CSAT</th></tr></thead>
+            <tbody>
+            @foreach (var tk in Model.Tickets)
+            {
+                <tr><td><a asp-controller="Tickets" asp-action="Details" asp-route-id="@tk.Id" class="fw-semibold text-nowrap">@tk.Number</a></td>
+                    <td>@tk.Subject @if (tk.Contact != null) { <div class="small text-muted">@tk.Contact.FullName</div> }</td>
+                    <td>@Catalogs.Text(CatalogGroup.TicketCategory, tk.Category)</td>
+                    <td><partial name="_Badge" model="tk.Priority" /></td><td><partial name="_Badge" model="tk.Status" /></td>
+                    <td class="text-nowrap"><partial name="~/Views/Tickets/_TicketSla.cshtml" model="tk" /></td>
+                    <td>@tk.Owner?.FullName</td><td class="text-nowrap">@tk.CreatedAt.ToDate()</td>
+                    <td class="text-nowrap">@if (tk.SatisfactionScore.HasValue) { <span class="csat-stars">@for (var i = 1; i <= 5; i++) { <span class="@(tk.SatisfactionScore >= i ? "on" : "")">★</span> }</span> }</td></tr>
+            }
+            @if (!Model.Tickets.Any()) { <tr><td colspan="9" class="text-muted p-3">@T("Chưa có yêu cầu hỗ trợ.")</td></tr> }
             </tbody>
         </table></div>
     </div>

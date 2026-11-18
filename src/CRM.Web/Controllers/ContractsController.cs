@@ -257,7 +257,7 @@ public class ContractsController : CrmControllerBase
         var c = await Db.Contracts.Include(x => x.Lines).Include(x => x.Milestones).FirstOrDefaultAsync(x => x.Id == id);
         if (c == null) return NotFound();
         if (!User.CanAccess(c)) return NotAllowed();
-        if (!c.IsEditable || await Db.Invoices.AnyAsync(i => i.ContractId == id) || await Db.Payments.AnyAsync(p => p.ContractId == id))
+        if (!c.IsEditable || await Db.Invoices.AnyAsync(i => i.ContractId == id) || await Db.Payments.AnyAsync(p => p.ContractId == id) || await Db.Tickets.AnyAsync(t => t.ContractId == id))
         {
             TempData["Error"] = I18n.T("Chỉ xóa được hợp đồng nháp chưa có hoá đơn / thanh toán.");
             return RedirectToAction(nameof(Details), new { id });

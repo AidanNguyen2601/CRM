@@ -109,5 +109,11 @@ public static class CatalogSeeder
         {
             ("Chuyển khoản", "Bank transfer"), ("Tiền mặt", "Cash"), ("Thẻ", "Card"), ("Bù trừ công nợ", "Debt offset"),
         }),
+        (CatalogGroup.TicketCategory, new[]
+        {
+            ("Hỗ trợ kỹ thuật", "Technical support"), ("Bảo hành / sửa chữa", "Warranty / repair"), ("Khiếu nại", "Complaint"),
+            ("Yêu cầu thay đổi / nâng cấp", "Change request"), ("Hướng dẫn sử dụng", "How-to question"), ("Hoá đơn / thanh toán", "Billing"),
+            ("Góp ý / đề xuất", "Feedback"), ("Khác", "Other"),
+        }),
     };
 }

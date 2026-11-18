@@ -57,6 +57,21 @@ public static class QueryExtensions
 
     public static bool CanAccess(this ClaimsPrincipal user, IOwned item) =>
         user.SeesAll() || item.OwnerId == user.GetUserId();
+
+    /// <summary>Bộ phận CSKH (Admin/Manager/Support) thấy mọi phiếu hỗ trợ</summary>
+    public static bool IsSupportDesk(this ClaimsPrincipal user) =>
+        user.SeesAll() || user.IsInRole(AppRoles.Support);
+
+    /// <summary>Phiếu hỗ trợ: CSKH thấy tất cả; Sales thấy phiếu được giao cho mình hoặc của khách hàng mình phụ trách</summary>
+    public static IQueryable<Ticket> VisibleTickets(this IQueryable<Ticket> q, ClaimsPrincipal user)
+    {
+        if (user.IsSupportDesk()) return q;
+        var uid = user.GetUserId();
+        return q.Where(t => t.OwnerId == uid || t.Customer!.OwnerId == uid);
+    }
+
+    public static bool CanAccessTicket(this ClaimsPrincipal user, Ticket t, int? customerOwnerId) =>
+        user.IsSupportDesk() || t.OwnerId == user.GetUserId() || customerOwnerId == user.GetUserId();
 }
 
 public static class Paging

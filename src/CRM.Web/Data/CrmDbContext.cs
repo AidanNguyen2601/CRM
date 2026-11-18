@@ -29,6 +29,8 @@ public class CrmDbContext : DbContext
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<SalesTarget> SalesTargets => Set<SalesTarget>();
     public DbSet<CustomReport> CustomReports => Set<CustomReport>();
+    public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<TicketComment> TicketComments => Set<TicketComment>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<CampaignMember> CampaignMembers => Set<CampaignMember>();
 
@@ -54,6 +56,10 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Payment>().HasIndex(x => x.Number).IsUnique();
         modelBuilder.Entity<Attachment>().HasIndex(x => new { x.TargetType, x.TargetId });
         modelBuilder.Entity<SalesTarget>().HasIndex(x => new { x.UserId, x.Year, x.Month }).IsUnique();
+        modelBuilder.Entity<Ticket>().HasIndex(x => x.Number).IsUnique();
+        modelBuilder.Entity<Ticket>().HasIndex(x => new { x.Status, x.OwnerId });
+        modelBuilder.Entity<Ticket>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
+        modelBuilder.Entity<Ticket>().HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById);
         modelBuilder.Entity<SalesTarget>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });

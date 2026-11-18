@@ -1,0 +1,73 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model Ticket
+@{
+    var isNew = Model.Id == 0;
+    ViewData["Title"] = isNew ? T("Tạo phiếu hỗ trợ") : T("Sửa phiếu {0}", Model.Number);
+}
+<div class="card" style="max-width:1000px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label>
+            <select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">@T("-- Chọn khách hàng --")</option></select>
+            <span asp-validation-for="CustomerId" class="text-danger small"></span>
+            <div class="small text-warning-emphasis mt-1" id="openHint"></div></div>
+        <div class="col-md-6"><label asp-for="ContactId" class="form-label"></label>
+            <select asp-for="ContactId" class="form-select" asp-items="ViewBag.Contacts"><option value="">@T("-- Không --")</option></select></div>
+
+        <div class="col-12"><label asp-for="Subject" class="form-label"></label><input asp-for="Subject" class="form-control" placeholder="@T("Mô tả ngắn vấn đề của khách")" /><span asp-validation-for="Subject" class="text-danger small"></span></div>
+        <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" rows="5" class="form-control" placeholder="@T("Hiện tượng, thời điểm, mức ảnh hưởng, các bước đã thử…")"></textarea></div>
+
+        <div class="col-md-3"><label asp-for="Channel" class="form-label"></label><select asp-for="Channel" class="form-select" asp-items="Html.GetEnumSelectList<TicketChannel>()"></select></div>
+        <div class="col-md-3"><label asp-for="Category" class="form-label"></label><select asp-for="Category" class="form-select" asp-items="Catalogs.Options(CatalogGroup.TicketCategory, Model.Category)"><option value="">@T("-- Chọn --")</option></select></div>
+        <div class="col-md-3"><label asp-for="Priority" class="form-label"></label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<TicketPriority>()"></select>
+            <div class="small text-muted mt-1" id="slaHint"></div></div>
+        <div class="col-md-3"><label asp-for="OwnerId" class="form-label"></label>
+            @if (User.IsSupportDesk())
+            {
+                <select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Agents"><option value="">@T("-- Chưa phân công --")</option></select>
+            }
+            else
+            {
+                <input class="form-control" disabled value="@(((IEnumerable<SelectListItem>)ViewBag.Agents).FirstOrDefault(x => x.Selected)?.Text ?? T("Bộ phận CSKH sẽ phân công"))" />
+            }
+        </div>
+
+        <div class="col-md-6"><label asp-for="ContractId" class="form-label"></label>
+            <select asp-for="ContractId" class="form-select" asp-items="ViewBag.Contracts"><option value="">@T("-- Không --")</option></select></div>
+        <div class="col-md-6"><label asp-for="ProductId" class="form-label"></label>
+            <select asp-for="ProductId" class="form-select" asp-items="ViewBag.Products"><option value="">@T("-- Không --")</option></select></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-success">@Icon("check") @T("Lưu phiếu")</button>
+        <a asp-action="@(isNew ? "Index" : "Details")" asp-route-id="@(isNew ? null : Model.Id)" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+</div></div>
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+    (function () {
+        const cust = document.getElementById('CustomerId'), contact = document.getElementById('ContactId'),
+              contract = document.getElementById('ContractId'), hint = document.getElementById('openHint'),
+              prio = document.getElementById('Priority'), sla = document.getElementById('slaHint');
+        const blankContact = contact.options[0].outerHTML, blankContract = contract.options[0].outerHTML;
+        const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        // Khách hàng → nạp người liên hệ, hợp đồng; báo nếu khách đang có phiếu mở
+        cust.addEventListener('change', async () => {
+            contact.innerHTML = blankContact; contract.innerHTML = blankContract; hint.textContent = '';
+            if (!cust.value) return;
+            const r = await (await fetch('@Url.Action("CustomerRefs")?customerId=' + encodeURIComponent(cust.value))).json();
+            contact.innerHTML = blankContact + r.contacts.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+            contract.innerHTML = blankContract + r.contracts.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+            if (r.openTickets > 0) hint.textContent = (@Json.Serialize(T("Khách hàng đang có {0} phiếu hỗ trợ chưa xong — kiểm tra tránh tạo trùng.", "#"))).replace('#', r.openTickets);
+        });
+        // Gợi ý SLA theo độ ưu tiên
+        const slaMap = { 1: [24, 120], 2: [8, 72], 3: [4, 24], 4: [1, 4] };
+        function showSla() {
+            const s = slaMap[prio.value];
+            sla.textContent = s ? (@Json.Serialize(T("SLA: phản hồi {0} giờ, giải quyết {1} giờ", "#1", "#2"))).replace('#1', s[0]).replace('#2', s[1]) : '';
+        }
+        prio.addEventListener('change', showSla); showSla();
+    })();
+</script>
+}

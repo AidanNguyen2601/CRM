@@ -40,7 +40,7 @@
         <div><label class="form-label small mb-1">@T("Năm")</label>
             <select name="Year" class="form-select">@foreach (var y in years) { <option value="@y" selected="@(y == f.YearValue)">@y</option> }</select></div>
     }
-    @if (fl.HasFlag(ReportFilters.Owner) && User.SeesAll())
+    @if (fl.HasFlag(ReportFilters.Owner) && (User.SeesAll() || (User.IsSupportDesk() && Model.Group == StandardReports.GroupSupport)))
     {
         <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div>
     }

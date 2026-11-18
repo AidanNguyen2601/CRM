@@ -107,7 +107,7 @@ public class CustomersController : CrmControllerBase
         if (c == null) return NotFound();
         if (!User.CanAccess(c)) return NotAllowed();
         var used = await Db.Contacts.AnyAsync(x => x.CustomerId == id) || await Db.Opportunities.AnyAsync(x => x.CustomerId == id)
-                   || await Db.Quotes.AnyAsync(x => x.CustomerId == id) || await Db.Activities.AnyAsync(x => x.CustomerId == id);
+                   || await Db.Quotes.AnyAsync(x => x.CustomerId == id) || await Db.Activities.AnyAsync(x => x.CustomerId == id) || await Db.Tickets.AnyAsync(x => x.CustomerId == id);
         if (used)
         {
             TempData["Error"] = I18n.T("Khách hàng đã có dữ liệu liên quan (liên hệ, cơ hội, báo giá, hoạt động). Hãy chuyển phân loại sang 'Ngừng giao dịch'.");

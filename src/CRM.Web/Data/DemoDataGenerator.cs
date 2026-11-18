@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Text;
 using CRM.Web.Models.Entities;
+using CRM.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace CRM.Web.Data;
 
 public record DemoDataResult(int Products, int Customers, int Contacts, int Leads, int Opportunities, int Activities,
-    int Quotes, int BusinessPlans, int Contracts, int Invoices, int Payments, int Campaigns = 0);
+    int Quotes, int BusinessPlans, int Contracts, int Invoices, int Payments, int Campaigns = 0, int Tickets = 0);
 
 /// <summary>
 /// Sinh thêm dữ liệu mẫu nhất quán theo cả chuỗi nghiệp vụ, trải trong 12 tháng gần nhất:
@@ -363,9 +364,10 @@ public static class DemoDataGenerator
 
             await EnsureTargetsAsync();
             var campaigns = await GenerateCampaignsAsync(Math.Clamp(n / 12, 3, 12), customers, contactsByCustomer, leads, opps);
+            var tickets = await GenerateTicketsAsync(contracts, contactsByCustomer);
 
             return new DemoDataResult(newProducts, customers.Count, contacts.Count, leads.Count, opps.Count, acts.Count,
-                quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count, campaigns);
+                quotes.Count, plans.Count, contracts.Count, invoices.Count, payments.Count, campaigns, tickets);
         }
 
         /// <summary>
@@ -614,6 +616,139 @@ public static class DemoDataGenerator
         private const string CampaignMessage =
             "Kính gửi Quý khách,\n\nNhân dịp ra mắt gói dịch vụ mới, chúng tôi trân trọng gửi tới Quý khách ưu đãi giảm 10% cho đơn hàng ký trong tháng.\n" +
             "Vui lòng phản hồi email này hoặc liên hệ nhân viên phụ trách để được tư vấn chi tiết.\n\nTrân trọng.";
+
+        /// <summary>
+        /// Phiếu hỗ trợ mẫu cho khách hàng đã ký hợp đồng: phát sinh sau ngày ký, thời gian phản hồi / giải quyết
+        /// dao động quanh hạn SLA (khoảng 15% trễ hạn), phiếu cũ phần lớn đã đóng kèm điểm hài lòng.
+        /// </summary>
+        private async Task<int> GenerateTicketsAsync(List<Contract> contracts, Dictionary<int, List<Contact>> contactsByCustomer)
+        {
+            if (contracts.Count == 0) return 0;
+            var users = await _db.Users.Where(u => u.IsActive).ToListAsync();
+            var agents = users.Where(u => u.Role == AppRoles.Support).ToList();
+            // Người xử lý: nhân viên CSKH (2 phần) + quản lý (1 phần); chưa có CSKH thì dùng quản lý / admin
+            var managers = users.Where(u => u.Role == AppRoles.Manager).ToList();
+            agents = agents.Count == 0 ? _approvers.ToList() : agents.Concat(agents).Concat(managers).ToList();
+            var categories = await _db.CatalogItems.Where(x => x.Group == CatalogGroup.TicketCategory && x.IsActive)
+                .OrderBy(x => x.SortOrder).Select(x => x.Name).ToListAsync();
+            if (categories.Count == 0) categories = new() { "Hỗ trợ kỹ thuật" };
+            foreach (var x in await _db.Tickets.Select(x => x.Number).ToListAsync()) _numbers.Add(x);
+
+            var now = DateTime.Now;
+            var tickets = new List<Ticket>();
+            foreach (var c in contracts)
+            {
+                var since = c.SignDate!.Value.AddDays(5);
+                if (since >= _today) continue;
+                for (var k = Weighted((0, 25), (1, 35), (2, 25), (3, 10), (4, 5)); k > 0; k--)
+                {
+                    // Khoảng 1/3 phiếu phát sinh trong 10 ngày gần đây để luôn có phiếu đang mở / sắp đến hạn
+                    var spanDays = Math.Max(1, (_today - since).Days + 1);
+                    var created = since.AddDays(_r.Next(100) < 35 ? Math.Max(0, spanDays - 1 - _r.Next(0, 10)) : _r.Next(0, spanDays)).AddHours(_r.Next(8, 18)).AddMinutes(_r.Next(60));
+                    if (created > now) created = now.AddMinutes(-_r.Next(10, 300));
+                    var category = Pick(categories);
+                    var subjects = TicketSubjects.TryGetValue(category, out var s) ? s : TicketSubjects["Hỗ trợ kỹ thuật"];
+                    var product = c.Lines.Where(l => l.ProductId != null).Select(l => l.ProductId).FirstOrDefault();
+                    var contacts = (c.CustomerId is int cid ? contactsByCustomer.GetValueOrDefault(cid) : null) ?? new List<Contact>();
+                    var agent = Pick(agents);
+                    var t = new Ticket
+                    {
+                        Number = NextNumber("YC", created), Subject = Pick(subjects), CustomerId = c.CustomerId, ContractId = c.Id, ProductId = product,
+                        ContactId = contacts.Count > 0 ? Pick(contacts).Id : null, Category = category, CreatedAt = created,
+                        Channel = Weighted((TicketChannel.Phone, 40), (TicketChannel.Email, 30), (TicketChannel.Zalo, 20), (TicketChannel.Web, 8), (TicketChannel.InPerson, 2)),
+                        Priority = Weighted((TicketPriority.Low, 20), (TicketPriority.Normal, 50), (TicketPriority.High, 22), (TicketPriority.Urgent, 8)),
+                        CreatedById = agent.Id, Status = TicketStatus.New
+                    };
+                    t.Description = $"Khách hàng báo: {t.Subject.ToLowerInvariant()}. Mức ảnh hưởng: {Pick(TicketImpacts)}.";
+                    t.ApplySla();
+                    var (respH, resH) = TicketSla.For(t.Priority);
+                    void Log(DateTime at, string body, bool system = true, bool internalNote = true, int? author = null) =>
+                        t.Comments.Add(new TicketComment { Body = body, IsSystem = system, IsInternal = internalNote, AuthorId = author ?? agent.Id, CreatedAt = at });
+                    Log(created, $"Tiếp nhận yêu cầu qua kênh {t.Channel.GetDisplayName()}.");
+
+                    // Thời gian phản hồi / giải quyết: phần lớn trong hạn, một phần trễ
+                    var firstResp = created.AddMinutes(respH * 60 * (_r.Next(100) < 85 ? 0.1 + _r.NextDouble() * 0.85 : 1.1 + _r.NextDouble()));
+                    var resolved = created.AddMinutes(resH * 60 * (_r.Next(100) < 85 ? 0.15 + _r.NextDouble() * 0.8 : 1.05 + _r.NextDouble() * 1.2));
+                    if (resolved < firstResp) resolved = firstResp.AddMinutes(30);
+                    if (firstResp <= now)
+                    {
+                        t.OwnerId = agent.Id;
+                        t.Status = TicketStatus.InProgress;
+                        t.FirstResponseAt = firstResp;
+                        Log(firstResp.AddMinutes(-5), $"Phân công cho {agent.FullName}.");
+                        t.Comments.Add(new TicketComment { Body = Pick(TicketReplies), AuthorId = agent.Id, CreatedAt = firstResp });
+                        if (_r.Next(100) < 40)
+                            Log(firstResp.AddMinutes(_r.Next(20, 240)), Pick(TicketNotes), system: false);
+                    }
+                    else if (_r.Next(100) < 50) { t.OwnerId = agent.Id; t.Status = TicketStatus.InProgress; }
+
+                    if (resolved <= now && t.FirstResponseAt != null)
+                    {
+                        t.Status = TicketStatus.Resolved;
+                        t.ResolvedAt = resolved;
+                        t.Resolution = Pick(TicketResolutions);
+                        Log(resolved, "Đã giải quyết." + (resolved > t.ResolveDueAt ? " (trễ hạn SLA)" : ""));
+                        var closeAt = resolved.AddDays(_r.Next(1, 5)).AddHours(_r.Next(0, 6));
+                        if (closeAt <= now && _r.Next(100) < 85)
+                        {
+                            t.Status = TicketStatus.Closed;
+                            t.ClosedAt = closeAt;
+                            if (_r.Next(100) < 75)
+                                t.SatisfactionScore = resolved > t.ResolveDueAt
+                                    ? Weighted((5, 15), (4, 30), (3, 30), (2, 17), (1, 8))
+                                    : Weighted((5, 50), (4, 32), (3, 12), (2, 4), (1, 2));
+                            if (t.SatisfactionScore.HasValue && _r.Next(100) < 50)
+                                t.SatisfactionComment = t.SatisfactionScore >= 4 ? Pick(TicketPraise) : Pick(TicketComplaints);
+                            Log(closeAt, "Đóng phiếu." + (t.SatisfactionScore.HasValue ? $" Khách đánh giá {t.SatisfactionScore}/5." : ""));
+                        }
+                    }
+                    else if (t.FirstResponseAt != null && _r.Next(100) < 35)
+                    {
+                        t.Status = TicketStatus.WaitingCustomer;
+                        Log(t.FirstResponseAt.Value.AddMinutes(10), "Chuyển trạng thái: Đang xử lý → Chờ khách phản hồi.");
+                    }
+                    t.UpdatedAt = t.Comments.Max(x => x.CreatedAt);
+                    tickets.Add(t);
+                }
+            }
+            _db.Tickets.AddRange(tickets);
+            await _db.SaveChangesAsync();
+            return tickets.Count;
+        }
+
+        private static readonly Dictionary<string, string[]> TicketSubjects = new()
+        {
+            ["Hỗ trợ kỹ thuật"] = new[] { "Không đăng nhập được hệ thống", "Báo cáo chạy chậm vào cuối tháng", "Lỗi khi xuất file Excel", "Đồng bộ dữ liệu giữa chi nhánh bị lỗi", "Máy chủ báo đầy dung lượng", "Lỗi kết nối máy in hoá đơn" },
+            ["Bảo hành / sửa chữa"] = new[] { "Thiết bị không lên nguồn", "Màn hình máy trạm bị sọc", "Ổ cứng máy chủ báo lỗi", "Yêu cầu bảo hành thiết bị mạng" },
+            ["Khiếu nại"] = new[] { "Thời gian xử lý sự cố quá lâu", "Nhân viên triển khai không đến đúng hẹn", "Chất lượng đào tạo chưa đạt yêu cầu" },
+            ["Yêu cầu thay đổi / nâng cấp"] = new[] { "Bổ sung trường thông tin trên phiếu nhập", "Nâng cấp thêm 20 người dùng", "Thêm mẫu báo cáo quản trị theo yêu cầu", "Tích hợp với phần mềm kế toán" },
+            ["Hướng dẫn sử dụng"] = new[] { "Hướng dẫn phân quyền người dùng mới", "Cách khoá sổ cuối kỳ", "Hướng dẫn nhập dữ liệu hàng loạt từ Excel" },
+            ["Hoá đơn / thanh toán"] = new[] { "Đề nghị xuất lại hoá đơn sai thông tin", "Đối chiếu công nợ quý", "Xác nhận đã chuyển khoản đợt 2" },
+            ["Góp ý / đề xuất"] = new[] { "Đề xuất cải tiến giao diện màn hình bán hàng", "Góp ý về tài liệu hướng dẫn" },
+            ["Khác"] = new[] { "Yêu cầu cung cấp hồ sơ năng lực", "Cập nhật thông tin người liên hệ" },
+        };
+        private static readonly string[] TicketImpacts = { "một người dùng", "một phòng ban", "toàn công ty", "không ảnh hưởng vận hành" };
+        private static readonly string[] TicketReplies =
+        {
+            "Chào anh/chị, bộ phận hỗ trợ đã tiếp nhận yêu cầu và đang kiểm tra. Chúng tôi sẽ cập nhật tiến độ sớm nhất.",
+            "Cảm ơn anh/chị đã thông báo. Nhờ anh/chị gửi giúp ảnh chụp màn hình lỗi và thời điểm phát sinh để chúng tôi xử lý nhanh hơn.",
+            "Chúng tôi đã kết nối từ xa và xác định được nguyên nhân, đang tiến hành khắc phục.",
+            "Đã ghi nhận yêu cầu, kỹ thuật viên sẽ liên hệ lại trong hôm nay để hẹn lịch xử lý."
+        };
+        private static readonly string[] TicketNotes =
+        {
+            "Đã chuyển đội phát triển kiểm tra log máy chủ.", "Khách hàng VIP – ưu tiên xử lý.", "Liên quan phiên bản cập nhật tuần trước, cần kiểm tra lại bản vá.",
+            "Đã đặt linh kiện thay thế, dự kiến về trong 2 ngày."
+        };
+        private static readonly string[] TicketResolutions =
+        {
+            "Đã cấu hình lại tài khoản và hướng dẫn khách đổi mật khẩu.", "Áp dụng bản vá mới nhất, khách đã kiểm tra hoạt động bình thường.",
+            "Tối ưu chỉ mục cơ sở dữ liệu, thời gian chạy báo cáo giảm còn dưới 10 giây.", "Thay thế linh kiện theo chế độ bảo hành.",
+            "Gửi tài liệu hướng dẫn và hướng dẫn trực tiếp qua điện thoại.", "Xuất hoá đơn điều chỉnh và gửi lại cho khách.",
+            "Bổ sung chức năng theo yêu cầu trong bản phát hành tháng này."
+        };
+        private static readonly string[] TicketPraise = { "Hỗ trợ nhanh, nhiệt tình.", "Kỹ thuật viên chuyên nghiệp.", "Rất hài lòng." };
+        private static readonly string[] TicketComplaints = { "Xử lý hơi chậm.", "Phải gọi nhiều lần mới có người hỗ trợ.", "Lỗi tái diễn, cần theo dõi thêm." };
 
         private T Pick<T>(IReadOnlyList<T> list) => list[_r.Next(list.Count)];
         private T Pick<T>(T[] arr) => arr[_r.Next(arr.Length)];

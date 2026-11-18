@@ -71,7 +71,7 @@
                 tr.querySelector('.ms-amount').textContent = crmFmt(total * p / 100);
             });
             const out = document.getElementById('msTotal');
-            out.textContent = '@T("Tổng tỷ lệ:") ' + (Math.round(pct * 100) / 100) + '%';
+            out.textContent = @Json.Serialize(T("Tổng tỷ lệ:") + " ") + (Math.round(pct * 100) / 100) + '%';
             out.className = 'small fw-semibold ' + (Math.abs(pct - 100) < 0.001 ? 'text-success' : 'text-danger');
         }
         document.addEventListener('totals:changed', recalcMilestones);
