@@ -168,7 +168,8 @@ document.addEventListener('change', async function (e) {
         const ths = Array.from(head.cells);
         const n = ths.length;
         if (n < 2 || ths.some(th => th.colSpan > 1)) return;
-        const key = 'crm.grid.' + page + '.' + gi + '.' + n;
+        // data-grid="khóa riêng" khi nhiều nội dung khác nhau dùng chung một trang (vd. các báo cáo)
+        const key = 'crm.grid.' + (table.dataset.grid || page) + '.' + gi + '.' + n;
         ths.forEach((th, i) => { th.dataset.col = i; });
         table.classList.add('grid');
         if (table.parentElement) table.parentElement.classList.add('grid-scroll');

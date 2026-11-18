@@ -263,3 +263,28 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .c360-tl .act-type.k-sales { background: #e0f2fe; color: #0369a1; }
 .c360-tl .act-type.k-finance { background: #dcfce7; color: #15803d; }
 .c360-tl .act-type.k-marketing { background: #f3e8ff; color: #7e22ce; }
+
+/* ---------- Báo cáo ---------- */
+.report-link .report-ico { width: 20px; height: 20px; margin-top: 2px; color: var(--accent); flex-shrink: 0; }
+.report-chart .bar-row .lbl { width: 32%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-chart .bar-row .val { width: 110px; }
+.bar .neg { background: #ef4444 !important; }
+.report-table td, .report-table th { white-space: nowrap; }
+.report-sql, .sql-editor { font: 13px/1.5 Consolas, "Cascadia Mono", monospace; }
+.report-sql { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px; white-space: pre-wrap; margin-top: 6px; }
+.sql-editor { background: #0f172a; color: #e2e8f0; border-color: #1e293b; tab-size: 4; }
+.sql-editor:focus { background: #0f172a; color: #fff; }
+.column-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.col-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid #cbd5e1; border-radius: 14px; font-size: .82rem; cursor: pointer; user-select: none; }
+.col-chip input { display: none; }
+.col-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.schema-browser { max-height: 520px; overflow-y: auto; font-size: .85rem; }
+.schema-browser details { border-bottom: 1px solid #eef2f6; padding: 5px 12px; }
+.schema-browser summary { cursor: pointer; }
+.schema-browser summary .badge { font-size: .62rem; margin-right: 4px; }
+.schema-browser .cols { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 4px 0 2px 18px; }
+.schema-browser a { text-decoration: none; }
+.schema-browser .cols a { color: #475569; font-family: Consolas, monospace; font-size: .8rem; }
+.schema-browser a:hover { color: var(--accent); text-decoration: underline; }
+.print-only { display: none; }
+@media print { .print-only { display: block; } .report-table td, .report-table th { white-space: normal; } }

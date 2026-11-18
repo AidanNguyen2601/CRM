@@ -32,6 +32,7 @@ public static class DbSeeder
             else await SeedSampleDataAsync(db, hasher);
         }
         await CatalogSeeder.SeedAsync(db);
+        await ReportingSchema.SeedSamplesAsync(db);
     }
 
     private static async Task SeedSampleDataAsync(CrmDbContext db, IPasswordHasher<AppUser> hasher, bool usersAndProductsOnly = false)

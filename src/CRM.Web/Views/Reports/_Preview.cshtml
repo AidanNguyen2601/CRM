@@ -1,0 +1,16 @@
+@* Kết quả chạy thử trong trình soạn báo cáo động *@
+@using CRM.Web.Infrastructure.Reports
+@model ReportResult?
+@if (ViewBag.Error is string err)
+{
+    <div class="alert alert-danger mb-2"><b>@T("Lỗi:")</b> @err</div>
+}
+@if (ViewBag.Sql is string sql)
+{
+    <details class="mb-2"><summary class="small text-muted">@T("Câu lệnh được chạy")</summary><pre class="report-sql">@sql</pre></details>
+}
+@if (Model != null)
+{
+    <div class="small text-muted mb-1">@T("Chạy thử: tối đa 100 dòng, dưới quyền người dùng chỉ đọc.")</div>
+    <partial name="_ReportTable" model="Model" />
+}

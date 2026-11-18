@@ -1,0 +1,201 @@
+@using CRM.Web.Infrastructure.Reports
+@model CustomReport
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Tạo báo cáo động") : T("Sửa báo cáo: {0}", Model.Name);
+    var schema = (List<DbObjectInfo>)ViewBag.Schema;
+    var isSql = Model.SourceType == CustomReportSource.Sql;
+    var roles = Model.AllowedRoles.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+    var schemaJson = System.Text.Json.JsonSerializer.Serialize(schema.Select(o => new { o.Name, o.IsView, o.Columns }));
+}
+<form asp-action="CustomSave" method="post" id="reportForm">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-xl-8">
+            <div class="card mb-3"><div class="card-body row g-3">
+                <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+                <div class="col-md-3"><label asp-for="Category" class="form-label"></label><input asp-for="Category" class="form-control" list="reportCategories" /></div>
+                <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+                <div class="col-12"><label asp-for="Description" class="form-label"></label><input asp-for="Description" class="form-control" /></div>
+                <div class="col-12">
+                    <label class="form-label d-block">@T("Nguồn dữ liệu")</label>
+                    <div class="btn-group" role="group">
+                        @foreach (var s in Enum.GetValues<CustomReportSource>())
+                        {
+                            <input type="radio" class="btn-check" name="SourceType" id="src@(s)" value="@s" checked="@(Model.SourceType == s)" />
+                            <label class="btn btn-outline-primary" for="src@(s)">@s.GetDisplayName()</label>
+                        }
+                    </div>
+                </div>
+            </div></div>
+
+            @* ----- SQL ----- *@
+            <div class="card mb-3 src-panel" data-src="Sql">
+                <div class="card-header">@Icon("receivable") @T("Câu lệnh SQL")</div>
+                <div class="card-body">
+                    <textarea asp-for="SqlText" class="form-control sql-editor" rows="14" spellcheck="false"></textarea>
+                    <span asp-validation-for="SqlText" class="text-danger small"></span>
+                    <div class="small text-muted mt-2">
+                        @T("Chỉ một câu SELECT hoặc WITH. Đặt tên cột tiếng Việt bằng AS [Tên cột]. Câu lệnh luôn chạy dưới quyền CHỈ ĐỌC.")
+                    </div>
+                </div>
+            </div>
+
+            @* ----- VIEW ----- *@
+            <div class="card mb-3 src-panel" data-src="View">
+                <div class="card-header">@Icon("catalog") @T("Chọn từ View")</div>
+                <div class="card-body row g-3">
+                    <div class="col-md-6"><label asp-for="ViewName" class="form-label"></label>
+                        <select asp-for="ViewName" class="form-select" id="viewSelect">
+                            <option value="">--</option>
+                            @foreach (var v in schema.Where(o => o.IsView)) { <option value="@v.Name">@v.Name</option> }
+                        </select>
+                        <span asp-validation-for="ViewName" class="text-danger small"></span></div>
+                    <div class="col-md-3"><label asp-for="TopRows" class="form-label"></label><input asp-for="TopRows" class="form-control" placeholder="@T("Tất cả")" /></div>
+                    <div class="col-12">
+                        <label class="form-label">@T("Cột hiển thị") <span class="small text-muted">(@T("bỏ trống = tất cả; thứ tự theo thứ tự chọn"))</span></label>
+                        <input type="hidden" asp-for="ViewColumns" id="viewColumns" />
+                        <div id="columnPicker" class="column-picker"></div>
+                    </div>
+                    <div class="col-md-4"><label asp-for="DateColumn" class="form-label"></label><select asp-for="DateColumn" class="form-select col-select" data-current="@Model.DateColumn"></select>
+                        <div class="form-text">@T("Lọc theo kỳ báo cáo (Từ ngày – Đến ngày)")</div></div>
+                    <div class="col-md-4"><label asp-for="OwnerColumn" class="form-label"></label><select asp-for="OwnerColumn" class="form-select col-select" data-current="@Model.OwnerColumn"></select>
+                        <div class="form-text">@T("Nhân viên kinh doanh chỉ thấy dòng mình phụ trách")</div></div>
+                    <div class="col-md-3"><label asp-for="OrderBy" class="form-label"></label><select asp-for="OrderBy" class="form-select col-select" data-current="@Model.OrderBy"></select></div>
+                    <div class="col-md-1 d-flex align-items-end"><div class="form-check"><input asp-for="OrderDesc" class="form-check-input" /><label asp-for="OrderDesc" class="form-check-label"></label></div></div>
+                </div>
+            </div>
+
+            <div class="card mb-3"><div class="card-body row g-3">
+                <div class="col-md-4"><label asp-for="ChartLabelColumn" class="form-label"></label><input asp-for="ChartLabelColumn" class="form-control" placeholder="@T("Tên cột trong kết quả")" /></div>
+                <div class="col-md-4"><label asp-for="ChartValueColumn" class="form-label"></label><input asp-for="ChartValueColumn" class="form-control" placeholder="@T("Cột số")" /></div>
+                <div class="col-md-4">
+                    <label class="form-label d-block">@T("Vai trò được xem")</label>
+                    @foreach (var r in AppRoles.All)
+                    {
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="roles" value="@r" id="role@(r)" checked="@(roles.Contains(r) || r == AppRoles.Admin)" disabled="@(r == AppRoles.Admin)" />
+                            <label class="form-check-label" for="role@(r)">@AppRoles.DisplayName(r)</label>
+                        </div>
+                    }
+                </div>
+            </div></div>
+
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-primary">@T("Lưu báo cáo")</button>
+                <button type="button" class="btn btn-outline-success" id="previewBtn">@Icon("send") @T("Chạy thử")</button>
+                <a asp-action="Index" class="btn btn-light">@T("Hủy")</a>
+            </div>
+            <div id="previewBox"></div>
+        </div>
+
+        @* ----- Trợ giúp: tham số + cấu trúc dữ liệu ----- *@
+        <div class="col-xl-4">
+            <div class="card mb-3"><div class="card-header">@T("Tham số dùng được")</div>
+                <div class="card-body small">
+                    <table class="table table-sm mb-2" data-no-grid>
+                        <tr><td><code>@@FromDate</code>, <code>@@ToDate</code></td><td>@T("Kỳ báo cáo (kiểu date). Lọc ngày: cot >= @FromDate AND cot < DATEADD(day, 1, @ToDate)")</td></tr>
+                        <tr><td><code>@@Year</code></td><td>@T("Năm được chọn")</td></tr>
+                        <tr><td><code>@@OwnerId</code></td><td>@T("Nhân viên được chọn (NULL = tất cả)")</td></tr>
+                        <tr><td><code>@@Keyword</code></td><td>@T("Ô tìm kiếm (NULL nếu bỏ trống)")</td></tr>
+                        <tr><td><code>@@CurrentUserId</code></td><td>@T("Người đang xem")</td></tr>
+                        <tr><td><code>@@SeesAll</code></td><td>@T("1 nếu là quản lý / quản trị")</td></tr>
+                    </table>
+                    <div class="alert alert-warning py-2 mb-0">@Html.Raw(T("Phân quyền dữ liệu: thêm điều kiện <code>(@SeesAll = 1 OR OwnerId = @CurrentUserId)</code> để nhân viên kinh doanh chỉ thấy dữ liệu của mình."))</div>
+                    <div class="mt-2">@T("Ô lọc trên trang báo cáo tự hiện theo tham số câu lệnh có dùng.")</div>
+                </div>
+            </div>
+            <div class="card"><div class="card-header d-flex justify-content-between align-items-center">
+                    <span>@T("View & bảng dữ liệu")</span>
+                    <input type="search" id="schemaSearch" class="form-control form-control-sm" style="max-width:150px" placeholder="@T("Tìm")" />
+                </div>
+                <div class="card-body p-0 schema-browser" id="schemaBrowser"></div>
+                <div class="card-footer small text-muted">@T("Bấm tên bảng / cột để chèn vào câu lệnh. Các View vw_* có sẵn tên trạng thái tiếng Việt.")</div>
+            </div>
+        </div>
+    </div>
+</form>
+<datalist id="reportCategories"><option>@T("Bán hàng")</option><option>@T("Tài chính & công nợ")</option><option>@T("Khách hàng & tiếp thị")</option><option>@T("Hoạt động")</option></datalist>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+(function () {
+    const schema = @Html.Raw(schemaJson);
+    const form = document.getElementById('reportForm');
+    const sqlBox = document.getElementById('SqlText');
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    // ----- Chuyển nguồn dữ liệu SQL / View -----
+    function showSource() {
+        const src = form.querySelector('input[name=SourceType]:checked').value;
+        document.querySelectorAll('.src-panel').forEach(p => p.style.display = p.dataset.src === src ? '' : 'none');
+    }
+    form.querySelectorAll('input[name=SourceType]').forEach(r => r.addEventListener('change', showSource));
+    showSource();
+
+    // ----- Trình chọn cột cho View -----
+    const viewSel = document.getElementById('viewSelect'), picker = document.getElementById('columnPicker'), hidden = document.getElementById('viewColumns');
+    function viewColumns() { const v = schema.find(o => o.IsView && o.Name === viewSel.value); return v ? v.Columns : []; }
+    function renderColumns(keep) {
+        const cols = viewColumns();
+        const chosen = (keep ? hidden.value : '').split(',').map(s => s.trim()).filter(s => cols.includes(s));
+        picker.innerHTML = cols.map(c => `<label class="col-chip ${chosen.includes(c) ? 'on' : ''}"><input type="checkbox" value="${esc(c)}" ${chosen.includes(c) ? 'checked' : ''}> ${esc(c)}</label>`).join('')
+            || '<span class="text-muted small">@T("Chọn View để xem các cột")</span>';
+        hidden.value = chosen.join(',');
+        document.querySelectorAll('.col-select').forEach(s => {
+            const cur = keep ? (s.dataset.current || s.value) : '';
+            s.innerHTML = '<option value="">--</option>' + cols.map(c => `<option ${c === cur ? 'selected' : ''}>${esc(c)}</option>`).join('');
+        });
+    }
+    picker.addEventListener('change', e => {
+        if (e.target.type !== 'checkbox') return;
+        e.target.closest('label').classList.toggle('on', e.target.checked);
+        let list = hidden.value ? hidden.value.split(',') : [];
+        list = e.target.checked ? list.concat(e.target.value) : list.filter(c => c !== e.target.value);
+        hidden.value = list.join(',');
+    });
+    viewSel.addEventListener('change', () => renderColumns(false));
+    renderColumns(true);
+
+    // ----- Danh sách bảng / view: bấm để chèn vào câu lệnh SQL -----
+    const browser = document.getElementById('schemaBrowser');
+    function renderSchema(q) {
+        q = (q || '').toLowerCase();
+        browser.innerHTML = schema.filter(o => !q || o.Name.toLowerCase().includes(q) || o.Columns.some(c => c.toLowerCase().includes(q))).map(o =>
+            `<details ${q ? 'open' : ''}><summary><span class="badge ${o.IsView ? 'bg-info text-dark' : 'bg-light text-dark border'}">${o.IsView ? 'VIEW' : 'TABLE'}</span>
+              <a href="#" data-ins="${esc(o.Name)}">${esc(o.Name)}</a></summary>
+              <div class="cols">${o.Columns.map(c => `<a href="#" data-ins="${esc(c)}">${esc(c)}</a>`).join('')}</div></details>`).join('');
+    }
+    browser.addEventListener('click', e => {
+        const a = e.target.closest('[data-ins]');
+        if (!a) return;
+        e.preventDefault();
+        if (form.querySelector('input[name=SourceType]:checked').value !== 'Sql') return;
+        const text = a.dataset.ins, s = sqlBox.selectionStart, en = sqlBox.selectionEnd;
+        sqlBox.value = sqlBox.value.slice(0, s) + text + sqlBox.value.slice(en);
+        sqlBox.focus(); sqlBox.selectionStart = sqlBox.selectionEnd = s + text.length;
+    });
+    document.getElementById('schemaSearch').addEventListener('input', e => renderSchema(e.target.value));
+    renderSchema();
+
+    // Tab trong ô SQL chèn 4 dấu cách thay vì chuyển ô
+    sqlBox.addEventListener('keydown', e => {
+        if (e.key !== 'Tab') return;
+        e.preventDefault();
+        const s = sqlBox.selectionStart;
+        sqlBox.value = sqlBox.value.slice(0, s) + '    ' + sqlBox.value.slice(sqlBox.selectionEnd);
+        sqlBox.selectionStart = sqlBox.selectionEnd = s + 4;
+    });
+
+    // ----- Chạy thử -----
+    document.getElementById('previewBtn').addEventListener('click', async () => {
+        const box = document.getElementById('previewBox');
+        box.innerHTML = '<div class="text-muted">@T("Đang chạy…")</div>';
+        const res = await fetch('@Url.Action("CustomPreview")', { method: 'POST', body: new FormData(form) });
+        box.innerHTML = await res.text();
+        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+})();
+</script>
+}

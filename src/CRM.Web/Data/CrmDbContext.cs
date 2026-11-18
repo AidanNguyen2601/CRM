@@ -28,6 +28,7 @@ public class CrmDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<SalesTarget> SalesTargets => Set<SalesTarget>();
+    public DbSet<CustomReport> CustomReports => Set<CustomReport>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<CampaignMember> CampaignMembers => Set<CampaignMember>();
 

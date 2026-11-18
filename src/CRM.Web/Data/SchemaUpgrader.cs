@@ -13,6 +13,7 @@ public static class SchemaUpgrader
     {
         foreach (var sql in Steps) await db.Database.ExecuteSqlRawAsync(sql);
         await EnsureCatalogCodesAsync(db);
+        await ReportingSchema.EnsureAsync(db);
     }
 
     private sealed class CatalogCodeRow
