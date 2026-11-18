@@ -36,8 +36,16 @@
     <div><label class="form-label small mb-1">@T("Loại yêu cầu")</label><select name="Category" class="form-select" asp-items="Catalogs.Options(CatalogGroup.TicketCategory, f.Category)"><option value="">@T("-- Tất cả --")</option></select></div>
     @if (User.IsSupportDesk()) { <div><label class="form-label small mb-1">@T("Người xử lý")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
     <button class="btn btn-outline-primary">@T("Lọc")</button>
-    <a class="btn btn-primary ms-auto" asp-action="Create" asp-route-customerId="@f.CustomerId">@Icon("plus") @T("Tạo phiếu hỗ trợ")</a>
+    @if (User.IsSupportDesk()) { <a class="btn btn-outline-secondary ms-auto" asp-action="Workload">@Icon("users") @T("Phân công")</a> }
+    <a class="btn btn-primary @(User.IsSupportDesk() ? "" : "ms-auto")" asp-action="Create" asp-route-customerId="@f.CustomerId">@Icon("plus") @T("Tạo phiếu hỗ trợ")</a>
 </form>
+@if ((int)ViewBag.MyTasks > 0)
+{
+    <div class="alert @((int)ViewBag.MyTasksOverdue > 0 ? "alert-danger" : "alert-light border") py-2 small d-flex gap-2 align-items-center flex-wrap">
+        @Icon("task") <span>@T("Bạn có {0} việc trên phiếu hỗ trợ đang chờ: {1} quá hạn, {2} đến hạn hôm nay.", (int)ViewBag.MyTasks, (int)ViewBag.MyTasksOverdue, (int)ViewBag.MyTasksToday)</span>
+        <a asp-controller="Activities" asp-action="Index" asp-route-View="@((int)ViewBag.MyTasksOverdue > 0 ? "overdue" : "upcoming")" class="ms-auto">@T("Mở lịch làm việc →")</a>
+    </div>
+}
 @if (f.CustomerId.HasValue)
 {
     <div class="alert alert-info py-2 small">@T("Đang lọc theo khách hàng:") <b>@ViewBag.CustomerName</b> · <a asp-route-Scope="@f.Scope">@T("Bỏ lọc")</a></div>

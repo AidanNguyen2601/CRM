@@ -60,6 +60,7 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Ticket>().HasIndex(x => new { x.Status, x.OwnerId });
         modelBuilder.Entity<Ticket>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
         modelBuilder.Entity<Ticket>().HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById);
+        modelBuilder.Entity<Activity>().HasOne(x => x.Ticket).WithMany(t => t.Tasks).HasForeignKey(x => x.TicketId);
         modelBuilder.Entity<SalesTarget>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });

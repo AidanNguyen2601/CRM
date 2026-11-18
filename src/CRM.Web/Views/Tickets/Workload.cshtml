@@ -1,0 +1,90 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = T("Phân công & khối lượng việc");
+    var rows = (List<WorkloadRow>)ViewBag.Rows;
+    var unassigned = (List<Ticket>)ViewBag.Unassigned;
+    var agents = (List<SelectListItem>)ViewBag.Agents;
+    var maxOpen = Math.Max(1, rows.Count == 0 ? 1 : rows.Max(r => r.Open));
+}
+<div class="toolbar">
+    <a class="btn btn-outline-secondary" asp-action="Index">@Icon("support") @T("Danh sách phiếu")</a>
+    @if (User.SeesAll()) { <a class="btn btn-outline-secondary" asp-controller="Activities" asp-action="Index" asp-route-View="overdue">@Icon("calendar") @T("Việc quá hạn")</a> }
+    <a class="btn btn-outline-secondary ms-auto" asp-controller="Reports" asp-action="Run" asp-route-id="support-by-agent">@Icon("report") @T("Báo cáo hiệu suất")</a>
+</div>
+
+<div class="card mb-3"><div class="card-header">@Icon("users") @T("Khối lượng việc theo người xử lý")</div>
+<div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0" data-grid="ticket-workload">
+    <thead><tr>
+        <th>@T("Người xử lý")</th><th style="min-width:160px">@T("Phiếu đang mở")</th><th class="money">@T("Khẩn cấp / cao")</th><th class="money">@T("Trễ hạn SLA")</th>
+        <th class="money">@T("Chờ khách")</th><th class="money">@T("Việc đang làm")</th><th class="money">@T("Việc quá hạn")</th><th class="money">@T("Việc hạn hôm nay")</th>
+        <th class="money">@T("Giải quyết 7 ngày")</th><th class="money">@T("Đúng hạn")</th>
+    </tr></thead>
+    <tbody>
+    @foreach (var r in rows)
+    {
+        <tr>
+            <td><a asp-action="Index" asp-route-Scope="open" asp-route-OwnerId="@r.UserId" class="fw-semibold">@r.Name</a><div class="small text-muted">@r.Role</div></td>
+            <td><div class="d-flex justify-content-between small"><b>@r.Open</b></div>
+                <div class="workload-bar"><span class="@(r.Breached > 0 ? "hot" : "")" style="width:@(r.Open * 100 / maxOpen)%"></span></div></td>
+            <td class="money">@r.HighPriority</td>
+            <td class="money @(r.Breached > 0 ? "text-danger fw-semibold" : "")">@r.Breached</td>
+            <td class="money">@r.Waiting</td>
+            <td class="money">@r.Tasks</td>
+            <td class="money @(r.TasksOverdue > 0 ? "text-danger fw-semibold" : "")">@r.TasksOverdue</td>
+            <td class="money">@r.TasksToday</td>
+            <td class="money">@r.Resolved7d</td>
+            <td class="money">@(r.OnTime7d.HasValue ? r.OnTime7d + "%" : "–")</td>
+        </tr>
+    }
+    @if (!rows.Any()) { <tr><td colspan="10" class="text-center text-muted p-4">@T("Chưa có nhân viên CSKH hoặc phiếu được phân công.")</td></tr> }
+    </tbody>
+</table>
+</div></div>
+
+<div class="card"><div class="card-header d-flex justify-content-between align-items-center">
+    <span>@Icon("alert") @T("Phiếu chưa phân công") <span class="badge @(unassigned.Any() ? "bg-warning text-dark" : "bg-secondary")">@unassigned.Count</span></span>
+</div>
+@if (unassigned.Any())
+{
+    <form asp-action="BulkAssign" method="post">
+        <div class="card-body border-bottom d-flex gap-2 flex-wrap align-items-center">
+            <label class="small text-muted">@T("Giao các phiếu đã chọn cho")</label>
+            <select name="ownerId" class="form-select form-select-sm" style="max-width:340px" required>
+                <option value="">@T("-- Chọn người xử lý --")</option>
+                @foreach (var g in agents.GroupBy(a => a.Group?.Name))
+                {
+                    <optgroup label="@g.Key">@foreach (var a in g) { <option value="@a.Value">@a.Text</option> }</optgroup>
+                }
+            </select>
+            <button class="btn btn-sm btn-primary">@Icon("send") @T("Giao việc")</button>
+        </div>
+        <div class="table-responsive"><table class="table table-hover mb-0" data-no-grid>
+            <thead><tr><th style="width:36px"><input type="checkbox" class="form-check-input" id="checkAll" /></th><th>@T("Mã phiếu")</th><th>@T("Tiêu đề")</th><th>@T("Khách hàng")</th><th>@T("Độ ưu tiên")</th><th>SLA</th><th>@T("Ngày tiếp nhận")</th></tr></thead>
+            <tbody>
+            @foreach (var t in unassigned)
+            {
+                <tr>
+                    <td><input type="checkbox" class="form-check-input" name="ids" value="@t.Id" /></td>
+                    <td><a asp-action="Details" asp-route-id="@t.Id" class="fw-semibold text-nowrap">@t.Number</a></td>
+                    <td>@t.Subject</td><td>@t.Customer?.Name</td>
+                    <td><partial name="_Badge" model="t.Priority" /></td>
+                    <td class="text-nowrap"><partial name="_TicketSla" model="t" /></td>
+                    <td class="text-nowrap">@t.CreatedAt.ToDateTime()</td>
+                </tr>
+            }
+            </tbody>
+        </table></div>
+    </form>
+}
+else
+{
+    <div class="card-body text-muted small">@T("Tất cả phiếu đang mở đều đã có người xử lý.")</div>
+}
+</div>
+@section Scripts {
+<script>
+    document.getElementById('checkAll')?.addEventListener('change', e =>
+        document.querySelectorAll('input[name="ids"]').forEach(c => c.checked = e.target.checked));
+</script>
+}

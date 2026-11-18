@@ -313,3 +313,11 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .tc-body { white-space: pre-wrap; }
 .tc-system { font-size: .8rem; color: #475569; display: flex; gap: 6px; align-items: center; padding-left: 4px; }
 .tc-system svg { width: 14px; height: 14px; flex: none; }
+.ticket-tasks .act-type { padding: 2px 6px; }
+.ticket-tasks .task-done { opacity: .65; }
+.ticket-tasks .task-done .fw-semibold { text-decoration: line-through; }
+.ticket-tasks .task-overdue { background: #fff5f5; }
+.workload-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+.workload-bar > span { display: block; height: 100%; background: var(--accent, #0f9d8a); }
+.workload-bar > span.hot { background: #dc3545; }
+.text-warning-emphasis { color: #8a5a00 !important; }   /* Bootstrap 5.1 chưa có lớp này */

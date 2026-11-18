@@ -77,6 +77,11 @@ public class TicketsController : CrmControllerBase
             .ThenByDescending(x => x.Id)
             .Skip((f.Page - 1) * f.PageSize).Take(f.PageSize).ToListAsync();
 
+        // Việc của tôi trên các phiếu hỗ trợ (việc chính + việc con)
+        var myTasks = Db.Activities.Where(a => a.TicketId != null && a.OwnerId == me && a.Status == ActivityStatus.Planned);
+        ViewBag.MyTasks = await myTasks.CountAsync();
+        ViewBag.MyTasksOverdue = await myTasks.CountAsync(a => a.DueDate < now);
+        ViewBag.MyTasksToday = await myTasks.CountAsync(a => a.DueDate >= DateTime.Today && a.DueDate < DateTime.Today.AddDays(1));
         f.Scope = scope;
         ViewBag.Filter = f;
         await LoadOwnersAsync(f.OwnerId);
@@ -91,16 +96,142 @@ public class TicketsController : CrmControllerBase
             .Include(x => x.Comments).ThenInclude(c => c.Author)
             .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         t.Comments = t.Comments.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id).ToList();
 
         ViewBag.OtherTickets = await Db.Tickets.Where(x => x.CustomerId == t.CustomerId && x.Id != id)
             .OrderByDescending(x => x.CreatedAt).Take(6).AsNoTracking().ToListAsync();
         ViewBag.CustomerOpenTickets = await Db.Tickets.CountAsync(x => x.CustomerId == t.CustomerId && x.Id != id
             && (x.Status == TicketStatus.New || x.Status == TicketStatus.InProgress || x.Status == TicketStatus.WaitingCustomer));
+        ViewBag.Tasks = await Db.Activities.Include(a => a.Owner).AsNoTracking().Where(a => a.TicketId == id)
+            .OrderBy(a => a.Status == ActivityStatus.Planned ? 0 : 1).ThenByDescending(a => a.IsTicketMain).ThenBy(a => a.DueDate).ToListAsync();
         await LoadAgentsAsync(t.OwnerId);
         return View(t);
     }
+
+    // ================== CÔNG VIỆC CỦA PHIẾU ==================
+
+    /// <summary>Giao việc con trên phiếu (gọi lại khách, đi hiện trường, chuyển kỹ thuật...). CSKH giao cho bất kỳ ai; Sales chỉ giao cho mình.</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddTask(int id, string? subject, ActivityType type, int? ownerId, DateTime? dueDate, Priority priority, string? note)
+    {
+        var t = await LoadAsync(id);
+        if (t == null) return NotFound();
+        if (!await CanAccessAsync(t)) return NotAllowed();
+        subject = subject?.Trim();
+        if (string.IsNullOrEmpty(subject) || !dueDate.HasValue)
+        {
+            TempData["Error"] = I18n.T("Vui lòng nhập tên công việc và thời hạn.");
+            return RedirectToAction(nameof(Details), null, new { id }, "tasks");
+        }
+        var owner = User.IsSupportDesk() ? ownerId ?? CurrentUserId : CurrentUserId;
+        var ownerName = await Db.Users.Where(u => u.Id == owner && u.IsActive).Select(u => u.FullName).FirstOrDefaultAsync();
+        if (ownerName == null) return BadRequest();
+        if (!Enum.IsDefined(type)) type = ActivityType.Task;
+        if (!Enum.IsDefined(priority)) priority = Priority.Normal;
+        if (subject.Length > 200) subject = subject[..200];
+        note = note?.Trim();
+        Db.Activities.Add(new Activity
+        {
+            TicketId = t.Id, Type = type, Subject = subject, OwnerId = owner, DueDate = dueDate.Value, Priority = priority,
+            CustomerId = t.CustomerId, ContactId = t.ContactId, Description = string.IsNullOrEmpty(note) ? null : note.Length > 2000 ? note[..2000] : note,
+            CreatedAt = DateTime.Now
+        });
+        Log(t, I18n.T("Giao việc \"{0}\" cho {1}, hạn {2}.", subject, ownerName, dueDate.Value.ToDateTime()));
+        await SaveAsync(t);
+        TempData["Success"] = I18n.T("Đã giao việc cho {0}.", ownerName);
+        return RedirectToAction(nameof(Details), null, new { id }, "tasks");
+    }
+
+    /// <summary>Hoàn thành / hủy việc con (người được giao hoặc bộ phận CSKH). Việc chính tự hoàn thành khi phiếu được giải quyết.</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateTask(int id, int taskId, bool cancel, string? result)
+    {
+        var t = await LoadAsync(id);
+        if (t == null) return NotFound();
+        var a = await Db.Activities.FirstOrDefaultAsync(x => x.Id == taskId && x.TicketId == id);
+        if (a == null) return NotFound();
+        if (!(User.IsSupportDesk() || a.OwnerId == CurrentUserId) || !await CanAccessAsync(t)) return NotAllowed();
+        if (a.IsTicketMain || a.Status != ActivityStatus.Planned) return BadRequest();
+        result = result?.Trim();
+        if (cancel)
+        {
+            a.Status = ActivityStatus.Cancelled;
+            Log(t, I18n.T("{0} hủy việc \"{1}\".", User.GetFullName(), a.Subject) + (string.IsNullOrEmpty(result) ? "" : " " + I18n.T("Lý do: {0}", result)));
+        }
+        else
+        {
+            a.Status = ActivityStatus.Completed;
+            a.CompletedAt = DateTime.Now;
+            if (!string.IsNullOrEmpty(result))
+                a.Description = string.IsNullOrWhiteSpace(a.Description) ? result : a.Description + "\n" + result;
+            if (a.Description?.Length > 2000) a.Description = a.Description[..2000];
+            Log(t, I18n.T("{0} hoàn thành việc \"{1}\".", User.GetFullName(), a.Subject) + (string.IsNullOrEmpty(result) ? "" : " " + I18n.T("Kết quả: {0}", result)));
+        }
+        await SaveAsync(t);
+        return RedirectToAction(nameof(Details), null, new { id }, "tasks");
+    }
+
+    /// <summary>Bảng phân công & khối lượng việc của bộ phận CSKH</summary>
+    public async Task<IActionResult> Workload()
+    {
+        if (!User.IsSupportDesk()) return NotAllowed();
+        var now = DateTime.Now; var today = DateTime.Today; var week = today.AddDays(-7);
+        var open = await OpenTickets(Db.Tickets).AsNoTracking()
+            .Select(t => new { t.Id, t.OwnerId, t.Priority, t.Status, t.FirstResponseAt, t.ResponseDueAt, t.ResolveDueAt }).ToListAsync();
+        var tasks = await Db.Activities.AsNoTracking().Where(a => a.TicketId != null && a.Status == ActivityStatus.Planned && a.OwnerId != null)
+            .Select(a => new { a.OwnerId, a.DueDate }).ToListAsync();
+        var resolved = await Db.Tickets.AsNoTracking().Where(t => t.ResolvedAt >= week && t.OwnerId != null)
+            .Select(t => new { t.OwnerId, OnTime = t.ResolvedAt <= t.ResolveDueAt }).ToListAsync();
+
+        var ids = open.Where(t => t.OwnerId != null).Select(t => t.OwnerId!.Value).Concat(tasks.Select(a => a.OwnerId!.Value)).Concat(resolved.Select(r => r.OwnerId!.Value)).ToHashSet();
+        var users = await Db.Users.AsNoTracking().Where(u => u.IsActive && (u.Role == AppRoles.Support || ids.Contains(u.Id))).ToListAsync();
+        ViewBag.Rows = users.Select(u =>
+        {
+            var o = open.Where(t => t.OwnerId == u.Id).ToList();
+            var k = tasks.Where(a => a.OwnerId == u.Id).ToList();
+            var r = resolved.Where(x => x.OwnerId == u.Id).ToList();
+            return new WorkloadRow(u.Id, u.FullName, AppRoles.DisplayName(u.Role), o.Count,
+                o.Count(t => t.Priority >= TicketPriority.High),
+                o.Count(t => t.ResolveDueAt < now || (t.FirstResponseAt == null && t.ResponseDueAt < now)),
+                o.Count(t => t.Status == TicketStatus.WaitingCustomer),
+                k.Count, k.Count(a => a.DueDate < now), k.Count(a => a.DueDate >= now && a.DueDate < today.AddDays(1)),
+                r.Count, r.Count == 0 ? null : (int)Math.Round(100.0 * r.Count(x => x.OnTime) / r.Count));
+        }).OrderByDescending(x => x.Role == AppRoles.DisplayName(AppRoles.Support)).ThenByDescending(x => x.Open).ThenBy(x => x.Name).ToList();
+
+        ViewBag.Unassigned = await OpenTickets(Db.Tickets).Where(t => t.OwnerId == null).Include(t => t.Customer).AsNoTracking()
+            .OrderByDescending(t => t.Priority).ThenBy(t => t.ResponseDueAt).ToListAsync();
+        await LoadAgentsAsync(null);
+        return View();
+    }
+
+    /// <summary>Giao nhiều phiếu chưa phân công cho một người</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkAssign(List<int> ids, int? ownerId)
+    {
+        if (!User.IsSupportDesk()) return NotAllowed();
+        var name = ownerId.HasValue ? await Db.Users.Where(u => u.Id == ownerId && u.IsActive).Select(u => u.FullName).FirstOrDefaultAsync() : null;
+        if (name == null || ids.Count == 0)
+        {
+            TempData["Error"] = I18n.T("Hãy chọn phiếu và người xử lý.");
+            return RedirectToAction(nameof(Workload));
+        }
+        var list = await Db.Tickets.Where(t => ids.Contains(t.Id)).ToListAsync();
+        foreach (var t in list.Where(t => t.IsOpen && t.OwnerId != ownerId))
+        {
+            t.OwnerId = ownerId;
+            if (t.Status == TicketStatus.New) t.Status = TicketStatus.InProgress;
+            Log(t, I18n.T("Phân công cho {0}.", name));
+            t.UpdatedAt = DateTime.Now;
+            await TicketWork.SyncAsync(Db, t);
+        }
+        await Db.SaveChangesAsync();
+        TempData["Success"] = I18n.T("Đã giao {0} phiếu cho {1}.", list.Count, name);
+        return RedirectToAction(nameof(Workload));
+    }
+
+    private static IQueryable<Ticket> OpenTickets(IQueryable<Ticket> q) =>
+        q.Where(t => t.Status == TicketStatus.New || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingCustomer);
 
     public async Task<IActionResult> Create(int? customerId, int? contractId, int? contactId)
     {
@@ -119,7 +250,7 @@ public class TicketsController : CrmControllerBase
     {
         var t = await Db.Tickets.Include(x => x.Customer).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         await LoadFormAsync(t);
         return View("Form", t);
     }
@@ -147,6 +278,7 @@ public class TicketsController : CrmControllerBase
         }
 
         Ticket t;
+        var resetDue = false;
         if (model.Id == 0)
         {
             t = new Ticket
@@ -164,12 +296,14 @@ public class TicketsController : CrmControllerBase
         else
         {
             t = await Db.Tickets.Include(x => x.Customer).FirstOrDefaultAsync(x => x.Id == model.Id) ?? throw new InvalidOperationException();
-            if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+            if (!await CanAccessAsync(t)) return NotAllowed();
             var oldPriority = t.Priority;
+            resetDue = false;
             var oldOwner = t.OwnerId;
             Copy(model, t);
             if (oldPriority != t.Priority)
             {
+                resetDue = true;
                 if (t.IsOpen) t.ApplySla();   // đổi độ ưu tiên → tính lại hạn SLA từ lúc tiếp nhận
                 Log(t, I18n.T("Đổi độ ưu tiên: {0} → {1}.", oldPriority.GetDisplayName(), t.Priority.GetDisplayName()));
             }
@@ -181,6 +315,7 @@ public class TicketsController : CrmControllerBase
             }
             t.UpdatedAt = DateTime.Now;
         }
+        await TicketWork.SyncAsync(Db, t, resetDue);
         await Db.SaveChangesAsync();
         TempData["Success"] = I18n.T("Đã lưu phiếu hỗ trợ {0}.", t.Number);
         return RedirectToAction(nameof(Details), new { id = t.Id });
@@ -225,7 +360,7 @@ public class TicketsController : CrmControllerBase
     {
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         body = body?.Trim();
         if (string.IsNullOrEmpty(body))
         {
@@ -256,7 +391,7 @@ public class TicketsController : CrmControllerBase
     {
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         if (!t.IsOpen || status is not (TicketStatus.InProgress or TicketStatus.WaitingCustomer)) return BadRequest();
         if (t.Status != status)
         {
@@ -273,7 +408,7 @@ public class TicketsController : CrmControllerBase
     {
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         if (!t.IsOpen) return BadRequest();
         resolution = resolution?.Trim();
         if (string.IsNullOrEmpty(resolution))
@@ -299,7 +434,7 @@ public class TicketsController : CrmControllerBase
     {
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         if (t.Status != TicketStatus.Resolved) return BadRequest();
         t.Status = TicketStatus.Closed;
         t.ClosedAt = DateTime.Now;
@@ -318,13 +453,13 @@ public class TicketsController : CrmControllerBase
     {
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
-        if (!User.CanAccessTicket(t, t.Customer?.OwnerId)) return NotAllowed();
+        if (!await CanAccessAsync(t)) return NotAllowed();
         if (t.IsOpen) return BadRequest();
         t.Status = TicketStatus.InProgress;
         t.ResolvedAt = null; t.ClosedAt = null; t.SatisfactionScore = null; t.SatisfactionComment = null;
         reason = reason?.Trim();
         Log(t, I18n.T("Mở lại phiếu.") + (string.IsNullOrEmpty(reason) ? "" : " " + I18n.T("Lý do: {0}", reason.Length > 500 ? reason[..500] : reason)));
-        await SaveAsync(t);
+        await SaveAsync(t, resetDue: true);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -334,10 +469,13 @@ public class TicketsController : CrmControllerBase
         if (!User.SeesAll()) return NotAllowed();
         var t = await Db.Tickets.Include(x => x.Comments).FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
+        var tasks = await Db.Activities.Where(a => a.TicketId == id).ToListAsync();
+        Db.Activities.RemoveRange(tasks);
         Db.TicketComments.RemoveRange(t.Comments);
         Db.Tickets.Remove(t);
         await Db.SaveChangesAsync();
         await DeleteAttachmentsAsync(AttachmentTarget.Ticket, id);
+        foreach (var a in tasks) await DeleteAttachmentsAsync(AttachmentTarget.Activity, a.Id);
         TempData["Success"] = I18n.T("Đã xóa phiếu hỗ trợ {0}.", t.Number);
         return RedirectToAction(nameof(Index));
     }
@@ -368,11 +506,21 @@ public class TicketsController : CrmControllerBase
         to.Priority = from.Priority;
     }
 
+    /// <summary>Quyền với phiếu: CSKH, người xử lý, người phụ trách khách hàng, hoặc người được giao việc trên phiếu</summary>
+    private async Task<bool> CanAccessAsync(Ticket t)
+    {
+        if (User.CanAccessTicket(t, t.Customer?.OwnerId)) return true;
+        var me = CurrentUserId;
+        return await Db.Activities.AnyAsync(a => a.TicketId == t.Id && a.OwnerId == me);
+    }
+
     private Task<Ticket?> LoadAsync(int id) => Db.Tickets.Include(x => x.Customer).FirstOrDefaultAsync(x => x.Id == id);
 
-    private async Task SaveAsync(Ticket t)
+    /// <summary>Lưu phiếu + đồng bộ việc chính (người xử lý / trạng thái / hạn)</summary>
+    private async Task SaveAsync(Ticket t, bool resetDue = false)
     {
         t.UpdatedAt = DateTime.Now;
+        await TicketWork.SyncAsync(Db, t, resetDue);
         await Db.SaveChangesAsync();
     }
 
@@ -386,10 +534,14 @@ public class TicketsController : CrmControllerBase
     private async Task LoadAgentsAsync(int? selected)
     {
         var users = await Db.Users.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync();
+        // Kèm số phiếu đang mở của từng người để phân công cân tải
+        var load = await OpenTickets(Db.Tickets).Where(t => t.OwnerId != null)
+            .GroupBy(t => t.OwnerId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
         var support = new SelectListGroup { Name = AppRoles.DisplayName(AppRoles.Support) };
         var others = new SelectListGroup { Name = I18n.T("Khác") };
         ViewBag.Agents = users.OrderBy(u => u.Role == AppRoles.Support ? 0 : 1).ThenBy(u => u.FullName)
-            .Select(u => new SelectListItem(u.FullName, u.Id.ToString(), u.Id == selected) { Group = u.Role == AppRoles.Support ? support : others })
+            .Select(u => new SelectListItem($"{u.FullName} ({I18n.T("{0} phiếu mở", load.GetValueOrDefault(u.Id))})", u.Id.ToString(), u.Id == selected)
+                { Group = u.Role == AppRoles.Support ? support : others })
             .ToList();
     }
 

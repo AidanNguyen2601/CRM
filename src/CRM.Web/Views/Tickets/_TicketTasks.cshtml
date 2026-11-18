@@ -1,0 +1,98 @@
+@* Công việc của phiếu hỗ trợ: việc chính (theo người xử lý) + việc con giao thêm. Dữ liệu: ViewBag.Tasks, ViewBag.Agents *@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model Ticket
+@{
+    var t = Model;
+    var tasks = (List<Activity>)ViewBag.Tasks;
+    var agents = (List<SelectListItem>)ViewBag.Agents;
+    var me = User.GetUserId();
+    var desk = User.IsSupportDesk();
+    var open = tasks.Count(a => a.Status == ActivityStatus.Planned);
+    var overdue = tasks.Count(a => a.IsOverdue);
+    var defaultDue = DateTime.Now.AddHours(4) < t.ResolveDueAt ? DateTime.Now.AddHours(4) : DateTime.Today.AddDays(1).AddHours(9);
+    var typeItems = Html.GetEnumSelectList<ActivityType>().ToList();
+    foreach (var i in typeItems) i.Selected = i.Value == ((int)ActivityType.Task).ToString();
+    var prioItems = Html.GetEnumSelectList<Priority>().ToList();
+    foreach (var i in prioItems) i.Selected = i.Value == ((int)TicketWork.PriorityOf(t.Priority)).ToString();
+}
+<div class="card mb-3" id="tasks">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>@Icon("task") @T("Công việc") <span class="badge bg-secondary">@open / @tasks.Count</span>
+            @if (overdue > 0) { <span class="badge bg-danger">@T("{0} quá hạn", overdue)</span> }</span>
+        @if (t.IsOpen) { <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#addTask">@Icon("plus") @T("Giao việc")</button> }
+    </div>
+    @if (t.IsOpen)
+    {
+        <div class="collapse" id="addTask"><div class="card-body border-bottom bg-light">
+            <form asp-action="AddTask" asp-route-id="@t.Id" method="post" class="row g-2">
+                <div class="col-md-6"><label class="form-label small mb-1">@T("Công việc")</label>
+                    <input name="subject" class="form-control form-control-sm" required maxlength="200" placeholder="@T("vd. Gọi lại khách xác nhận, đến hiện trường kiểm tra, chuyển đội kỹ thuật…")" /></div>
+                <div class="col-md-3 col-6"><label class="form-label small mb-1">@T("Loại")</label>
+                    <select name="type" class="form-select form-select-sm" asp-items="typeItems"></select></div>
+                <div class="col-md-3 col-6"><label class="form-label small mb-1">@T("Ưu tiên")</label>
+                    <select name="priority" class="form-select form-select-sm" asp-items="prioItems"></select></div>
+                <div class="col-md-6"><label class="form-label small mb-1">@T("Giao cho")</label>
+                    @if (desk)
+                    {
+                        <select name="ownerId" class="form-select form-select-sm">
+                            @foreach (var g in agents.GroupBy(a => a.Group?.Name))
+                            {
+                                <optgroup label="@g.Key">
+                                    @foreach (var a in g) { <option value="@a.Value" selected="@(a.Value == me.ToString())">@a.Text</option> }
+                                </optgroup>
+                            }
+                        </select>
+                    }
+                    else { <input class="form-control form-control-sm" disabled value="@User.GetFullName()" /> }
+                </div>
+                <div class="col-md-6"><label class="form-label small mb-1">@T("Thời hạn")</label>
+                    <input name="dueDate" type="datetime-local" class="form-control form-control-sm" required value="@defaultDue.ToString("yyyy-MM-ddTHH:mm")" /></div>
+                <div class="col-12"><input name="note" class="form-control form-control-sm" maxlength="2000" placeholder="@T("Hướng dẫn / ghi chú cho người được giao (tùy chọn)")" /></div>
+                <div class="col-12"><button class="btn btn-sm btn-primary">@Icon("send") @T("Giao việc")</button>
+                    <span class="small text-muted ms-2">@T("Việc được đưa vào Lịch làm việc của người được giao.")</span></div>
+            </form>
+        </div></div>
+    }
+    <ul class="list-group list-group-flush ticket-tasks">
+        @foreach (var a in tasks)
+        {
+            var canAct = a.Status == ActivityStatus.Planned && !a.IsTicketMain && (desk || a.OwnerId == me);
+            <li class="list-group-item @(a.Status != ActivityStatus.Planned ? "task-done" : a.IsOverdue ? "task-overdue" : "")">
+                <div class="d-flex gap-2 align-items-start">
+                    <span class="act-type mt-1">@Icon(ForActivity(a.Type))</span>
+                    <div class="flex-grow-1 min-w-0">
+                        <div>
+                            @if (a.IsTicketMain) { <span class="badge bg-light text-primary border border-primary">@T("Việc chính")</span> }
+                            <span class="fw-semibold">@a.Subject</span>
+                            <partial name="_Badge" model="a.Status" />
+                            @if (a.Status == ActivityStatus.Planned) { <partial name="_Badge" model="a.Priority" /> }
+                        </div>
+                        <div class="small text-muted">
+                            @Icon("contact") @(a.Owner?.FullName ?? T("Chưa phân công")) ·
+                            @if (a.Status == ActivityStatus.Completed) { <span>@T("Hoàn thành {0}", a.CompletedAt?.ToDateTime() ?? "")</span> }
+                            else
+                            {
+                                <span class="@(a.IsOverdue ? "text-danger fw-semibold" : "")">@T("Hạn {0}", a.DueDate.ToDateTime())@if (a.IsOverdue) { <text> · @T("Quá hạn")</text> }</span>
+                            }
+                            @if (a.IsTicketMain && a.Status == ActivityStatus.Planned) { <span> · @T("tự hoàn thành khi phiếu được giải quyết")</span> }
+                        </div>
+                        @if (!string.IsNullOrEmpty(a.Description)) { <div class="small pre mt-1">@a.Description</div> }
+                        @if (canAct)
+                        {
+                            <form asp-action="UpdateTask" asp-route-id="@t.Id" method="post" class="d-flex gap-1 mt-2 flex-wrap">
+                                <input type="hidden" name="taskId" value="@a.Id" />
+                                <input name="result" class="form-control form-control-sm" style="max-width:420px" maxlength="1000" placeholder="@T("Kết quả / lý do (tùy chọn)")" />
+                                <button class="btn btn-sm btn-outline-success" name="cancel" value="false">@Icon("check") @T("Hoàn thành")</button>
+                                <button class="btn btn-sm btn-outline-secondary" name="cancel" value="true" data-confirm-click="@T("Hủy việc này?")">@T("Hủy việc")</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </li>
+        }
+        @if (!tasks.Any())
+        {
+            <li class="list-group-item text-muted small">@(t.OwnerId == null ? T("Chưa có công việc. Phân công người xử lý để tạo việc chính.") : T("Chưa có công việc."))</li>
+        }
+    </ul>
+</div>

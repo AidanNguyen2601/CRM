@@ -1,6 +1,7 @@
 // Xác nhận trước các thao tác quan trọng: <form data-confirm="...">
 document.addEventListener('submit', function (e) {
-    const msg = e.target.getAttribute('data-confirm');
+    // Nút submit riêng có thể yêu cầu xác nhận: <button data-confirm-click="...">
+    const msg = (e.submitter && e.submitter.getAttribute('data-confirm-click')) || e.target.getAttribute('data-confirm');
     if (msg && !confirm(msg)) e.preventDefault();
 });
 

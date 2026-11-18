@@ -127,6 +127,8 @@ public class Ticket : IOwned
     public string? SatisfactionComment { get; set; }
 
     public ICollection<TicketComment> Comments { get; set; } = new List<TicketComment>();
+    /// <summary>Công việc của phiếu (bảng Hoạt động): việc chính + việc con</summary>
+    public ICollection<Activity> Tasks { get; set; } = new List<Activity>();
 
     [NotMapped] public bool IsOpen => Status is TicketStatus.New or TicketStatus.InProgress or TicketStatus.WaitingCustomer;
 

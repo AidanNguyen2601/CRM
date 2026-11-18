@@ -757,6 +757,37 @@ public static class DemoDataGenerator
                         t.Status = TicketStatus.WaitingCustomer;
                         Log(t.FirstResponseAt.Value.AddMinutes(10), "Chuyển trạng thái: Đang xử lý → Chờ khách phản hồi.");
                     }
+                    // ---- Công việc: việc chính theo người xử lý + đôi khi giao thêm việc con ----
+                    if (t.OwnerId.HasValue)
+                    {
+                        var done = !t.IsOpen;
+                        _db.Activities.Add(new Activity
+                        {
+                            Ticket = t, IsTicketMain = true, Type = ActivityType.Task, Subject = TicketWork.MainSubject(t), OwnerId = t.OwnerId,
+                            CustomerId = t.CustomerId, ContactId = t.ContactId, Priority = TicketWork.PriorityOf(t.Priority), DueDate = t.ResolveDueAt,
+                            CreatedAt = t.FirstResponseAt ?? created, Status = done ? ActivityStatus.Completed : ActivityStatus.Planned,
+                            CompletedAt = done ? t.ResolvedAt : null, Description = done ? t.Resolution : null
+                        });
+                        if (_r.Next(100) < 35)
+                        {
+                            var (subject, type) = Pick(TicketSubTasks);
+                            var assignee = _r.Next(100) < 60 ? agent : Pick(agents);
+                            var start = t.FirstResponseAt ?? created;
+                            var end = t.ResolvedAt ?? Max(t.ResolveDueAt, now.AddHours(4));
+                            var due = start.AddMinutes(_r.Next(30, Math.Max(31, (int)(end - start).TotalMinutes)));
+                            var subDone = t.ResolvedAt.HasValue || (due < now && _r.Next(100) < 70);
+                            var sub = new Activity
+                            {
+                                Ticket = t, Type = type, Subject = subject, OwnerId = assignee.Id, CustomerId = t.CustomerId, ContactId = t.ContactId,
+                                Priority = TicketWork.PriorityOf(t.Priority), DueDate = due, CreatedAt = start,
+                                Status = subDone ? ActivityStatus.Completed : ActivityStatus.Planned,
+                                CompletedAt = subDone ? Min(due, t.ResolvedAt ?? now) : null, Description = subDone ? Pick(TicketSubTaskResults) : null
+                            };
+                            _db.Activities.Add(sub);
+                            Log(start.AddMinutes(1), $"Giao việc \"{subject}\" cho {assignee.FullName}, hạn {due:dd/MM/yyyy HH:mm}.");
+                            if (subDone) Log(sub.CompletedAt!.Value, $"{assignee.FullName} hoàn thành việc \"{subject}\". Kết quả: {sub.Description}", system: true, author: assignee.Id);
+                        }
+                    }
                     t.UpdatedAt = t.Comments.Max(x => x.CreatedAt);
                     tickets.Add(t);
                 }
@@ -776,6 +807,16 @@ public static class DemoDataGenerator
             ["Hoá đơn / thanh toán"] = new[] { "Đề nghị xuất lại hoá đơn sai thông tin", "Đối chiếu công nợ quý", "Xác nhận đã chuyển khoản đợt 2" },
             ["Góp ý / đề xuất"] = new[] { "Đề xuất cải tiến giao diện màn hình bán hàng", "Góp ý về tài liệu hướng dẫn" },
             ["Khác"] = new[] { "Yêu cầu cung cấp hồ sơ năng lực", "Cập nhật thông tin người liên hệ" },
+        };
+        private static readonly (string, ActivityType)[] TicketSubTasks =
+        {
+            ("Gọi lại khách xác nhận kết quả xử lý", ActivityType.Call), ("Kết nối từ xa kiểm tra hệ thống", ActivityType.Task),
+            ("Đến hiện trường kiểm tra thiết bị", ActivityType.Meeting), ("Chuyển đội phát triển phân tích lỗi", ActivityType.Task),
+            ("Gửi hướng dẫn chi tiết qua email", ActivityType.Email), ("Đặt linh kiện thay thế", ActivityType.Task),
+        };
+        private static readonly string[] TicketSubTaskResults =
+        {
+            "Đã thực hiện, khách xác nhận ổn.", "Đã kiểm tra, không phát hiện lỗi thêm.", "Hoàn thành, đã cập nhật vào phiếu.", "Đã gửi, khách đã nhận."
         };
         private static readonly string[] TicketImpacts = { "một người dùng", "một phòng ban", "toàn công ty", "không ảnh hưởng vận hành" };
         private static readonly string[] TicketReplies =

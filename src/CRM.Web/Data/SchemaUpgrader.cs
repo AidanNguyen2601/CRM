@@ -478,5 +478,14 @@ public static class SchemaUpgrader
             CREATE INDEX [IX_TicketComments_AuthorId] ON [dbo].[TicketComments] ([AuthorId]);
         END
         """,
+        """
+        IF COL_LENGTH(N'dbo.Activities', N'TicketId') IS NULL
+        BEGIN
+            ALTER TABLE [dbo].[Activities] ADD
+                [TicketId] int NULL CONSTRAINT [FK_Activities_Tickets_TicketId] REFERENCES [dbo].[Tickets] ([Id]),
+                [IsTicketMain] bit NOT NULL CONSTRAINT [DF_Activities_IsTicketMain] DEFAULT 0;
+            EXEC(N'CREATE INDEX [IX_Activities_TicketId] ON [dbo].[Activities] ([TicketId])');
+        END
+        """,
     };
 }

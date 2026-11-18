@@ -552,3 +552,7 @@ public class TicketFilter : ListFilter
     public string? Category { get; set; }
     public int? CustomerId { get; set; }
 }
+
+/// <summary>Một dòng bảng phân công CSKH: tải việc của một người</summary>
+public record WorkloadRow(int UserId, string Name, string Role, int Open, int HighPriority, int Breached, int Waiting,
+    int Tasks, int TasksOverdue, int TasksToday, int Resolved7d, int? OnTime7d);

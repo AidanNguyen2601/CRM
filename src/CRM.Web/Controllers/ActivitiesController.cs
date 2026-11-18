@@ -16,7 +16,7 @@ public class ActivitiesController : CrmControllerBase
         var now = DateTime.Now;
         var today = DateTime.Today;
         var q = Db.Activities.VisibleTo(User)
-            .Include(a => a.Owner).Include(a => a.Customer).Include(a => a.Lead).Include(a => a.Opportunity).AsNoTracking();
+            .Include(a => a.Owner).Include(a => a.Customer).Include(a => a.Lead).Include(a => a.Opportunity).Include(a => a.Ticket).AsNoTracking();
         q = f.View switch
         {
             "today" => q.Where(a => a.Status == ActivityStatus.Planned && a.DueDate >= today && a.DueDate < today.AddDays(1)),
@@ -80,6 +80,7 @@ public class ActivitiesController : CrmControllerBase
 
         if (model.Id == 0)
         {
+            model.TicketId = null; model.IsTicketMain = false;   // việc của phiếu hỗ trợ chỉ tạo từ trang phiếu
             model.OwnerId = ResolveOwner(model.OwnerId);
             model.CreatedAt = DateTime.Now;
             if (model.Status == ActivityStatus.Completed) model.CompletedAt = DateTime.Now;
@@ -116,6 +117,11 @@ public class ActivitiesController : CrmControllerBase
         var a = await Db.Activities.FindAsync(id);
         if (a == null) return NotFound();
         if (!User.CanAccess(a)) return NotAllowed();
+        if (a.IsTicketMain && a.TicketId.HasValue)
+        {
+            TempData["Error"] = I18n.T("Việc chính của phiếu hỗ trợ tự hoàn thành khi phiếu được giải quyết.");
+            return RedirectToAction("Details", "Tickets", new { id = a.TicketId });
+        }
         a.Status = ActivityStatus.Completed;
         a.CompletedAt = DateTime.Now;
         if (!string.IsNullOrWhiteSpace(result))

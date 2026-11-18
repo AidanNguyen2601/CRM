@@ -61,7 +61,8 @@ public class AttachmentService
         {
             var t = await _db.Tickets.Include(x => x.Customer).FirstOrDefaultAsync(x => x.Id == id);
             if (t == null) return (false, false, false);
-            var ok = user.CanAccessTicket(t, t.Customer?.OwnerId);
+            var uid = user.GetUserId();
+            var ok = user.CanAccessTicket(t, t.Customer?.OwnerId, await _db.Activities.AnyAsync(a => a.TicketId == id && a.OwnerId == uid));
             return (true, ok, ok);
         }
         if (type == AttachmentTarget.Product)

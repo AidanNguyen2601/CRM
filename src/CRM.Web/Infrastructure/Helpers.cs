@@ -67,11 +67,12 @@ public static class QueryExtensions
     {
         if (user.IsSupportDesk()) return q;
         var uid = user.GetUserId();
-        return q.Where(t => t.OwnerId == uid || t.Customer!.OwnerId == uid);
+        return q.Where(t => t.OwnerId == uid || t.Customer!.OwnerId == uid || t.Tasks.Any(a => a.OwnerId == uid));
     }
 
-    public static bool CanAccessTicket(this ClaimsPrincipal user, Ticket t, int? customerOwnerId) =>
-        user.IsSupportDesk() || t.OwnerId == user.GetUserId() || customerOwnerId == user.GetUserId();
+    /// <summary>hasTask: người dùng có việc được giao trên phiếu</summary>
+    public static bool CanAccessTicket(this ClaimsPrincipal user, Ticket t, int? customerOwnerId, bool hasTask = false) =>
+        user.IsSupportDesk() || t.OwnerId == user.GetUserId() || customerOwnerId == user.GetUserId() || hasTask;
 }
 
 public static class Paging

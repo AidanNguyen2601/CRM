@@ -36,12 +36,17 @@
                 @if (a.Customer != null) { <a asp-controller="Customers" asp-action="Details" asp-route-id="@a.CustomerId">@a.Customer.Name</a><br /> }
                 @if (a.Opportunity != null) { <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@a.OpportunityId" class="text-muted">@a.Opportunity.Name</a><br /> }
                 @if (a.Lead != null) { <a asp-controller="Leads" asp-action="Details" asp-route-id="@a.LeadId">Lead: @a.Lead.FullName</a> }
+                @if (a.Ticket != null) { <a asp-controller="Tickets" asp-action="Details" asp-route-id="@a.TicketId" asp-fragment="tasks">@Icon("support") @a.Ticket.Number</a> }
             </td>
             <td><partial name="_Badge" model="a.Priority" /></td>
             <td>@a.Owner?.FullName</td>
             <td><partial name="_Badge" model="a.Status" /></td>
             <td>
-                @if (a.Status == ActivityStatus.Planned)
+                @if (a.Status == ActivityStatus.Planned && a.IsTicketMain)
+                {
+                    <a class="btn btn-sm btn-outline-primary" asp-controller="Tickets" asp-action="Details" asp-route-id="@a.TicketId">@T("Mở phiếu để xử lý")</a>
+                }
+                else if (a.Status == ActivityStatus.Planned)
                 {
                     <form asp-action="Complete" asp-route-id="@a.Id" method="post" class="d-flex gap-1">
                         <input type="hidden" name="returnUrl" value="@returnUrl" />

@@ -6,6 +6,8 @@
     var custOpen = (int)ViewBag.CustomerOpenTickets;
     var me = User.GetUserId();
     var desk = User.IsSupportDesk();
+    var tasks = (List<Activity>)ViewBag.Tasks;
+    var openSubTasks = tasks.Count(a => !a.IsTicketMain && a.Status == ActivityStatus.Planned);
     var vi = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
     string Dur(DateTime from, DateTime? to)
     {
@@ -49,7 +51,7 @@
 @if (t.IsOpen)
 {
     <div class="collapse mb-3" id="resolvePanel"><div class="card border-success"><div class="card-body">
-        <form asp-action="Resolve" asp-route-id="@t.Id" method="post">
+        <form asp-action="Resolve" asp-route-id="@t.Id" method="post" data-confirm="@(openSubTasks > 0 ? T("Phiếu còn {0} việc chưa hoàn thành. Vẫn xác nhận đã giải quyết?", openSubTasks) : null)">
             <label class="form-label fw-semibold" for="resolution">@T("Cách giải quyết")</label>
             <textarea name="resolution" id="resolution" rows="3" class="form-control" required maxlength="2000" placeholder="@T("Nguyên nhân, cách xử lý, hướng dẫn đã gửi khách…")"></textarea>
             <div class="mt-2"><button class="btn btn-success">@Icon("check") @T("Xác nhận đã giải quyết")</button></div>
@@ -168,6 +170,8 @@
                 </form>
             </div>
         </div>
+
+        <partial name="_TicketTasks" model="t" />
 
         @await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Ticket, id = t.Id, hint = T("Ảnh chụp lỗi, log, biên bản bảo hành / sửa chữa…") })
     </div>

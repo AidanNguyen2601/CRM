@@ -321,6 +321,10 @@ public class Activity : IOwned
     public Lead? Lead { get; set; }
     [Display(Name = "Cơ hội")] public int? OpportunityId { get; set; }
     public Opportunity? Opportunity { get; set; }
+    [Display(Name = "Phiếu hỗ trợ")] public int? TicketId { get; set; }
+    public Ticket? Ticket { get; set; }
+    /// <summary>Việc chính của phiếu hỗ trợ (tự tạo / chuyển / hoàn thành theo người xử lý và trạng thái phiếu)</summary>
+    public bool IsTicketMain { get; set; }
 
     [StringLength(2000)]
     [Display(Name = "Nội dung / kết quả")]

@@ -66,7 +66,11 @@
                     <div class="nav-block" data-nav="ops-support">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Chăm sóc khách hàng")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
-                            <a class="@Active("Tickets")" asp-controller="Tickets" asp-action="Index">@Icon("support")<span>@T("Phiếu hỗ trợ")</span></a>
+                            <a class="@(ctrl == "Tickets" && act != "Workload" ? "active" : "")" asp-controller="Tickets" asp-action="Index">@Icon("support")<span>@T("Phiếu hỗ trợ")</span></a>
+                            @if (User.IsSupportDesk())
+                            {
+                                <a class="@Active("Tickets", "Workload")" asp-controller="Tickets" asp-action="Workload">@Icon("users")<span>@T("Phân công việc")</span></a>
+                            }
                         </div></div>
                     </div>
                     <div class="nav-block" data-nav="ops-customers">

@@ -34,6 +34,7 @@ public static class DbSeeder
         }
         await CatalogSeeder.SeedAsync(db);
         await ReportingSchema.SeedSamplesAsync(db);
+        await CRM.Web.Infrastructure.TicketWork.BackfillAsync(db);   // việc chính cho phiếu hỗ trợ đã phân công
     }
 
     private static async Task SeedSampleDataAsync(CrmDbContext db, IPasswordHasher<AppUser> hasher, bool usersAndProductsOnly = false)
