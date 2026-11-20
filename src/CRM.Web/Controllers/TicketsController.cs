@@ -138,6 +138,8 @@ public class TicketsController : CrmControllerBase
             CreatedAt = DateTime.Now
         });
         Log(t, I18n.T("Giao việc \"{0}\" cho {1}, hạn {2}.", subject, ownerName, dueDate.Value.ToDateTime()));
+        Notify.Add(owner, "task", I18n.T("{0} giao cho bạn: {1}", User.GetFullName(), subject),
+            Url.Action(nameof(Details), null, new { id = t.Id }, null, null, "tasks"), CurrentUserId, I18n.T("Phiếu {0} · hạn {1}", t.Number, dueDate.Value.ToDateTime()));
         await SaveAsync(t);
         TempData["Success"] = I18n.T("Đã giao việc cho {0}.", ownerName);
         return RedirectToAction(nameof(Details), null, new { id }, "tasks");
@@ -222,6 +224,7 @@ public class TicketsController : CrmControllerBase
             t.OwnerId = ownerId;
             if (t.Status == TicketStatus.New) t.Status = TicketStatus.InProgress;
             Log(t, I18n.T("Phân công cho {0}.", name));
+            NotifyAssigned(t);
             t.UpdatedAt = DateTime.Now;
             await TicketWork.SyncAsync(Db, t);
         }
@@ -311,12 +314,14 @@ public class TicketsController : CrmControllerBase
             {
                 t.OwnerId = model.OwnerId;
                 Log(t, I18n.T("Phân công cho {0}.", await UserNameAsync(t.OwnerId)));
+                NotifyAssigned(t);
                 if (t.Status == TicketStatus.New && t.OwnerId.HasValue) t.Status = TicketStatus.InProgress;
             }
             t.UpdatedAt = DateTime.Now;
         }
         await TicketWork.SyncAsync(Db, t, resetDue);
         await Db.SaveChangesAsync();
+        if (model.Id == 0 && t.OwnerId.HasValue) { NotifyAssigned(t); await Db.SaveChangesAsync(); }
         TempData["Success"] = I18n.T("Đã lưu phiếu hỗ trợ {0}.", t.Number);
         return RedirectToAction(nameof(Details), new { id = t.Id });
     }
@@ -349,6 +354,7 @@ public class TicketsController : CrmControllerBase
             t.OwnerId = ownerId;
             if (t.Status == TicketStatus.New && ownerId.HasValue) t.Status = TicketStatus.InProgress;
             Log(t, ownerId.HasValue ? I18n.T("Phân công cho {0}.", await UserNameAsync(ownerId)) : I18n.T("Bỏ phân công."));
+            NotifyAssigned(t);
             await SaveAsync(t);
         }
         return RedirectToAction(nameof(Details), new { id });
@@ -470,6 +476,9 @@ public class TicketsController : CrmControllerBase
         var t = await Db.Tickets.Include(x => x.Comments).FirstOrDefaultAsync(x => x.Id == id);
         if (t == null) return NotFound();
         var tasks = await Db.Activities.Where(a => a.TicketId == id).ToListAsync();
+        var taskIds = tasks.Select(a => a.Id).ToList();
+        Db.TaskChecklistItems.RemoveRange(await Db.TaskChecklistItems.Where(c => taskIds.Contains(c.ActivityId)).ToListAsync());
+        Db.TaskComments.RemoveRange(await Db.TaskComments.Where(c => taskIds.Contains(c.ActivityId)).ToListAsync());
         Db.Activities.RemoveRange(tasks);
         Db.TicketComments.RemoveRange(t.Comments);
         Db.Tickets.Remove(t);
@@ -505,6 +514,13 @@ public class TicketsController : CrmControllerBase
         to.Channel = from.Channel; to.Category = string.IsNullOrWhiteSpace(from.Category) ? null : from.Category.Trim();
         to.Priority = from.Priority;
     }
+
+    private NotificationService Notify => HttpContext.RequestServices.GetRequiredService<NotificationService>();
+
+    /// <summary>Báo cho người được giao phiếu (không báo khi tự nhận)</summary>
+    private void NotifyAssigned(Ticket t) =>
+        Notify.Add(t.OwnerId, "ticket", I18n.T("Bạn được giao phiếu hỗ trợ {0}: {1}", t.Number, t.Subject),
+            Url.Action(nameof(Details), new { id = t.Id }), CurrentUserId, I18n.T("Ưu tiên {0} · hạn giải quyết {1}", t.Priority.GetDisplayName(), t.ResolveDueAt.ToDateTime()));
 
     /// <summary>Quyền với phiếu: CSKH, người xử lý, người phụ trách khách hàng, hoặc người được giao việc trên phiếu</summary>
     private async Task<bool> CanAccessAsync(Ticket t)

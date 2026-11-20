@@ -68,6 +68,75 @@ public static class SchemaUpgrader
     private static IEnumerable<string> BranchSteps()
     {
         yield return """
+            IF OBJECT_ID(N'[dbo].[AppSettings]', N'U') IS NULL
+                CREATE TABLE [dbo].[AppSettings] (
+                    [Key] nvarchar(100) NOT NULL CONSTRAINT [PK_AppSettings] PRIMARY KEY,
+                    [Value] nvarchar(max) NULL,
+                    [UpdatedAt] datetime2 NOT NULL
+                );
+            IF COL_LENGTH(N'dbo.Users', N'UiPrefs') IS NULL
+                ALTER TABLE [dbo].[Users] ADD [UiPrefs] nvarchar(1000) NULL;
+            """;
+        // Việc chính của phiếu hỗ trợ lỡ ghi tiêu đề tiếng Anh (tạo ngoài request trên máy cài tiếng Anh) → tiếng Việt
+        yield return "IF COL_LENGTH(N'dbo.Activities', N'IsTicketMain') IS NOT NULL EXEC(N'UPDATE [dbo].[Activities] SET [Subject] = N''Xử lý phiếu '' + SUBSTRING([Subject], 15, 200) WHERE [IsTicketMain] = 1 AND [Subject] LIKE N''Handle ticket %''')";
+        // ---------- Quản lý công việc + thông báo ----------
+        yield return """
+            IF COL_LENGTH(N'dbo.Activities', N'AssignedById') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Activities] ADD
+                    [AssignedById] int NULL CONSTRAINT [FK_Activities_Users_AssignedById] REFERENCES [dbo].[Users] ([Id]),
+                    [StartedAt] datetime2 NULL,
+                    [Progress] int NOT NULL CONSTRAINT [DF_Activities_Progress] DEFAULT 0;
+                EXEC(N'CREATE INDEX [IX_Activities_AssignedById] ON [dbo].[Activities] ([AssignedById])');
+            END
+            """;
+        yield return """
+            IF OBJECT_ID(N'[dbo].[TaskChecklistItems]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[TaskChecklistItems] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_TaskChecklistItems] PRIMARY KEY,
+                    [ActivityId] int NOT NULL CONSTRAINT [FK_TaskChecklistItems_Activities_ActivityId] REFERENCES [dbo].[Activities] ([Id]),
+                    [Title] nvarchar(300) NOT NULL,
+                    [IsDone] bit NOT NULL,
+                    [DoneAt] datetime2 NULL,
+                    [SortOrder] int NOT NULL
+                );
+                CREATE INDEX [IX_TaskChecklistItems_ActivityId] ON [dbo].[TaskChecklistItems] ([ActivityId]);
+            END
+            IF OBJECT_ID(N'[dbo].[TaskComments]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[TaskComments] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_TaskComments] PRIMARY KEY,
+                    [ActivityId] int NOT NULL CONSTRAINT [FK_TaskComments_Activities_ActivityId] REFERENCES [dbo].[Activities] ([Id]),
+                    [Body] nvarchar(2000) NOT NULL,
+                    [IsSystem] bit NOT NULL,
+                    [AuthorId] int NULL CONSTRAINT [FK_TaskComments_Users_AuthorId] REFERENCES [dbo].[Users] ([Id]),
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_TaskComments_ActivityId] ON [dbo].[TaskComments] ([ActivityId]);
+                CREATE INDEX [IX_TaskComments_AuthorId] ON [dbo].[TaskComments] ([AuthorId]);
+            END
+            IF OBJECT_ID(N'[dbo].[Notifications]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[Notifications] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_Notifications] PRIMARY KEY,
+                    [UserId] int NOT NULL CONSTRAINT [FK_Notifications_Users_UserId] REFERENCES [dbo].[Users] ([Id]),
+                    [Type] nvarchar(30) NOT NULL,
+                    [Title] nvarchar(300) NOT NULL,
+                    [Body] nvarchar(500) NULL,
+                    [Url] nvarchar(300) NULL,
+                    [Key] nvarchar(150) NULL,
+                    [ActorId] int NULL CONSTRAINT [FK_Notifications_Users_ActorId] REFERENCES [dbo].[Users] ([Id]),
+                    [IsRead] bit NOT NULL,
+                    [ReadAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_Notifications_UserId_IsRead_CreatedAt] ON [dbo].[Notifications] ([UserId], [IsRead], [CreatedAt]);
+                CREATE INDEX [IX_Notifications_UserId_Key] ON [dbo].[Notifications] ([UserId], [Key]);
+                CREATE INDEX [IX_Notifications_ActorId] ON [dbo].[Notifications] ([ActorId]);
+            END
+            """;
+        yield return """
             IF OBJECT_ID(N'[dbo].[Branches]', N'U') IS NULL
             BEGIN
                 CREATE TABLE [dbo].[Branches] (

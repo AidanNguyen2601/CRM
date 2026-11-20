@@ -1,0 +1,151 @@
+@using CRM.Web.Controllers
+@model Activity
+@{
+    var a = Model;
+    ViewData["Title"] = a.Subject;
+    var canManage = (bool)ViewBag.CanManage;
+    var board = a.Board;
+    var done = a.Checklist.Count(c => c.IsDone);
+}
+<div class="toolbar no-print">
+    @if (board == "todo")
+    {
+        <form asp-action="Move" asp-route-id="@a.Id" method="post"><input type="hidden" name="board" value="doing" /><button class="btn btn-primary">@Icon("trending") @T("Bắt đầu làm")</button></form>
+    }
+    @if (board is "todo" or "doing" && !a.IsTicketMain)
+    {
+        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#donePanel">@Icon("check") @T("Hoàn thành")</button>
+    }
+    @if (board == "doing")
+    {
+        <form asp-action="Move" asp-route-id="@a.Id" method="post"><input type="hidden" name="board" value="todo" /><button class="btn btn-outline-secondary">@T("Chuyển về Cần làm")</button></form>
+    }
+    @if (board is "done" or "cancelled")
+    {
+        <form asp-action="Move" asp-route-id="@a.Id" method="post"><input type="hidden" name="board" value="doing" /><button class="btn btn-outline-primary">@Icon("undo") @T("Mở lại")</button></form>
+    }
+    @if (a.Ticket != null)
+    {
+        <a class="btn btn-outline-secondary" asp-controller="Tickets" asp-action="Details" asp-route-id="@a.TicketId" asp-fragment="tasks">@Icon("support") @T("Phiếu {0}", a.Ticket.Number)</a>
+    }
+    @if (canManage)
+    {
+        <a class="btn btn-outline-primary ms-auto" asp-action="Edit" asp-route-id="@a.Id">@T("Sửa / chuyển việc")</a>
+        @if (board is "todo" or "doing" && !a.IsTicketMain)
+        {
+            <form asp-action="Move" asp-route-id="@a.Id" method="post" data-confirm="@T("Hủy công việc này?")"><input type="hidden" name="board" value="cancelled" /><button class="btn btn-outline-secondary">@T("Hủy việc")</button></form>
+        }
+        @if (!a.IsTicketMain)
+        {
+            <form asp-action="Delete" asp-route-id="@a.Id" method="post" data-confirm="@T("Xóa công việc này?")"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
+        }
+    }
+</div>
+@if (board is "todo" or "doing" && !a.IsTicketMain)
+{
+    <div class="collapse mb-3" id="donePanel"><div class="card border-success"><div class="card-body">
+        <form asp-action="Move" asp-route-id="@a.Id" method="post" class="d-flex gap-2 flex-wrap">
+            <input type="hidden" name="board" value="done" />
+            <input name="note" class="form-control" style="max-width:600px" maxlength="1000" placeholder="@T("Kết quả (tùy chọn)")" />
+            <button class="btn btn-success">@Icon("check") @T("Xác nhận hoàn thành")</button>
+        </form>
+        @if (a.Checklist.Count > done) { <div class="small text-warning-emphasis mt-1">@T("Còn {0} đầu việc chưa đánh dấu xong.", a.Checklist.Count - done)</div> }
+    </div></div></div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body">
+            <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
+                <span class="badge task-badge b-@board">@TasksController.BoardName(board)</span>
+                <partial name="_Badge" model="a.Priority" />
+                <span class="act-type">@Icon(ForActivity(a.Type))@a.Type.GetDisplayName()</span>
+                @if (a.IsOverdue) { <span class="badge bg-danger">@T("Quá hạn")</span> }
+                @if (a.IsTicketMain) { <span class="badge bg-light text-primary border border-primary">@T("Việc chính")</span> }
+            </div>
+            <h4>@a.Subject</h4>
+            @if (!string.IsNullOrWhiteSpace(a.Description)) { <div class="ticket-desc">@a.Description</div> }
+            <form asp-action="SetProgress" asp-route-id="@a.Id" method="post" class="mt-3 d-flex align-items-center gap-2 no-print">
+                <label class="small text-muted" for="progress">@T("Tiến độ")</label>
+                <input type="range" class="form-range flex-grow-1" style="max-width:320px" min="0" max="100" step="5" id="progress" name="progress" value="@a.Progress"
+                       disabled="@(a.Checklist.Count > 0 || a.Status != ActivityStatus.Planned)" onchange="this.form.submit()" oninput="this.nextElementSibling.textContent = this.value + '%'" />
+                <b>@a.Progress%</b>
+                @if (a.Checklist.Count > 0) { <span class="small text-muted">@T("(tính theo đầu việc)")</span> }
+            </form>
+        </div></div>
+
+        <div class="card mb-3" id="checklist">
+            <div class="card-header d-flex justify-content-between"><span>@Icon("check") @T("Đầu việc")</span>
+                @if (a.Checklist.Count > 0) { <span class="small fw-normal text-muted">@done / @a.Checklist.Count</span> }</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var c in a.Checklist)
+                {
+                    <li class="list-group-item d-flex align-items-center gap-2 checklist-item @(c.IsDone ? "done" : "")">
+                        <form asp-action="ToggleItem" asp-route-id="@a.Id" method="post" class="m-0"><input type="hidden" name="itemId" value="@c.Id" />
+                            <input type="checkbox" class="form-check-input" @(c.IsDone ? "checked" : "") onchange="this.form.submit()" aria-label="@c.Title" /></form>
+                        <span class="flex-grow-1">@c.Title</span>
+                        @if (c.DoneAt.HasValue) { <span class="small text-muted">@c.DoneAt.Value.ToString("dd/MM HH:mm")</span> }
+                        <form asp-action="DeleteItem" asp-route-id="@a.Id" method="post" class="m-0"><input type="hidden" name="itemId" value="@c.Id" />
+                            <button class="btn btn-sm btn-link text-danger p-0" title="@T("Xóa")">@Icon("x")</button></form>
+                    </li>
+                }
+                <li class="list-group-item">
+                    <form asp-action="AddItem" asp-route-id="@a.Id" method="post" class="d-flex gap-2">
+                        <input name="title" class="form-control form-control-sm" maxlength="300" placeholder="@T("Thêm đầu việc…")" required />
+                        <button class="btn btn-sm btn-outline-primary">@Icon("plus")</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card mb-3" id="comments">
+            <div class="card-header">@Icon("email") @T("Trao đổi & lịch sử")</div>
+            <div class="card-body">
+                <div class="ticket-thread">
+                    @foreach (var c in a.Comments)
+                    {
+                        if (c.IsSystem)
+                        {
+                            <div class="tc-system">@Icon("clock") <span>@c.Body</span> <span class="text-muted">— @c.Author?.FullName, @c.CreatedAt.ToDateTime()</span></div>
+                        }
+                        else
+                        {
+                            <div class="tc tc-public"><div class="tc-head"><b>@c.Author?.FullName</b><span class="text-muted small ms-auto">@c.CreatedAt.ToDateTime()</span></div>
+                                <div class="tc-body">@c.Body</div></div>
+                        }
+                    }
+                    @if (!a.Comments.Any()) { <div class="text-muted small">@T("Chưa có trao đổi.")</div> }
+                </div>
+                <form asp-action="Comment" asp-route-id="@a.Id" method="post" class="mt-3 d-flex gap-2 align-items-end">
+                    <textarea name="body" rows="2" class="form-control" maxlength="2000" required placeholder="@T("Viết bình luận – người giao việc / người thực hiện sẽ nhận thông báo")"></textarea>
+                    <button class="btn btn-primary">@Icon("send")</button>
+                </form>
+            </div>
+        </div>
+
+        @await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Activity, id = a.Id, hint = T("Tài liệu, hình ảnh, kết quả công việc…") })
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-body small">
+            <table class="table table-sm mb-0">
+                <tr><td class="text-muted">@T("Người thực hiện")</td><td><b>@a.Owner?.FullName</b></td></tr>
+                <tr><td class="text-muted">@T("Người giao việc")</td><td>@(a.AssignedBy?.FullName ?? "–")</td></tr>
+                <tr><td class="text-muted">@T("Thời hạn")</td><td class="@(a.IsOverdue ? "text-danger fw-semibold" : "")">@a.DueDate.ToDateTime()</td></tr>
+                <tr><td class="text-muted">@T("Ngày tạo")</td><td>@a.CreatedAt.ToDateTime()</td></tr>
+                @if (a.StartedAt.HasValue) { <tr><td class="text-muted">@T("Bắt đầu làm")</td><td>@a.StartedAt.Value.ToDateTime()</td></tr> }
+                @if (a.CompletedAt.HasValue) { <tr><td class="text-muted">@T("Hoàn thành")</td><td class="@(a.CompletedAt > a.DueDate ? "text-danger" : "text-success")">@a.CompletedAt.Value.ToDateTime()</td></tr> }
+            </table>
+        </div></div>
+        @if (a.Customer != null || a.Opportunity != null || a.Lead != null || a.Ticket != null)
+        {
+            <div class="card mb-3"><div class="card-header">@T("Liên quan")</div><div class="card-body small">
+                @if (a.Customer != null) { <div>@Icon("customer") <a asp-controller="Customers" asp-action="Details" asp-route-id="@a.CustomerId">@a.Customer.Name</a></div> }
+                @if (a.Contact != null) { <div>@Icon("contact") @a.Contact.FullName</div> }
+                @if (a.Opportunity != null) { <div>@Icon("opportunity") <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@a.OpportunityId">@a.Opportunity.Name</a></div> }
+                @if (a.Lead != null) { <div>@Icon("lead") <a asp-controller="Leads" asp-action="Details" asp-route-id="@a.LeadId">@a.Lead.FullName</a></div> }
+                @if (a.Ticket != null) { <div>@Icon("support") <a asp-controller="Tickets" asp-action="Details" asp-route-id="@a.TicketId">@a.Ticket.Number – @a.Ticket.Subject</a></div> }
+            </div></div>
+        }
+    </div>
+</div>

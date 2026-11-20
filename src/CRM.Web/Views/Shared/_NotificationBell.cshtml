@@ -1,0 +1,45 @@
+@* Chuông thông báo trên thanh trên cùng: số chưa đọc + 8 thông báo gần nhất; tự cập nhật định kỳ (site.js) *@
+@inject NotificationService Notifications
+@{
+    var me = User.GetUserId();
+    var count = await Notifications.UnreadCountAsync(me);
+    var latest = await Notifications.LatestAsync(me, 8);
+    string Ago(DateTime d)
+    {
+        var s = DateTime.Now - d;
+        return s.TotalMinutes < 1 ? T("vừa xong") : s.TotalMinutes < 60 ? T("{0} phút trước", (int)s.TotalMinutes)
+            : s.TotalHours < 24 ? T("{0} giờ trước", (int)s.TotalHours) : d.ToString("dd/MM HH:mm");
+    }
+}
+<div class="dropdown" id="notifBell" data-poll="@Url.Action("Poll", "Notifications")" data-last="@(latest.FirstOrDefault()?.Id ?? 0)"
+     data-label-new="@T("Thông báo mới")">
+    <button class="btn btn-light btn-sm position-relative notif-btn" data-bs-toggle="dropdown" title="@T("Thông báo")" aria-label="@T("Thông báo")">
+        @Icon("bell")
+        <span class="notif-count badge rounded-pill bg-danger @(count == 0 ? "d-none" : "")">@(count > 99 ? "99+" : count.ToString())</span>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end notif-menu p-0">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <b>@T("Thông báo")</b>
+            @if (count > 0)
+            {
+                <form asp-controller="Notifications" asp-action="MarkAllRead" method="post" class="m-0">
+                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                    <button class="btn btn-link btn-sm p-0">@T("Đánh dấu đã đọc hết")</button>
+                </form>
+            }
+        </div>
+        <div class="notif-list">
+            @foreach (var n in latest)
+            {
+                <a class="notif-item @(n.IsRead ? "" : "unread")" asp-controller="Notifications" asp-action="Open" asp-route-id="@n.Id">
+                    <span class="notif-ico t-@n.Type">@Icon(NotificationService.IconOf(n.Type))</span>
+                    <span class="min-w-0"><span class="notif-title">@n.Title</span>
+                        @if (!string.IsNullOrEmpty(n.Body)) { <span class="notif-body">@n.Body</span> }
+                        <span class="notif-time">@Ago(n.CreatedAt)</span></span>
+                </a>
+            }
+            @if (!latest.Any()) { <div class="text-muted small p-3 text-center">@T("Chưa có thông báo.")</div> }
+        </div>
+        <a class="d-block text-center small py-2 border-top" asp-controller="Notifications" asp-action="Index">@T("Xem tất cả")</a>
+    </div>
+</div>

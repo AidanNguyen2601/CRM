@@ -370,6 +370,14 @@ public static class DemoDataGenerator
             foreach (var l in leads.Where(l => l.Status is LeadStatus.Contacted or LeadStatus.Qualified))
                 for (var j = _r.Next(1, 3); j > 0; j--)
                     acts.Add(MakeActivity(l.CreatedAt, _today.AddDays(14), l.OwnerId, null, null, l.Id, null));
+            // Quản lý công việc: một phần việc do quản lý giao, việc đang chờ có thể đã bắt đầu làm với tiến độ
+            foreach (var a in acts)
+            {
+                if (a.Type == ActivityType.Task && _approvers.Count > 0 && _r.Next(100) < 50) a.AssignedById = Pick(_approvers).Id;
+                else a.AssignedById = a.OwnerId;
+                if (a.Status == ActivityStatus.Planned && _r.Next(100) < 35) { a.StartedAt = Min(a.CreatedAt.AddDays(1), _today); a.Progress = _r.Next(1, 9) * 10; }
+                if (a.Status == ActivityStatus.Completed) { a.Progress = 100; a.StartedAt = a.CompletedAt; }
+            }
             _db.Activities.AddRange(acts);
             await _db.SaveChangesAsync();
 

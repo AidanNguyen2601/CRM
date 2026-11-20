@@ -1,0 +1,161 @@
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Công việc");
+    var f = (TaskFilter)ViewBag.Filter;
+    var stats = (Dictionary<string, int>)ViewBag.Stats;
+    var checklist = (Dictionary<int, (int Done, int Total)>)ViewBag.Checklist;
+    var comments = (Dictionary<int, int>)ViewBag.Comments;
+    var board = ViewBag.Board as Dictionary<string, List<Activity>>;
+    var paged = ViewBag.Paged as PagedList<Activity>;
+    var me = User.GetUserId();
+    var typeItems = Html.GetEnumSelectList<ActivityType>().ToList();
+    foreach (var i in typeItems) i.Selected = f.Type.HasValue && i.Value == ((int)f.Type.Value).ToString();
+    var prioItems = Html.GetEnumSelectList<Priority>().ToList();
+    foreach (var i in prioItems) i.Selected = f.Priority.HasValue && i.Value == ((int)f.Priority.Value).ToString();
+    var colIcons = new Dictionary<string, string> { ["todo"] = "task", ["doing"] = "trending", ["done"] = "check", ["cancelled"] = "x" };
+}
+@Html.AntiForgeryToken()
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg"><a class="card stat h-100 text-reset text-decoration-none" asp-route-Scope="mine" asp-route-View="@f.View"><div class="label">@Icon("task", "stat-ico")@T("Việc của tôi")</div><div class="value">@stats["mine"]</div><div class="small text-muted">@T("{0} đang làm", stats["doing"])</div></a></div>
+    <div class="col-6 col-lg"><a class="card stat h-100 text-reset text-decoration-none" asp-route-Scope="mine" asp-route-Due="overdue" asp-route-View="list"><div class="label">@Icon("alert", "stat-ico")@T("Quá hạn")</div><div class="value @(stats["overdue"] > 0 ? "text-danger" : "")">@stats["overdue"]</div><div class="small text-muted">@T("việc của tôi")</div></a></div>
+    <div class="col-6 col-lg"><a class="card stat h-100 text-reset text-decoration-none" asp-route-Scope="mine" asp-route-Due="today" asp-route-View="list"><div class="label">@Icon("clock", "stat-ico")@T("Đến hạn hôm nay")</div><div class="value">@stats["today"]</div><div class="small text-muted">@T("việc của tôi")</div></a></div>
+    <div class="col-6 col-lg"><a class="card stat h-100 text-reset text-decoration-none" asp-route-Scope="assigned" asp-route-View="@f.View"><div class="label">@Icon("send", "stat-ico")@T("Tôi đã giao")</div><div class="value">@stats["assigned"]</div><div class="small text-muted">@T("đang chờ người khác làm")</div></a></div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <ul class="nav nav-pills">
+        <li class="nav-item"><a class="nav-link @(f.Scope == "mine" ? "active" : "")" asp-route-Scope="mine" asp-route-View="@f.View">@T("Việc của tôi")</a></li>
+        <li class="nav-item"><a class="nav-link @(f.Scope == "assigned" ? "active" : "")" asp-route-Scope="assigned" asp-route-View="@f.View">@T("Tôi giao")</a></li>
+        <li class="nav-item"><a class="nav-link @(f.Scope == "all" ? "active" : "")" asp-route-Scope="all" asp-route-View="@f.View">@(User.SeesAll() ? T("Cả nhóm") : T("Tất cả việc liên quan"))</a></li>
+    </ul>
+    <div class="btn-group ms-auto">
+        <a class="btn btn-outline-secondary @(f.View != "list" ? "active" : "")" asp-route-View="board" asp-route-Scope="@f.Scope" asp-route-Keyword="@f.Keyword" asp-route-OwnerId="@f.OwnerId" asp-route-Type="@f.Type" asp-route-Priority="@f.Priority" asp-route-Due="@f.Due">@Icon("kanban") @T("Bảng")</a>
+        <a class="btn btn-outline-secondary @(f.View == "list" ? "active" : "")" asp-route-View="list" asp-route-Scope="@f.Scope" asp-route-Keyword="@f.Keyword" asp-route-OwnerId="@f.OwnerId" asp-route-Type="@f.Type" asp-route-Priority="@f.Priority" asp-route-Due="@f.Due">@Icon("catalog") @T("Danh sách")</a>
+    </div>
+    <a class="btn btn-primary" asp-action="Create">@Icon("plus") @T("Giao việc / tạo việc")</a>
+</div>
+
+<form method="get" class="toolbar">
+    <input type="hidden" name="Scope" value="@f.Scope" /><input type="hidden" name="View" value="@f.View" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên việc, mô tả, khách hàng")" /></div>
+    <div><label class="form-label small mb-1">@T("Loại")</label><select name="Type" class="form-select" asp-items="typeItems"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Ưu tiên")</label><select name="Priority" class="form-select" asp-items="prioItems"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Thời hạn")</label>
+        <select name="Due" class="form-select">
+            <option value="">@T("-- Tất cả --")</option>
+            <option value="overdue" selected="@(f.Due == "overdue")">@T("Quá hạn")</option>
+            <option value="today" selected="@(f.Due == "today")">@T("Hôm nay")</option>
+            <option value="week" selected="@(f.Due == "week")">@T("Trong 7 ngày")</option>
+        </select></div>
+    @if (f.Scope != "mine")
+    {
+        <div><label class="form-label small mb-1">@T("Người thực hiện")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div>
+    }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+</form>
+
+@if (board != null)
+{
+    <div class="task-board" data-move="@Url.Action("Move")">
+        @foreach (var col in TasksController.Columns)
+        {
+            var items = board[col];
+            <div class="task-col" data-col="@col">
+                <div class="task-col-head">@Icon(colIcons[col]) @TasksController.BoardName(col) <span class="badge bg-secondary">@items.Count</span>
+                    @if (col is "done" or "cancelled") { <span class="small text-muted fw-normal ms-auto">@T("30 ngày")</span> }</div>
+                <div class="task-col-body">
+                    @foreach (var a in items)
+                    {
+                        var cl = checklist.TryGetValue(a.Id, out var c) ? c : (0, 0);
+                        <div class="task-card prio-@a.Priority.ToString().ToLower() @(a.IsOverdue ? "overdue" : "")" draggable="true" data-id="@a.Id">
+                            <a asp-action="Details" asp-route-id="@a.Id" class="task-title">@a.Subject</a>
+                            <div class="task-meta">
+                                <span class="act-type">@Icon(ForActivity(a.Type))</span>
+                                @if (a.Status == ActivityStatus.Planned)
+                                {
+                                    <span class="@(a.IsOverdue ? "text-danger fw-semibold" : "")">@Icon("clock") @a.DueDate.ToString("dd/MM HH:mm")</span>
+                                }
+                                @if (cl.Item2 > 0) { <span title="@T("Đầu việc")">@Icon("check") @cl.Item1/@cl.Item2</span> }
+                                @if (comments.TryGetValue(a.Id, out var nc)) { <span title="@T("Bình luận")">@Icon("email") @nc</span> }
+                                @if (a.Ticket != null) { <span class="badge bg-light text-dark border">@a.Ticket.Number</span> }
+                            </div>
+                            @if (a.Customer != null) { <div class="small text-muted text-truncate">@a.Customer.Name</div> }
+                            @if (a.Progress > 0 && a.Status == ActivityStatus.Planned)
+                            {
+                                <div class="progress mt-1" style="height:4px"><div class="progress-bar" style="width:@a.Progress%;background:var(--accent)"></div></div>
+                            }
+                            <div class="task-people small">
+                                <span title="@T("Người thực hiện")"><span class="avatar">@(a.Owner?.FullName.Split(' ').Last()[0].ToString().ToUpper() ?? "?")</span>@a.Owner?.FullName</span>
+                                @if (a.AssignedBy != null && a.AssignedById != a.OwnerId) { <span class="text-muted" title="@T("Người giao việc")">← @a.AssignedBy.FullName</span> }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <p class="small text-muted mt-2">@T("Kéo thả thẻ công việc giữa các cột để đổi trạng thái. Việc chính của phiếu hỗ trợ tự hoàn thành khi phiếu được giải quyết.")</p>
+}
+else if (paged != null)
+{
+    <div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0" data-grid="tasks">
+        <thead><tr><th>@T("Công việc")</th><th>@T("Loại")</th><th>@T("Trạng thái")</th><th>@T("Ưu tiên")</th><th>@T("Thời hạn")</th><th>@T("Tiến độ")</th><th>@T("Người thực hiện")</th><th>@T("Người giao việc")</th><th>@T("Liên quan")</th></tr></thead>
+        <tbody>
+        @foreach (var a in paged.Items)
+        {
+            <tr class="@(a.IsOverdue ? "table-danger" : "")">
+                <td><a asp-action="Details" asp-route-id="@a.Id" class="fw-semibold">@a.Subject</a></td>
+                <td><span class="act-type">@Icon(ForActivity(a.Type))@a.Type.GetDisplayName()</span></td>
+                <td><span class="badge task-badge b-@a.Board">@TasksController.BoardName(a.Board)</span></td>
+                <td><partial name="_Badge" model="a.Priority" /></td>
+                <td class="text-nowrap">@a.DueDate.ToDateTime()</td>
+                <td style="min-width:90px"><div class="progress" style="height:6px"><div class="progress-bar" style="width:@a.Progress%;background:var(--accent)"></div></div><span class="small text-muted">@a.Progress%</span></td>
+                <td>@a.Owner?.FullName</td>
+                <td>@a.AssignedBy?.FullName</td>
+                <td class="small">@a.Customer?.Name @if (a.Ticket != null) { <a asp-controller="Tickets" asp-action="Details" asp-route-id="@a.TicketId">@a.Ticket.Number</a> }</td>
+            </tr>
+        }
+        @if (!paged.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Không có công việc.")</td></tr> }
+        </tbody>
+    </table>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+        <span class="small text-muted">@T("{0} công việc", paged.TotalCount)</span>
+        <partial name="_Pager" model="paged" />
+    </div></div>
+}
+@section Scripts {
+<script>
+    // Kéo thả thẻ giữa các cột → cập nhật trạng thái
+    (function () {
+        const boardEl = document.querySelector('.task-board');
+        if (!boardEl) return;
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        let dragged = null;
+        boardEl.addEventListener('dragstart', e => {
+            const card = e.target.closest('.task-card'); if (!card) return;
+            dragged = card; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.id);
+        });
+        boardEl.addEventListener('dragend', () => { if (dragged) dragged.classList.remove('dragging'); dragged = null; boardEl.querySelectorAll('.task-col').forEach(c => c.classList.remove('drop')); });
+        boardEl.querySelectorAll('.task-col').forEach(col => {
+            col.addEventListener('dragover', e => { if (!dragged) return; e.preventDefault(); col.classList.add('drop'); });
+            col.addEventListener('dragleave', () => col.classList.remove('drop'));
+            col.addEventListener('drop', async e => {
+                e.preventDefault(); col.classList.remove('drop');
+                if (!dragged || dragged.closest('.task-col') === col) return;
+                const card = dragged, from = card.closest('.task-col');
+                col.querySelector('.task-col-body').prepend(card);
+                const body = new URLSearchParams({ id: card.dataset.id, board: col.dataset.col, __RequestVerificationToken: token });
+                const r = await fetch(boardEl.dataset.move, { method: 'POST', body, headers: { 'Accept': 'application/json' } });
+                if (!r.ok) {
+                    from.querySelector('.task-col-body').prepend(card);
+                    let msg = ''; try { msg = (await r.json()).message; } catch (x) { }
+                    alert(msg || 'Error');
+                }
+                boardEl.querySelectorAll('.task-col').forEach(c => c.querySelector('.badge').textContent = c.querySelectorAll('.task-card').length);
+            });
+        });
+    })();
+</script>
+}

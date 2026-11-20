@@ -40,6 +40,10 @@ public class AppUser
     public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
+    /// <summary>Cấu hình giao diện riêng (JSON, null = theo mặc định hệ thống)</summary>
+    [StringLength(1000)]
+    public string? UiPrefs { get; set; }
+
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
@@ -349,6 +353,21 @@ public class Activity : IOwned, IBranchScoped
     public Ticket? Ticket { get; set; }
     /// <summary>Việc chính của phiếu hỗ trợ (tự tạo / chuyển / hoàn thành theo người xử lý và trạng thái phiếu)</summary>
     public bool IsTicketMain { get; set; }
+
+    // ---- Quản lý công việc ----
+    [Display(Name = "Người giao việc")]
+    public int? AssignedById { get; set; }
+    public AppUser? AssignedBy { get; set; }
+    [Display(Name = "Bắt đầu làm")]
+    public DateTime? StartedAt { get; set; }
+    [Range(0, 100)]
+    [Display(Name = "Tiến độ (%)")]
+    public int Progress { get; set; }
+    public ICollection<TaskChecklistItem> Checklist { get; set; } = new List<TaskChecklistItem>();
+    public ICollection<TaskComment> Comments { get; set; } = new List<TaskComment>();
+
+    /// <summary>Trạng thái trên bảng công việc: todo / doing / done / cancelled</summary>
+    [NotMapped] public string Board => Status == ActivityStatus.Completed ? "done" : Status == ActivityStatus.Cancelled ? "cancelled" : StartedAt.HasValue ? "doing" : "todo";
 
     [StringLength(2000)]
     [Display(Name = "Nội dung / kết quả")]

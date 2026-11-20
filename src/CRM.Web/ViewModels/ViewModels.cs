@@ -564,3 +564,51 @@ public class TicketFilter : ListFilter
 /// <summary>Một dòng bảng phân công CSKH: tải việc của một người</summary>
 public record WorkloadRow(int UserId, string Name, string Role, int Open, int HighPriority, int Breached, int Waiting,
     int Tasks, int TasksOverdue, int TasksToday, int Resolved7d, int? OnTime7d);
+
+public class TaskFilter : ListFilter
+{
+    /// <summary>mine (việc của tôi) | assigned (tôi giao) | all (cả nhóm – trong phạm vi được xem)</summary>
+    public string? Scope { get; set; } = "mine";
+    /// <summary>board | list</summary>
+    public string? View { get; set; } = "board";
+    public ActivityType? Type { get; set; }
+    public Priority? Priority { get; set; }
+    /// <summary>overdue | today | week</summary>
+    public string? Due { get; set; }
+}
+
+public class TaskFormViewModel
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "Vui lòng nhập tên công việc"), StringLength(200)]
+    [Display(Name = "Công việc")]
+    public string Subject { get; set; } = string.Empty;
+
+    [StringLength(2000)]
+    [Display(Name = "Mô tả / yêu cầu")]
+    public string? Description { get; set; }
+
+    [Display(Name = "Loại")]
+    public ActivityType Type { get; set; } = ActivityType.Task;
+
+    [Display(Name = "Ưu tiên")]
+    public Priority Priority { get; set; } = Priority.Normal;
+
+    [Required(ErrorMessage = "Vui lòng chọn người thực hiện")]
+    [Display(Name = "Người thực hiện")]
+    public int? OwnerId { get; set; }
+
+    [Display(Name = "Thời hạn")]
+    public DateTime DueDate { get; set; } = DateTime.Today.AddDays(1).AddHours(17);
+
+    [Display(Name = "Khách hàng")] public int? CustomerId { get; set; }
+    [Display(Name = "Cơ hội")] public int? OpportunityId { get; set; }
+
+    /// <summary>Đầu việc ban đầu – mỗi dòng một đầu việc (chỉ khi tạo mới)</summary>
+    [Display(Name = "Đầu việc (mỗi dòng một mục)")]
+    public string? ChecklistText { get; set; }
+
+    public bool IsTicketMain { get; set; }
+    public int? TicketId { get; set; }
+}

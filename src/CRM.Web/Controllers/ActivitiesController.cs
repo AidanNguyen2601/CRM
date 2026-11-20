@@ -62,6 +62,7 @@ public class ActivitiesController : CrmControllerBase
     {
         var a = await Db.Activities.FindAsync(id);
         if (a == null) return NotFound();
+        if (a.Type == ActivityType.Task && string.IsNullOrEmpty(Request.Query["form"])) return RedirectToAction("Details", "Tasks", new { id });   // công việc: mở trang công việc
         if (!User.CanAccess(a)) return NotAllowed();
         await LoadLookups(a);
         return View("Form", a);
@@ -70,7 +71,7 @@ public class ActivitiesController : CrmControllerBase
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(Activity model, string? returnUrl)
     {
-        if (model.CustomerId == null && model.LeadId == null && model.OpportunityId == null)
+        if (model.Type != ActivityType.Task && model.CustomerId == null && model.LeadId == null && model.OpportunityId == null)
             ModelState.AddModelError(string.Empty, I18n.T("Hoạt động cần gắn với ít nhất một khách hàng, lead hoặc cơ hội."));
         if (!ModelState.IsValid)
         {

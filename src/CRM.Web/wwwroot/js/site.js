@@ -44,8 +44,23 @@ document.addEventListener('change', async function (e) {
     }
 
     // (2) Mở rộng / thu gọn từng nhóm
+    // Menu nằm ngang (trên / dưới): mỗi nhóm là menu thả xuống, bấm để mở / đóng (rê chuột cũng mở)
+    const horizontal = () => !mobile() && (root.dataset.menu === 'top' || root.dataset.menu === 'bottom');
+    document.addEventListener('click', e => {
+        if (horizontal() && !e.target.closest('.hnav-item')) nav.querySelectorAll('.hnav-item.open').forEach(x => x.classList.remove('open'));
+    });
+
     nav.addEventListener('click', e => {
         const btn = e.target.closest('.nav-toggle');
+        if (btn && horizontal()) {
+            const item = btn.closest('.hnav-item');
+            if (item) {
+                const wasOpen = item.classList.contains('open');
+                nav.querySelectorAll('.hnav-item.open').forEach(x => x.classList.remove('open'));
+                if (!wasOpen) item.classList.add('open');
+            }
+            return;
+        }
         if (!btn || root.classList.contains('sidebar-mini') && !mobile()) return;
         const block = btn.parentElement;
         setBlock(block, !block.classList.contains('collapsed'));
@@ -153,6 +168,9 @@ document.addEventListener('change', async function (e) {
     const en = document.documentElement.lang === 'en';
     const TXT = {
         reset: en ? 'Reset column layout' : 'Khôi phục bố cục cột',
+        columns: en ? 'Show / hide columns' : 'Ẩn / hiện cột',
+        all: en ? 'Show all' : 'Hiện tất cả',
+        keepOne: en ? 'At least one column must stay visible' : 'Phải giữ lại ít nhất một cột',
         hint: en ? 'Drag to move the column · drag the right edge to resize' : 'Kéo để đổi vị trí cột · kéo mép phải để đổi độ rộng'
     };
     const store = {
@@ -195,12 +213,24 @@ document.addEventListener('change', async function (e) {
             syncWidth();
         }
         function syncWidth() {
-            table.style.width = cols().reduce((s, th) => s + parseFloat(th.style.width || th.offsetWidth), 0) + 'px';
+            table.style.width = cols().filter(th => !hidden.has(+th.dataset.col)).reduce((s, th) => s + parseFloat(th.style.width || th.offsetWidth), 0) + 'px';
         }
 
         // Nút khôi phục bố cục (hiện khi đã tùy chỉnh)
         const host = table.closest('.card') || table.parentElement;
         host.classList.add('grid-host');
+
+        // Cột đang ẩn (theo số thứ tự cột gốc)
+        const hidden = new Set();
+        function applyHidden() {
+            const list = cols(), rs = rows();
+            list.forEach((th, idx) => {
+                const h = hidden.has(+th.dataset.col);
+                rs.forEach(r => { const c = r.cells[idx]; if (c) c.classList.toggle('grid-col-hidden', h); });
+            });
+            if (table.classList.contains('grid-fixed')) syncWidth();
+            host.classList.toggle('grid-has-hidden', hidden.size > 0);
+        }
         const reset = document.createElement('button');
         reset.type = 'button';
         reset.className = 'grid-reset no-print';
@@ -210,8 +240,54 @@ document.addEventListener('change', async function (e) {
         reset.addEventListener('click', () => { store.del(key); location.reload(); });
         host.appendChild(reset);
 
+        // Nút chọn cột hiển thị
+        const colBtn = document.createElement('button');
+        colBtn.type = 'button';
+        colBtn.className = 'grid-cols-btn no-print';
+        colBtn.title = TXT.columns;
+        colBtn.setAttribute('aria-label', TXT.columns);
+        colBtn.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg>';
+        const panel = document.createElement('div');
+        panel.className = 'grid-cols-panel no-print';
+        panel.hidden = true;
+        function buildPanel() {
+            panel.innerHTML = '';
+            const title = document.createElement('div');
+            title.className = 'gcp-title';
+            title.textContent = TXT.columns;
+            panel.appendChild(title);
+            ths.slice().sort((a, b) => +a.dataset.col - +b.dataset.col).forEach(th => {
+                const id = +th.dataset.col;
+                const row = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox'; cb.className = 'form-check-input'; cb.checked = !hidden.has(id);
+                const span = document.createElement('span');
+                span.textContent = (th.innerText || '').trim() || ('#' + (id + 1));
+                row.append(cb, span);
+                cb.addEventListener('change', () => {
+                    if (!cb.checked && hidden.size >= n - 1) { cb.checked = true; alert(TXT.keepOne); return; }
+                    if (cb.checked) hidden.delete(id); else hidden.add(id);
+                    applyHidden(); save();
+                });
+                panel.appendChild(row);
+            });
+            const all = document.createElement('button');
+            all.type = 'button'; all.className = 'btn btn-sm btn-link p-0 mt-1'; all.textContent = TXT.all;
+            all.addEventListener('click', () => { hidden.clear(); applyHidden(); save(); buildPanel(); });
+            panel.appendChild(all);
+        }
+        colBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            if (panel.hidden) buildPanel();
+            panel.hidden = !panel.hidden;
+        });
+        panel.addEventListener('click', e => e.stopPropagation());
+        document.addEventListener('click', () => { panel.hidden = true; });
+        host.appendChild(colBtn);
+        host.appendChild(panel);
+
         function save() {
-            const state = { order: cols().map(th => +th.dataset.col) };
+            const state = { order: cols().map(th => +th.dataset.col), hidden: Array.from(hidden) };
             if (table.classList.contains('grid-fixed')) {
                 state.widths = {};
                 cols().forEach(th => state.widths[th.dataset.col] = parseFloat(th.style.width));
@@ -232,6 +308,8 @@ document.addEventListener('change', async function (e) {
                 table.classList.add('grid-fixed');
                 syncWidth();
             }
+            if (Array.isArray(saved.hidden)) saved.hidden.filter(id => id >= 0 && id < n).slice(0, n - 1).forEach(id => hidden.add(id));
+            applyHidden();
             host.classList.add('grid-custom');
         }
 
@@ -341,4 +419,43 @@ document.addEventListener('change', async function (e) {
         });
         form.addEventListener('submit', () => { btn.disabled = true; btn.classList.add('disabled'); });
     });
+})();
+
+// ---------- Thông báo: kiểm tra định kỳ (60 giây) → cập nhật số chưa đọc, hiện thông báo nổi / thông báo màn hình ----------
+(function () {
+    const bell = document.getElementById('notifBell');
+    if (!bell) return;
+    const badge = bell.querySelector('.notif-count');
+    let last = parseInt(bell.dataset.last || '0', 10);
+    let box = null;
+    function toast(n) {
+        if (!box) { box = document.createElement('div'); box.className = 'notif-toasts'; document.body.appendChild(box); }
+        const a = document.createElement('a');
+        a.className = 'notif-toast';
+        a.href = n.url;
+        const t = document.createElement('div');
+        const b = document.createElement('b'); b.textContent = n.title; t.appendChild(b);
+        if (n.body) { const s = document.createElement('div'); s.className = 'small text-muted'; s.textContent = n.body; t.appendChild(s); }
+        a.appendChild(t);
+        box.appendChild(a);
+        setTimeout(() => a.remove(), 8000);
+        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            try { const dn = new Notification(n.title, { body: n.body || '' }); dn.onclick = () => { window.focus(); location.href = n.url; }; } catch (e) { }
+        }
+    }
+    async function poll() {
+        try {
+            const r = await fetch(bell.dataset.poll + '?after=' + last, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) return;
+            const d = await r.json();
+            badge.textContent = d.count > 99 ? '99+' : d.count;
+            badge.classList.toggle('d-none', d.count === 0);
+            document.title = document.title.replace(/^\(\d+\+?\) /, '');
+            if (d.count > 0) document.title = '(' + (d.count > 99 ? '99+' : d.count) + ') ' + document.title;
+            (d.items || []).slice().reverse().forEach(toast);
+            if (d.last > last) last = d.last;
+        } catch (e) { /* mất kết nối tạm thời */ }
+    }
+    setInterval(poll, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 })();

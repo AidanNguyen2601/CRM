@@ -15,6 +15,10 @@ public class CrmDbContext : DbContext
     private int[] BranchFilterIds => _scope?.Ids ?? Array.Empty<int>();
 
     public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<TaskChecklistItem> TaskChecklistItems => Set<TaskChecklistItem>();
+    public DbSet<TaskComment> TaskComments => Set<TaskComment>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     /// <summary>Người dùng thuộc các đơn vị trong phạm vi đang xem (dùng cho danh sách chọn người phụ trách, KPI, báo cáo theo người)</summary>
     public IQueryable<AppUser> UsersInScope => _scope == null ? Users : _scope.Users(Users);
 
@@ -72,6 +76,14 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<Ticket>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
         modelBuilder.Entity<Ticket>().HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById);
         modelBuilder.Entity<Activity>().HasOne(x => x.Ticket).WithMany(t => t.Tasks).HasForeignKey(x => x.TicketId);
+        modelBuilder.Entity<Activity>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
+        modelBuilder.Entity<Activity>().HasOne(x => x.AssignedBy).WithMany().HasForeignKey(x => x.AssignedById);
+        modelBuilder.Entity<TaskChecklistItem>().HasOne(x => x.Activity).WithMany(a => a.Checklist).HasForeignKey(x => x.ActivityId);
+        modelBuilder.Entity<TaskComment>().HasOne(x => x.Activity).WithMany(a => a.Comments).HasForeignKey(x => x.ActivityId);
+        modelBuilder.Entity<Notification>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+        modelBuilder.Entity<Notification>().HasOne(x => x.Actor).WithMany().HasForeignKey(x => x.ActorId);
+        modelBuilder.Entity<Notification>().HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAt });
+        modelBuilder.Entity<Notification>().HasIndex(x => new { x.UserId, x.Key });
         modelBuilder.Entity<SalesTarget>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         modelBuilder.Entity<Opportunity>().HasIndex(x => x.Stage);
         modelBuilder.Entity<Activity>().HasIndex(x => new { x.OwnerId, x.Status, x.DueDate });

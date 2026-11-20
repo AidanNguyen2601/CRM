@@ -1,0 +1,42 @@
+@model TaskFormViewModel
+@{
+    var isNew = Model.Id == 0;
+    ViewData["Title"] = isNew ? T("Giao việc / tạo việc") : T("Sửa công việc");
+}
+<div class="card" style="max-width:900px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    @if (Model.IsTicketMain)
+    {
+        <div class="alert alert-info py-2 small">@T("Đây là việc chính của phiếu hỗ trợ: người thực hiện và thời hạn đi theo phiếu.")</div>
+    }
+    <div class="row g-3">
+        <div class="col-12"><label asp-for="Subject" class="form-label"></label><input asp-for="Subject" class="form-control" /><span asp-validation-for="Subject" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label>
+            <select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners" disabled="@Model.IsTicketMain"><option value="">@T("-- Chọn --")</option></select>
+            <span asp-validation-for="OwnerId" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="DueDate" class="form-label"></label><input asp-for="DueDate" type="datetime-local" class="form-control" disabled="@Model.IsTicketMain" /></div>
+        <div class="col-md-2"><label asp-for="Priority" class="form-label"></label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<Priority>()"></select></div>
+        <div class="col-md-2"><label asp-for="Type" class="form-label"></label><select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<ActivityType>()"></select></div>
+        <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" rows="4" class="form-control" placeholder="@T("Yêu cầu, kết quả cần đạt, tài liệu tham khảo…")"></textarea></div>
+        @if (Model.TicketId == null)
+        {
+            <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label>
+                <select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">@T("-- Không (việc nội bộ) --")</option></select></div>
+            <div class="col-md-6"><label asp-for="OpportunityId" class="form-label"></label>
+                <select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">@T("-- Không --")</option></select></div>
+        }
+        @if (isNew)
+        {
+            <div class="col-12"><label asp-for="ChecklistText" class="form-label"></label>
+                <textarea asp-for="ChecklistText" rows="4" class="form-control" placeholder="@T("vd.\nThu thập yêu cầu\nSoạn đề xuất\nGửi khách duyệt")"></textarea>
+                <div class="form-text">@T("Tiến độ tự tính theo số đầu việc đã xong.")</div></div>
+        }
+    </div>
+    <div class="mt-4"><button class="btn btn-primary">@Icon("send") @(isNew ? T("Giao việc") : T("Lưu"))</button>
+        <a class="btn btn-light" asp-action="@(isNew ? "Index" : "Details")" asp-route-id="@(isNew ? null : Model.Id)">@T("Hủy")</a>
+        @if (isNew) { <span class="small text-muted ms-2">@T("Người thực hiện sẽ nhận thông báo và thấy việc trong Lịch làm việc.")</span> }</div>
+</form>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

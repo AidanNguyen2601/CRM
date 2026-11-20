@@ -3,18 +3,24 @@
     var act = ViewContext.RouteData.Values["action"]?.ToString();
     string Active(string c, string? a = null) => ctrl == c && (a == null || act == a) ? "active" : "";
     var role = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+    var ui = await UiService.CurrentAsync(User);   // cấu hình giao diện (Hệ thống → Giao diện)
 }
 <!DOCTYPE html>
-<html lang="@Lang">
+<html lang="@Lang" data-theme="@(ui.Theme == "dark" ? "dark" : "light")" data-theme-pref="@ui.Theme" data-menu="@ui.Menu" data-sidebar="@ui.Sidebar" style="@ui.CssVars()">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - CRM</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
     <script>
-        // Menu rút gọn: áp dụng trước khi vẽ trang để không bị nháy
-        try { if (localStorage.getItem('crm.nav.mini') === '1') document.documentElement.classList.add('sidebar-mini'); } catch (e) { }
+        // Áp dụng trước khi vẽ trang để không bị nháy: menu rút gọn + chủ đề "theo hệ thống"
+        (function () {
+            var r = document.documentElement;
+            try { if (localStorage.getItem('crm.nav.mini') === '1') r.classList.add('sidebar-mini'); } catch (e) { }
+            if (r.dataset.themePref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) r.dataset.theme = 'dark';
+        })();
     </script>
 </head>
 <body data-page="@ctrl.@act">
@@ -30,16 +36,17 @@
             <div class="nav-block" data-nav="ops">
                 <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Nghiệp vụ")</span>@Icon("chevron", "chev")</button>
                 <div class="nav-items"><div class="nav-inner">
-                    <div class="nav-block" data-nav="ops-overview">
+                    <div class="nav-block hnav-item" data-nav="ops-overview">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Tổng quan")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             <a class="@Active("Home")" asp-controller="Home" asp-action="Index">@Icon("dashboard")<span>Dashboard</span></a>
                             <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@Icon("calendar")<span>@T("Lịch làm việc")</span></a>
+                            <a class="@Active("Tasks")" asp-controller="Tasks" asp-action="Index">@Icon("kanban")<span>@T("Công việc")</span></a>
                             <a class="@Active("Kpi")" asp-controller="Kpi" asp-action="Index">@Icon("trending")<span>@T("KPI bán hàng")</span></a>
                             <a class="@Active("Reports")" asp-controller="Reports" asp-action="Index">@Icon("report")<span>@T("Báo cáo")</span></a>
                         </div></div>
                     </div>
-                    <div class="nav-block" data-nav="ops-sales">
+                    <div class="nav-block hnav-item" data-nav="ops-sales">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Bán hàng")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             <a class="@Active("Leads")" asp-controller="Leads" asp-action="Index">@Icon("lead")<span>@T("Lead (KH tiềm năng)")</span></a>
@@ -49,13 +56,13 @@
                             <a class="@Active("BusinessPlans")" asp-controller="BusinessPlans" asp-action="Index">@Icon("plan")<span>@T("Phương án kinh doanh")</span></a>
                         </div></div>
                     </div>
-                    <div class="nav-block" data-nav="ops-marketing">
+                    <div class="nav-block hnav-item" data-nav="ops-marketing">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Tiếp thị")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             <a class="@Active("Campaigns")" asp-controller="Campaigns" asp-action="Index">@Icon("campaign")<span>@T("Chiến dịch tiếp thị")</span></a>
                         </div></div>
                     </div>
-                    <div class="nav-block" data-nav="ops-finance">
+                    <div class="nav-block hnav-item" data-nav="ops-finance">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Hợp đồng & công nợ")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             <a class="@Active("Contracts")" asp-controller="Contracts" asp-action="Index">@Icon("contract")<span>@L("Hợp đồng", "Contracts")</span></a>
@@ -63,7 +70,7 @@
                             <a class="@Active("Payments")" asp-controller="Payments" asp-action="Index">@Icon("wallet")<span>@T("Thanh toán")</span></a>
                         </div></div>
                     </div>
-                    <div class="nav-block" data-nav="ops-support">
+                    <div class="nav-block hnav-item" data-nav="ops-support">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Chăm sóc khách hàng")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             <a class="@(ctrl == "Tickets" && act != "Workload" ? "active" : "")" asp-controller="Tickets" asp-action="Index">@Icon("support")<span>@T("Phiếu hỗ trợ")</span></a>
@@ -73,7 +80,7 @@
                             }
                         </div></div>
                     </div>
-                    <div class="nav-block" data-nav="ops-customers">
+                    <div class="nav-block hnav-item" data-nav="ops-customers">
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@L("Khách hàng", "Customers")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@Icon("customer")<span>@L("Khách hàng", "Customers")</span></a>
@@ -84,7 +91,7 @@
             </div>
 
             @* ===== DANH MỤC: dữ liệu dùng chung ===== *@
-            <div class="nav-block" data-nav="catalog">
+            <div class="nav-block hnav-item" data-nav="catalog">
                 <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Danh mục")</span>@Icon("chevron", "chev")</button>
                 <div class="nav-items"><div class="nav-inner">
                     <a class="@Active("Products")" asp-controller="Products" asp-action="Index">@Icon("product")<span>@T("Hàng hoá / dịch vụ")</span></a>
@@ -102,7 +109,7 @@
             @if (User.IsInRole(AppRoles.Admin))
             {
                 @* ===== HỆ THỐNG ===== *@
-                <div class="nav-block" data-nav="system">
+                <div class="nav-block hnav-item" data-nav="system">
                     <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Hệ thống")</span>@Icon("chevron", "chev")</button>
                     <div class="nav-items"><div class="nav-inner">
                         <a class="@Active("Branches")" asp-controller="Branches" asp-action="Index">@Icon("branch")<span>@T("Công ty & chi nhánh")</span></a>
@@ -138,6 +145,7 @@
                 <h1 class="page-title">@Icon(ForPage(ctrl, act) ?? "", "ico-title")<span>@ViewData["Title"]</span></h1>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <partial name="_NotificationBell" />
                 <partial name="_BranchSwitcher" />
                 <partial name="_LanguageSwitcher" />
                 <div class="dropdown">
@@ -147,6 +155,7 @@
                         <li><a class="dropdown-item" asp-controller="Customers" asp-action="Create">@Icon("customer")@T("Khách hàng")</a></li>
                         <li><a class="dropdown-item" asp-controller="Opportunities" asp-action="Create">@Icon("opportunity")@T("Cơ hội")</a></li>
                         <li><a class="dropdown-item" asp-controller="Activities" asp-action="Create">@Icon("calendar")@T("Hoạt động")</a></li>
+                        <li><a class="dropdown-item" asp-controller="Tasks" asp-action="Create">@Icon("kanban")@T("Giao việc")</a></li>
                         <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@Icon("quote")@L("Báo giá", "Quote")</a></li>
                         <li><a class="dropdown-item" asp-controller="BusinessPlans" asp-action="Create">@Icon("plan")@T("Phương án kinh doanh")</a></li>
                         <li><a class="dropdown-item" asp-controller="Campaigns" asp-action="Create">@Icon("campaign")@T("Chiến dịch tiếp thị")</a></li>
@@ -164,6 +173,7 @@
                         @User.GetFullName() <small class="text-muted">(@AppRoles.DisplayName(role))</small>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" asp-controller="Appearance" asp-action="Index">@Icon("palette")@T("Giao diện")</a></li>
                         <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">@Icon("key")@T("Đổi mật khẩu")</a></li>
                         <li><hr class="dropdown-divider" /></li>
                         <li><form asp-controller="Account" asp-action="Logout" method="post"><button class="dropdown-item text-danger">@Icon("logout")@T("Đăng xuất")</button></form></li>

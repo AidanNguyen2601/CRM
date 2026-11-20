@@ -1,0 +1,51 @@
+@model PagedList<Notification>
+@{
+    ViewData["Title"] = T("Thông báo");
+    var unread = (bool)ViewBag.Unread;
+    var unreadCount = (int)ViewBag.UnreadCount;
+}
+<div class="toolbar">
+    <ul class="nav nav-pills">
+        <li class="nav-item"><a class="nav-link @(unread ? "" : "active")" asp-route-unread="false">@T("Tất cả")</a></li>
+        <li class="nav-item"><a class="nav-link @(unread ? "active" : "")" asp-route-unread="true">@T("Chưa đọc") <span class="badge bg-danger">@unreadCount</span></a></li>
+    </ul>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-secondary" id="enableDesktop" hidden>@Icon("bell") @T("Bật thông báo trên màn hình")</button>
+        @if (unreadCount > 0)
+        {
+            <form asp-action="MarkAllRead" method="post"><button class="btn btn-outline-primary">@Icon("check") @T("Đánh dấu đã đọc hết")</button></form>
+        }
+        <form asp-action="DeleteRead" method="post" data-confirm="@T("Xóa tất cả thông báo đã đọc?")"><button class="btn btn-outline-danger">@T("Xóa thông báo đã đọc")</button></form>
+    </div>
+</div>
+<div class="card"><div class="list-group list-group-flush">
+    @foreach (var n in Model.Items)
+    {
+        <a class="list-group-item list-group-item-action d-flex gap-3 align-items-start notif-row @(n.IsRead ? "" : "unread")" asp-action="Open" asp-route-id="@n.Id">
+            <span class="notif-ico t-@n.Type mt-1">@Icon(NotificationService.IconOf(n.Type))</span>
+            <span class="flex-grow-1 min-w-0">
+                <span class="d-block fw-semibold">@n.Title</span>
+                @if (!string.IsNullOrEmpty(n.Body)) { <span class="d-block small text-muted pre">@n.Body</span> }
+                <span class="small text-muted">@n.CreatedAt.ToDateTime()@if (n.Actor != null) { <text> · @n.Actor.FullName</text> }</span>
+            </span>
+            @if (!n.IsRead) { <span class="badge bg-primary">@T("Mới")</span> }
+        </a>
+    }
+    @if (!Model.Items.Any()) { <div class="list-group-item text-muted text-center p-4">@T("Không có thông báo.")</div> }
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="small text-muted">@T("{0} thông báo", Model.TotalCount)</span>
+    <partial name="_Pager" model="Model" />
+</div></div>
+<p class="small text-muted mt-2">@T("Hệ thống tự nhắc khi công việc sắp đến hạn (trong 24 giờ) hoặc đã quá hạn, và khi phiếu hỗ trợ sắp / đã trễ SLA.")</p>
+@section Scripts {
+<script>
+    // Thông báo trên màn hình (Desktop notification) – cần người dùng cho phép
+    (function () {
+        const b = document.getElementById('enableDesktop');
+        if (!('Notification' in window) || Notification.permission === 'granted') return;
+        b.hidden = false;
+        b.addEventListener('click', () => Notification.requestPermission().then(p => { if (p === 'granted') b.hidden = true; }));
+    })();
+</script>
+}

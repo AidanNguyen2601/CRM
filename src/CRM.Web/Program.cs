@@ -12,6 +12,9 @@ using Microsoft.Extensions.Localization;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 
+// Ngôn ngữ mặc định ngoài request (khởi tạo dữ liệu, tác vụ nền): tiếng Việt – không phụ thuộc ngôn ngữ hệ điều hành
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.CurrentUICulture = new CultureInfo(I18n.Vietnamese);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Database (SQL Server) ----------
@@ -70,6 +73,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<BranchDirectory>();
 builder.Services.AddScoped<BranchScope>();
+builder.Services.AddScoped<UiSettingsService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddHostedService<NotificationWorker>();
 builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<KpiService>();
