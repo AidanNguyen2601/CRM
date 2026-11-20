@@ -100,8 +100,10 @@
                         <tr><td><code>@@Keyword</code></td><td>@T("Ô tìm kiếm (NULL nếu bỏ trống)")</td></tr>
                         <tr><td><code>@@CurrentUserId</code></td><td>@T("Người đang xem")</td></tr>
                         <tr><td><code>@@SeesAll</code></td><td>@T("1 nếu là quản lý / quản trị")</td></tr>
+                        <tr><td><code>@@BranchIds</code></td><td>@T("Id các đơn vị trong phạm vi đang xem (rỗng = toàn chuỗi)")</td></tr>
                     </table>
-                    <div class="alert alert-warning py-2 mb-0">@Html.Raw(T("Phân quyền dữ liệu: thêm điều kiện <code>(@SeesAll = 1 OR OwnerId = @CurrentUserId)</code> để nhân viên kinh doanh chỉ thấy dữ liệu của mình."))</div>
+                    <div class="alert alert-warning py-2 mb-0">@Html.Raw(T("Phân quyền dữ liệu: thêm điều kiện <code>(@SeesAll = 1 OR OwnerId = @CurrentUserId)</code> để nhân viên kinh doanh chỉ thấy dữ liệu của mình."))
+                        <br />@Html.Raw(T("Theo đơn vị: thêm <code>(@BranchIds = N'' OR BranchId IN (SELECT value FROM STRING_SPLIT(@BranchIds, N',')))</code>. Báo cáo dạng View tự áp dụng điều kiện này khi View có cột BranchId."))</div>
                     <div class="mt-2">@T("Ô lọc trên trang báo cáo tự hiện theo tham số câu lệnh có dùng.")</div>
                 </div>
             </div>

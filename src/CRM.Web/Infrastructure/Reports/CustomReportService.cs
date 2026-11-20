@@ -19,13 +19,14 @@ public record DbObjectInfo(string Name, bool IsView, List<string> Columns);
 ///  3. QUAN TRỌNG NHẤT: luôn chạy với EXECUTE AS USER = crm_report_reader (chỉ thuộc db_datareader, bị cấm đọc cột mật khẩu)
 ///     trên kết nối riêng không dùng pool → dù câu lệnh có lọt kiểm tra, SQL Server cũng từ chối mọi thao tác ghi.
 ///  4. Giới hạn thời gian chạy và số dòng trả về.
-/// Tham số dùng được trong câu lệnh: @FromDate, @ToDate, @Year, @OwnerId, @Keyword, @CurrentUserId, @SeesAll.
+/// Tham số dùng được trong câu lệnh: @FromDate, @ToDate, @Year, @OwnerId, @Keyword, @CurrentUserId, @SeesAll,
+/// @BranchIds (danh sách Id đơn vị trong phạm vi đang xem, phân cách dấu phẩy; rỗng = toàn chuỗi).
 /// </summary>
 public class CustomReportService
 {
     public const int DisplayRows = 5000, ExportRows = 50000, TimeoutSeconds = 30;
 
-    public static readonly string[] Parameters = { "@FromDate", "@ToDate", "@Year", "@OwnerId", "@Keyword", "@CurrentUserId", "@SeesAll" };
+    public static readonly string[] Parameters = { "@FromDate", "@ToDate", "@Year", "@OwnerId", "@Keyword", "@CurrentUserId", "@SeesAll", "@BranchIds" };
 
     private static readonly string[] Forbidden =
     {
@@ -35,7 +36,11 @@ public class CustomReportService
     };
 
     private readonly CrmDbContext _db;
-    public CustomReportService(CrmDbContext db) => _db = db;
+    private readonly BranchScope _scope;
+    public CustomReportService(CrmDbContext db, BranchScope scope) { _db = db; _scope = scope; }
+
+    /// <summary>Điều kiện lọc theo đơn vị cho cột BranchId (dùng trong báo cáo dạng View)</summary>
+    public const string BranchCondition = "(@BranchIds = N'' OR [BranchId] IN (SELECT TRY_CAST([value] AS int) FROM STRING_SPLIT(@BranchIds, N',')))";
 
     /// <summary>Kiểm tra câu lệnh SQL; trả về thông báo lỗi hoặc null nếu hợp lệ</summary>
     public static string? Validate(string? sql)
@@ -111,6 +116,7 @@ public class CustomReportService
         var sql = $"SELECT {top}{select}\nFROM [dbo].{Q(view.Name)}\nWHERE 1 = 1";
         if (Col(r.DateColumn) is { } dc) sql += $"\n  AND {Q(dc)} >= @FromDate AND {Q(dc)} < DATEADD(day, 1, @ToDate)";
         if (Col(r.OwnerColumn) is { } oc) sql += $"\n  AND (@SeesAll = 1 OR {Q(oc)} = @CurrentUserId)\n  AND (@OwnerId IS NULL OR {Q(oc)} = @OwnerId)";
+        if (Col("BranchId") != null) sql += "\n  AND " + BranchCondition;   // chỉ dữ liệu các đơn vị trong phạm vi
         if (Col(r.OrderBy) is { } ob) sql += $"\nORDER BY {Q(ob)}{(r.OrderDesc ? " DESC" : "")}";
         return (sql, null);
     }
@@ -149,6 +155,7 @@ public class CustomReportService
         cmd.Parameters.Add(new SqlParameter("@Keyword", SqlDbType.NVarChar, 200) { Value = string.IsNullOrWhiteSpace(f.Keyword) ? DBNull.Value : f.Keyword.Trim() });
         cmd.Parameters.Add(new SqlParameter("@CurrentUserId", SqlDbType.Int) { Value = user.GetUserId() });
         cmd.Parameters.Add(new SqlParameter("@SeesAll", SqlDbType.Bit) { Value = seesAll });
+        cmd.Parameters.Add(new SqlParameter("@BranchIds", SqlDbType.NVarChar, -1) { Value = _scope.Active ? string.Join(",", _scope.Ids) : "" });
 
         try
         {

@@ -170,9 +170,9 @@ public class QuotesController : CrmControllerBase
     private async Task<string> NextNumberAsync()
     {
         var prefix = $"BG-{DateTime.Today:yyyy}-";
-        var n = await Db.Quotes.CountAsync(q => q.Number.StartsWith(prefix)) + 1;
+        var n = await Db.Quotes.IgnoreQueryFilters().CountAsync(q => q.Number.StartsWith(prefix)) + 1;
         string no;
-        do no = $"{prefix}{n++:0000}"; while (await Db.Quotes.AnyAsync(q => q.Number == no));
+        do no = $"{prefix}{n++:0000}"; while (await Db.Quotes.IgnoreQueryFilters().AnyAsync(q => q.Number == no));
         return no;
     }
 

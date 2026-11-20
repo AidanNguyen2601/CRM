@@ -102,6 +102,8 @@ public class ReportContext
     public required CrmDbContext Db { get; init; }
     public required ClaimsPrincipal User { get; init; }
     public required ReportFilter Filter { get; init; }
+    /// <summary>Phạm vi đơn vị (báo cáo theo công ty / chi nhánh)</summary>
+    public BranchScope? Scope { get; init; }
 
     /// <summary>Người phụ trách cần lọc: nhân viên kinh doanh luôn = chính mình; quản lý = theo bộ lọc (null = tất cả)</summary>
     public int? Owner => User.SeesAll() ? Filter.OwnerId : User.GetUserId();

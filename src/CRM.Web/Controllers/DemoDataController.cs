@@ -16,6 +16,46 @@ public class DemoDataController : CrmControllerBase
 
     public DemoDataController(CrmDbContext db, CatalogService catalogs) : base(db) => _catalogs = catalogs;
 
+    /// <summary>Thao tác trên toàn chuỗi: bỏ giới hạn đơn vị đang chọn (tránh sinh trùng số chứng từ giữa các đơn vị)</summary>
+    public override void OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext context)
+    {
+        HttpContext.RequestServices.GetRequiredService<BranchScope>().Bypass();
+        base.OnActionExecuting(context);
+    }
+
+    /// <summary>
+    /// Tạo cơ cấu chuỗi mẫu khi hệ thống mới có 1 đơn vị: đơn vị gốc thành công ty mẹ, thêm 2 chi nhánh (TP.HCM, Hà Nội),
+    /// chia nhân viên kinh doanh xen kẽ vào 2 chi nhánh và chuyển dữ liệu họ phụ trách theo.
+    /// </summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenerateChain([FromServices] BranchDirectory dir)
+    {
+        if (await Db.Branches.CountAsync() > 1)
+        {
+            TempData["Error"] = I18n.T("Hệ thống đã có nhiều đơn vị – hãy chỉnh cơ cấu trong mục Công ty & chi nhánh.");
+            return RedirectToAction(nameof(Index));
+        }
+        var root = await Db.Branches.FirstAsync();
+        root.Type = BranchType.Company;
+        if (string.IsNullOrEmpty(root.ShortName)) root.ShortName = I18n.T("Trụ sở chính");
+        var hcm = new Branch { Code = "HCM", Name = I18n.T("Chi nhánh TP. Hồ Chí Minh"), ShortName = "CN TP.HCM", Type = BranchType.Branch, Parent = root, SortOrder = 10 };
+        var hn = new Branch { Code = "HN", Name = I18n.T("Chi nhánh Hà Nội"), ShortName = "CN Hà Nội", Type = BranchType.Branch, Parent = root, SortOrder = 20 };
+        Db.Branches.AddRange(hcm, hn);
+        await Db.SaveChangesAsync();
+
+        var sales = await Db.Users.Where(u => u.Role == AppRoles.Sales).OrderBy(u => u.Id).ToListAsync();
+        var moved = 0;
+        for (var i = 0; i < sales.Count; i++)
+        {
+            sales[i].BranchId = i % 2 == 0 ? hcm.Id : hn.Id;
+            await Db.SaveChangesAsync();
+            moved += await BranchOps.MoveUserDataAsync(Db, sales[i].Id, sales[i].BranchId);
+        }
+        dir.Invalidate();
+        TempData["Success"] = I18n.T("Đã tạo 2 chi nhánh, chia {0} nhân viên kinh doanh và chuyển {1} bản ghi theo người phụ trách.", sales.Count, moved);
+        return RedirectToAction("Index", "Branches");
+    }
+
     public async Task<IActionResult> Index()
     {
         ViewBag.Counts = new (string Label, string Icon, int Count)[]
@@ -33,7 +73,9 @@ public class DemoDataController : CrmControllerBase
             (I18n.T("Thanh toán"), "wallet", await Db.Payments.CountAsync()),
             (I18n.T("Chiến dịch tiếp thị"), "campaign", await Db.Campaigns.CountAsync()),
             (I18n.T("Phiếu hỗ trợ"), "support", await Db.Tickets.CountAsync()),
+            (I18n.T("Công ty & chi nhánh"), "branch", await Db.Branches.CountAsync()),
         };
+        ViewBag.BranchCount = await Db.Branches.CountAsync();
         ViewBag.HasSupportAgent = await Db.Users.AnyAsync(u => u.IsActive && u.Role == AppRoles.Support);
         return View();
     }

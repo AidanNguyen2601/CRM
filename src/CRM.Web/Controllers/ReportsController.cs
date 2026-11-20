@@ -50,7 +50,7 @@ public class ReportsController : CrmControllerBase
         {
             Title = def.Title, Description = def.Description, Icon = def.Icon, Filters = def.Filters, Filter = f, Group = def.Group,
             RouteValues = new { id }, ExportAction = nameof(Export),
-            Result = await def.Run(new ReportContext { Db = Db, User = User, Filter = f })
+            Result = await def.Run(new ReportContext { Db = Db, User = User, Filter = f, Scope = HttpContext.RequestServices.GetRequiredService<BranchScope>() })
         };
         await LoadOwnersAsync(f.OwnerId);
         return View("Result", m);
@@ -61,7 +61,7 @@ public class ReportsController : CrmControllerBase
         var def = StandardReports.Find(id);
         if (def == null) return NotFound();
         Defaults(f, def.Filters);
-        var r = await def.Run(new ReportContext { Db = Db, User = User, Filter = f });
+        var r = await def.Run(new ReportContext { Db = Db, User = User, Filter = f, Scope = HttpContext.RequestServices.GetRequiredService<BranchScope>() });
         return Xlsx(def.Title, Subtitle(def.Filters, f), r);
     }
 

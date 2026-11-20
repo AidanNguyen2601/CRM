@@ -105,6 +105,7 @@
                 <div class="nav-block" data-nav="system">
                     <button type="button" class="nav-section nav-toggle" aria-expanded="true"><span>@T("Hệ thống")</span>@Icon("chevron", "chev")</button>
                     <div class="nav-items"><div class="nav-inner">
+                        <a class="@Active("Branches")" asp-controller="Branches" asp-action="Index">@Icon("branch")<span>@T("Công ty & chi nhánh")</span></a>
                         <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@Icon("users")<span>@T("Người dùng & phân quyền")</span></a>
                         <a class="@Active("DemoData")" asp-controller="DemoData" asp-action="Index">@Icon("receivable")<span>@T("Dữ liệu mẫu")</span></a>
                     </div></div>
@@ -137,6 +138,7 @@
                 <h1 class="page-title">@Icon(ForPage(ctrl, act) ?? "", "ico-title")<span>@ViewData["Title"]</span></h1>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <partial name="_BranchSwitcher" />
                 <partial name="_LanguageSwitcher" />
                 <div class="dropdown">
                     <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">@Icon("plus") @T("Tạo nhanh")</button>

@@ -49,7 +49,7 @@ public abstract class CrmControllerBase : Controller
 
     protected async Task LoadOwnersAsync(int? selected)
     {
-        ViewBag.Owners = new SelectList(await Db.Users.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync(),
+        ViewBag.Owners = new SelectList(await Db.UsersInScope.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync(),
             "Id", "FullName", selected);
     }
 

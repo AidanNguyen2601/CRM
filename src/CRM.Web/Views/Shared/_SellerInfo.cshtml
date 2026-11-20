@@ -1,0 +1,28 @@
+@* Thông tin bên bán theo pháp nhân của đơn vị (công ty gần nhất). Model: BranchId của chứng từ; ViewData["SellerLabel"] = nhãn *@
+@model int
+@inject BranchScope Scope
+@{
+    var snap = Scope.Snapshot;
+    var unit = snap.ById.GetValueOrDefault(Model);
+    var legal = snap.LegalEntityOf(Model);
+}
+@if (legal != null)
+{
+    <div class="seller-info small mb-3">
+        <div class="text-muted">@(ViewData["SellerLabel"] as string ?? T("Bên bán"))</div>
+        <div class="fw-semibold">@legal.Name @if (unit != null && unit.Id != legal.Id) { <span class="fw-normal">– @unit.Name</span> }</div>
+        @{ var addr = unit?.Address ?? legal.Address; var phone = unit?.Phone ?? legal.Phone; }
+        <div>
+            @if (!string.IsNullOrEmpty(legal.TaxCode)) { <span>@T("MST: {0}", legal.TaxCode)</span> }
+            @if (!string.IsNullOrEmpty(addr)) { <span> · @addr</span> }
+            @if (!string.IsNullOrEmpty(phone)) { <span> · @T("ĐT: {0}", phone)</span> }
+        </div>
+        @if (!string.IsNullOrEmpty(legal.BankAccount) || !string.IsNullOrEmpty(legal.Representative))
+        {
+            <div>
+                @if (!string.IsNullOrEmpty(legal.BankAccount)) { <span>@T("TK: {0}", legal.BankAccount)</span> }
+                @if (!string.IsNullOrEmpty(legal.Representative)) { <span> · @T("Đại diện: {0}", legal.Representative)</span> }
+            </div>
+        }
+    </div>
+}

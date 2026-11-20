@@ -156,9 +156,9 @@ public class PaymentsController : CrmControllerBase
     private async Task<string> NextNumberAsync()
     {
         var prefix = $"PT-{DateTime.Today:yyyy}-";
-        var n = await Db.Payments.CountAsync(x => x.Number.StartsWith(prefix)) + 1;
+        var n = await Db.Payments.IgnoreQueryFilters().CountAsync(x => x.Number.StartsWith(prefix)) + 1;
         string no;
-        do no = $"{prefix}{n++:0000}"; while (await Db.Payments.AnyAsync(x => x.Number == no));
+        do no = $"{prefix}{n++:0000}"; while (await Db.Payments.IgnoreQueryFilters().AnyAsync(x => x.Number == no));
         return no;
     }
 

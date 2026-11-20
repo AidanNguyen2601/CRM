@@ -321,3 +321,5 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .workload-bar > span { display: block; height: 100%; background: var(--accent, #0f9d8a); }
 .workload-bar > span.hot { background: #dc3545; }
 .text-warning-emphasis { color: #8a5a00 !important; }   /* Bootstrap 5.1 chưa có lớp này */
+.branch-menu { max-height: 70vh; overflow-y: auto; min-width: 260px; }
+.branch-switch { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -50,9 +50,9 @@ public class CustomersController : CrmControllerBase
 
     public async Task<IActionResult> Create()
     {
-        var n = await Db.Customers.CountAsync() + 1;
+        var n = await Db.Customers.IgnoreQueryFilters().CountAsync() + 1;
         var model = new Customer { Code = $"KH{n:0000}", OwnerId = CurrentUserId };
-        while (await Db.Customers.AnyAsync(c => c.Code == model.Code)) model.Code = $"KH{++n:0000}";
+        while (await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.Code == model.Code)) model.Code = $"KH{++n:0000}";
         await LoadOwnersAsync(model.OwnerId);
         return View("Form", model);
     }
@@ -69,9 +69,9 @@ public class CustomersController : CrmControllerBase
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(Customer model)
     {
-        if (await Db.Customers.AnyAsync(c => c.Code == model.Code && c.Id != model.Id))
+        if (await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.Code == model.Code && c.Id != model.Id))
             ModelState.AddModelError(nameof(model.Code), I18n.T("Mã khách hàng đã tồn tại"));
-        if (!string.IsNullOrWhiteSpace(model.TaxCode) && await Db.Customers.AnyAsync(c => c.TaxCode == model.TaxCode && c.Id != model.Id))
+        if (!string.IsNullOrWhiteSpace(model.TaxCode) && await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.TaxCode == model.TaxCode && c.Id != model.Id))
             ModelState.AddModelError(nameof(model.TaxCode), I18n.T("Mã số thuế đã thuộc về khách hàng khác"));
         if (!ModelState.IsValid)
         {

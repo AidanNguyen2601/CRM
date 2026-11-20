@@ -44,18 +44,33 @@ public static class DbSeeder
         var rnd = new Random(2026);
 
         // ---------- Người dùng ----------
-        AppUser U(string username, string fullName, string role, string pwd)
+        AppUser U(string username, string fullName, string role, string pwd, Branch branch)
         {
-            var u = new AppUser { Username = username, FullName = fullName, Role = role, Email = $"{username}@crm.local" };
+            var u = new AppUser { Username = username, FullName = fullName, Role = role, Email = $"{username}@crm.local", BranchId = branch.Id };
             u.PasswordHash = hasher.HashPassword(u, pwd);
             return u;
         }
-        var admin = U("admin", "Quản trị hệ thống", AppRoles.Admin, "Admin@123");
-        var manager = U("manager", "Nguyễn Hoàng Minh", AppRoles.Manager, "Manager@123");
-        var sales1 = U("sales1", "Trần Thu Hà", AppRoles.Sales, "Sales@123");
-        var sales2 = U("sales2", "Lê Quốc Bảo", AppRoles.Sales, "Sales@123");
-        var support1 = U("support1", "Võ Minh Thư", AppRoles.Support, "Support@123");
-        db.Users.AddRange(admin, manager, sales1, sales2, support1);
+        // ---------- Cơ cấu chuỗi mẫu: công ty mẹ (trụ sở) + 2 chi nhánh ----------
+        var root = await db.Branches.Where(b => b.ParentId == null).OrderBy(b => b.Id).FirstAsync();
+        root.Code = "HQ"; root.Name = "Công ty CP Giải pháp Số Việt"; root.ShortName = "Trụ sở chính"; root.Type = BranchType.Company;
+        root.TaxCode = "0312345678"; root.Address = "123 Nguyễn Thị Minh Khai, Quận 3, TP. Hồ Chí Minh"; root.Phone = "028 3822 8899";
+        root.Email = "info@giaiphapso.vn"; root.Representative = "Nguyễn Văn An – Tổng Giám đốc"; root.InvoiceSymbol = $"1C{today:yy}TCR";
+        Branch Br(string code, string name, string shortName, string address, string phone, int order) => new()
+        {
+            Code = code, Name = name, ShortName = shortName, Type = BranchType.Branch, Parent = root, Address = address, Phone = phone, SortOrder = order
+        };
+        var hcm = Br("HCM", "Chi nhánh TP. Hồ Chí Minh", "CN TP.HCM", "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh", "028 3911 2233", 10);
+        var hn = Br("HN", "Chi nhánh Hà Nội", "CN Hà Nội", "88 Trần Duy Hưng, Cầu Giấy, Hà Nội", "024 3768 4455", 20);
+        db.Branches.AddRange(hcm, hn);
+        await db.SaveChangesAsync();
+
+        var admin = U("admin", "Quản trị hệ thống", AppRoles.Admin, "Admin@123", root);
+        var manager = U("manager", "Nguyễn Hoàng Minh", AppRoles.Manager, "Manager@123", root);
+        var manager2 = U("manager2", "Phạm Đức Long", AppRoles.Manager, "Manager@123", hn);
+        var sales1 = U("sales1", "Trần Thu Hà", AppRoles.Sales, "Sales@123", hcm);
+        var sales2 = U("sales2", "Lê Quốc Bảo", AppRoles.Sales, "Sales@123", hn);
+        var support1 = U("support1", "Võ Minh Thư", AppRoles.Support, "Support@123", root);
+        db.Users.AddRange(admin, manager, manager2, sales1, sales2, support1);
 
         // ---------- Sản phẩm ----------
         var products = new List<Product>

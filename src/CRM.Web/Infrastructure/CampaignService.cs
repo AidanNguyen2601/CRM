@@ -195,7 +195,7 @@ public class CampaignService
     public async Task<string> NextCodeAsync(int year)
     {
         var prefix = $"CD{year}-";
-        var codes = await _db.Campaigns.Where(c => c.Code.StartsWith(prefix)).Select(c => c.Code).ToListAsync();
+        var codes = await _db.Campaigns.IgnoreQueryFilters().Where(c => c.Code.StartsWith(prefix)).Select(c => c.Code).ToListAsync();
         var max = codes.Select(c => int.TryParse(c[prefix.Length..], out var n) ? n : 0).DefaultIfEmpty(0).Max();
         return $"{prefix}{max + 1:000}";
     }

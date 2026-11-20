@@ -96,6 +96,7 @@ public class InvoicesController : CrmControllerBase
                 return RedirectToAction("Details", "Contracts", new { id = c.Id });
             }
             vm.ContractId = c.Id; vm.CustomerId = c.CustomerId; vm.VatPercent = Math.Round(c.VatPercent, 0);
+            vm.Symbol = DefaultSymbol(c.BranchId);   // ký hiệu hoá đơn của pháp nhân ký hợp đồng
             var m = c.Milestones.FirstOrDefault(x => x.Id == vm.MilestoneId);
             if (m != null)
             {
@@ -259,12 +260,25 @@ public class InvoicesController : CrmControllerBase
             .Select(i => new { id = i.Id, name = i.Symbol + " – " + i.Number, outstanding = i.Total - i.PaidAmount, contractId = i.ContractId })
             .ToListAsync());
 
-    private string DefaultSymbol() => _config["Invoice:Symbol"] is { Length: > 0 } s ? s : $"1C{DateTime.Today:yy}TCR";
+    /// <summary>Ký hiệu hoá đơn mặc định: của pháp nhân (công ty gần nhất) thuộc đơn vị; không có thì theo cấu hình</summary>
+    private string DefaultSymbol(int? branchId = null)
+    {
+        var scope = HttpContext.RequestServices.GetRequiredService<BranchScope>();
+        var id = branchId ?? scope.WorkingBranchId;
+        if (id.HasValue)
+        {
+            var snap = scope.Snapshot;
+            var seen = new HashSet<int>();
+            for (var b = snap.ById.GetValueOrDefault(id.Value); b != null && seen.Add(b.Id); b = b.ParentId.HasValue ? snap.ById.GetValueOrDefault(b.ParentId.Value) : null)
+                if (!string.IsNullOrWhiteSpace(b.InvoiceSymbol)) return b.InvoiceSymbol!;
+        }
+        return _config["Invoice:Symbol"] is { Length: > 0 } s ? s : $"1C{DateTime.Today:yy}TCR";
+    }
 
     /// <summary>Số hoá đơn 8 chữ số, tăng dần theo ký hiệu</summary>
     private async Task<string> NextNumberAsync(string symbol)
     {
-        var numbers = await Db.Invoices.Where(i => i.Symbol == symbol).Select(i => i.Number).ToListAsync();
+        var numbers = await Db.Invoices.IgnoreQueryFilters().Where(i => i.Symbol == symbol).Select(i => i.Number).ToListAsync();
         var max = numbers.Select(n => long.TryParse(n, out var v) ? v : 0).DefaultIfEmpty(0).Max();
         return (max + 1).ToString("00000000");
     }

@@ -125,7 +125,7 @@ public class TicketsController : CrmControllerBase
             return RedirectToAction(nameof(Details), null, new { id }, "tasks");
         }
         var owner = User.IsSupportDesk() ? ownerId ?? CurrentUserId : CurrentUserId;
-        var ownerName = await Db.Users.Where(u => u.Id == owner && u.IsActive).Select(u => u.FullName).FirstOrDefaultAsync();
+        var ownerName = await Db.UsersInScope.Where(u => u.Id == owner && u.IsActive).Select(u => u.FullName).FirstOrDefaultAsync();
         if (ownerName == null) return BadRequest();
         if (!Enum.IsDefined(type)) type = ActivityType.Task;
         if (!Enum.IsDefined(priority)) priority = Priority.Normal;
@@ -185,7 +185,7 @@ public class TicketsController : CrmControllerBase
             .Select(t => new { t.OwnerId, OnTime = t.ResolvedAt <= t.ResolveDueAt }).ToListAsync();
 
         var ids = open.Where(t => t.OwnerId != null).Select(t => t.OwnerId!.Value).Concat(tasks.Select(a => a.OwnerId!.Value)).Concat(resolved.Select(r => r.OwnerId!.Value)).ToHashSet();
-        var users = await Db.Users.AsNoTracking().Where(u => u.IsActive && (u.Role == AppRoles.Support || ids.Contains(u.Id))).ToListAsync();
+        var users = await Db.UsersInScope.AsNoTracking().Where(u => u.IsActive && (u.Role == AppRoles.Support || ids.Contains(u.Id))).ToListAsync();
         ViewBag.Rows = users.Select(u =>
         {
             var o = open.Where(t => t.OwnerId == u.Id).ToList();
@@ -210,7 +210,7 @@ public class TicketsController : CrmControllerBase
     public async Task<IActionResult> BulkAssign(List<int> ids, int? ownerId)
     {
         if (!User.IsSupportDesk()) return NotAllowed();
-        var name = ownerId.HasValue ? await Db.Users.Where(u => u.Id == ownerId && u.IsActive).Select(u => u.FullName).FirstOrDefaultAsync() : null;
+        var name = ownerId.HasValue ? await Db.UsersInScope.Where(u => u.Id == ownerId && u.IsActive).Select(u => u.FullName).FirstOrDefaultAsync() : null;
         if (name == null || ids.Count == 0)
         {
             TempData["Error"] = I18n.T("Hãy chọn phiếu và người xử lý.");
@@ -269,7 +269,7 @@ public class TicketsController : CrmControllerBase
             model.ContactId = null;
         if (model.ContractId.HasValue && !await Db.Contracts.AnyAsync(c => c.Id == model.ContractId && c.CustomerId == model.CustomerId))
             model.ContractId = null;
-        if (model.OwnerId.HasValue && !await Db.Users.AnyAsync(u => u.Id == model.OwnerId && u.IsActive))
+        if (model.OwnerId.HasValue && !await Db.UsersInScope.AnyAsync(u => u.Id == model.OwnerId && u.IsActive))
             ModelState.AddModelError(nameof(model.OwnerId), I18n.T("Người xử lý không hợp lệ"));
         if (!ModelState.IsValid)
         {
@@ -343,7 +343,7 @@ public class TicketsController : CrmControllerBase
         if (!User.IsSupportDesk()) return NotAllowed();
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
-        if (ownerId.HasValue && !await Db.Users.AnyAsync(u => u.Id == ownerId && u.IsActive)) return BadRequest();
+        if (ownerId.HasValue && !await Db.UsersInScope.AnyAsync(u => u.Id == ownerId && u.IsActive)) return BadRequest();
         if (t.OwnerId != ownerId)
         {
             t.OwnerId = ownerId;
@@ -533,7 +533,7 @@ public class TicketsController : CrmControllerBase
     /// <summary>Danh sách người xử lý: nhân viên CSKH trước, sau đó quản lý / sales</summary>
     private async Task LoadAgentsAsync(int? selected)
     {
-        var users = await Db.Users.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync();
+        var users = await Db.UsersInScope.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync();
         // Kèm số phiếu đang mở của từng người để phân công cân tải
         var load = await OpenTickets(Db.Tickets).Where(t => t.OwnerId != null)
             .GroupBy(t => t.OwnerId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
@@ -566,9 +566,9 @@ public class TicketsController : CrmControllerBase
     private async Task<string> NextNumberAsync()
     {
         var prefix = $"YC-{DateTime.Today:yyyy}-";
-        var n = await Db.Tickets.CountAsync(x => x.Number.StartsWith(prefix)) + 1;
+        var n = await Db.Tickets.IgnoreQueryFilters().CountAsync(x => x.Number.StartsWith(prefix)) + 1;
         string no;
-        do no = $"{prefix}{n++:0000}"; while (await Db.Tickets.AnyAsync(x => x.Number == no));
+        do no = $"{prefix}{n++:0000}"; while (await Db.Tickets.IgnoreQueryFilters().AnyAsync(x => x.Number == no));
         return no;
     }
 }

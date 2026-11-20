@@ -42,7 +42,7 @@ public class KpiController : CrmControllerBase
     public async Task<IActionResult> Member(int id, int? year = null)
     {
         if (!CanViewUser(id)) return NotAllowed();
-        var u = await Db.Users.FindAsync(id);
+        var u = await Db.UsersInScope.FirstOrDefaultAsync(x => x.Id == id);   // chỉ nhân viên thuộc đơn vị trong phạm vi
         if (u == null) return NotFound();
         var y = year ?? DateTime.Today.Year;
         ViewBag.Year = y;

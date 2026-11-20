@@ -285,9 +285,9 @@ public class BusinessPlansController : CrmControllerBase
     private async Task<string> NextNumberAsync()
     {
         var prefix = $"PAKD-{DateTime.Today:yyyy}-";
-        var n = await Db.BusinessPlans.CountAsync(x => x.Number.StartsWith(prefix)) + 1;
+        var n = await Db.BusinessPlans.IgnoreQueryFilters().CountAsync(x => x.Number.StartsWith(prefix)) + 1;
         string no;
-        do no = $"{prefix}{n++:0000}"; while (await Db.BusinessPlans.AnyAsync(x => x.Number == no));
+        do no = $"{prefix}{n++:0000}"; while (await Db.BusinessPlans.IgnoreQueryFilters().AnyAsync(x => x.Number == no));
         return no;
     }
 

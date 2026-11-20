@@ -51,9 +51,13 @@ public static class TicketSla
 }
 
 /// <summary>Phiếu yêu cầu hỗ trợ của khách hàng. OwnerId = người xử lý (null = chưa phân công).</summary>
-public class Ticket : IOwned
+public class Ticket : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required, StringLength(30)]
     [Display(Name = "Mã phiếu")]

@@ -28,6 +28,15 @@
                     <button class="btn btn-outline-primary">@T("Nạp dữ liệu tiếp thị")</button>
                 </div>
             </form>
+            @if ((int)ViewBag.BranchCount <= 1)
+            {
+                <hr />
+                <h6>@Icon("branch") @T("Tạo cơ cấu chuỗi mẫu")</h6>
+                <p class="small text-muted">@T("Hệ thống đang có 1 đơn vị. Tạo 2 chi nhánh mẫu (TP.HCM, Hà Nội) trực thuộc đơn vị gốc, chia nhân viên kinh doanh xen kẽ vào 2 chi nhánh và chuyển dữ liệu họ phụ trách theo – để thử xem dữ liệu theo từng chi nhánh.")</p>
+                <form asp-action="GenerateChain" method="post" data-confirm="@T("Tạo cơ cấu chuỗi mẫu và chia nhân viên kinh doanh vào 2 chi nhánh?")">
+                    <button class="btn btn-outline-primary">@Icon("branch") @T("Tạo cơ cấu chuỗi mẫu")</button>
+                </form>
+            }
             <hr />
             <h6>@Icon("support") @T("Chỉ nạp phiếu hỗ trợ (CSKH)")</h6>
             <p class="small text-muted">@T("Tạo phiếu hỗ trợ trên khách hàng đang có (ưu tiên khách đã ký hợp đồng, gắn hợp đồng và hàng hoá): đủ các trạng thái từ mới đến đã đóng, trao đổi và ghi chú nội bộ, thời gian xử lý dao động quanh hạn SLA (một phần trễ hạn), điểm hài lòng của khách. Người xử lý là nhân viên CSKH (chưa có thì giao cho quản lý). Không tạo khách hàng mới.")</p>

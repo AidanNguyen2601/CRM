@@ -227,6 +227,14 @@ public class UserFormViewModel
 
     [Display(Name = "Kích hoạt")]
     public bool IsActive { get; set; } = true;
+
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn đơn vị")]
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
+
+    /// <summary>Đổi đơn vị: chuyển luôn dữ liệu đang phụ trách sang đơn vị mới</summary>
+    [Display(Name = "Chuyển dữ liệu đang phụ trách sang đơn vị mới")]
+    public bool MoveData { get; set; } = true;
 }
 
 // ---------- Phương án kinh doanh ----------

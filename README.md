@@ -45,7 +45,8 @@ deploy-crm-shared-db.ps1 + run-crm-B.cmd   (tự triển khai PA B trên Windows
 | Tài khoản | Mật khẩu | Vai trò |
 |---|---|---|
 | admin | Admin@123 | Quản trị hệ thống |
-| manager | Manager@123 | Quản lý kinh doanh |
+| manager | Manager@123 | Quản lý kinh doanh (trụ sở – thấy toàn chuỗi) |
+| manager2 | Manager@123 | Quản lý chi nhánh Hà Nội (chỉ thấy dữ liệu chi nhánh HN) |
 | sales1 | Sales@123 | Nhân viên kinh doanh |
 | sales2 | Sales@123 | Nhân viên kinh doanh |
 | support1 | Support@123 | Nhân viên chăm sóc khách hàng (phiếu hỗ trợ) |

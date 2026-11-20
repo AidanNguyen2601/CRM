@@ -29,9 +29,13 @@ public abstract class SalesLineBase
 }
 
 /// <summary>Hợp đồng bán hàng</summary>
-public class Contract : IOwned
+public class Contract : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required, StringLength(30)]
     [Display(Name = "Số hợp đồng")]
@@ -137,9 +141,13 @@ public class ContractMilestone
 }
 
 /// <summary>Hoá đơn bán hàng (GTGT)</summary>
-public class Invoice : IOwned
+public class Invoice : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập ký hiệu hoá đơn"), StringLength(20)]
     [Display(Name = "Ký hiệu")]
@@ -228,9 +236,13 @@ public class InvoiceLine : SalesLineBase
 }
 
 /// <summary>Phiếu thu – ghi nhận khách hàng thanh toán</summary>
-public class Payment : IOwned
+public class Payment : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required, StringLength(30)]
     [Display(Name = "Số phiếu thu")]

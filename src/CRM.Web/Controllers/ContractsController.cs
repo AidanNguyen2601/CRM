@@ -274,9 +274,9 @@ public class ContractsController : CrmControllerBase
     private async Task<string> NextNumberAsync()
     {
         var prefix = $"HD-{DateTime.Today:yyyy}-";
-        var n = await Db.Contracts.CountAsync(x => x.Number.StartsWith(prefix)) + 1;
+        var n = await Db.Contracts.IgnoreQueryFilters().CountAsync(x => x.Number.StartsWith(prefix)) + 1;
         string no;
-        do no = $"{prefix}{n++:0000}"; while (await Db.Contracts.AnyAsync(x => x.Number == no));
+        do no = $"{prefix}{n++:0000}"; while (await Db.Contracts.IgnoreQueryFilters().AnyAsync(x => x.Number == no));
         return no;
     }
 

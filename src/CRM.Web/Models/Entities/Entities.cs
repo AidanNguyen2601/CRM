@@ -36,6 +36,10 @@ public class AppUser
     [Display(Name = "Kích hoạt")]
     public bool IsActive { get; set; } = true;
 
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
+    public Branch? Branch { get; set; }
+
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
@@ -63,9 +67,13 @@ public static class AppRoles
 }
 
 /// <summary>Khách hàng (doanh nghiệp / tổ chức)</summary>
-public class Customer : IOwned
+public class Customer : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập mã khách hàng"), StringLength(20)]
     [Display(Name = "Mã KH")]
@@ -125,9 +133,13 @@ public class Customer : IOwned
 }
 
 /// <summary>Người liên hệ thuộc khách hàng</summary>
-public class Contact : IOwned
+public class Contact : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập họ tên"), StringLength(150)]
     [Display(Name = "Họ và tên")]
@@ -168,9 +180,13 @@ public class Contact : IOwned
 }
 
 /// <summary>Khách hàng tiềm năng chưa xác thực</summary>
-public class Lead : IOwned
+public class Lead : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập họ tên"), StringLength(150)]
     [Display(Name = "Họ và tên")]
@@ -227,9 +243,13 @@ public class Lead : IOwned
 }
 
 /// <summary>Cơ hội bán hàng</summary>
-public class Opportunity : IOwned
+public class Opportunity : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập tên cơ hội"), StringLength(200)]
     [Display(Name = "Tên cơ hội")]
@@ -289,9 +309,13 @@ public class Opportunity : IOwned
 }
 
 /// <summary>Hoạt động chăm sóc: cuộc gọi, cuộc họp, email, công việc</summary>
-public class Activity : IOwned
+public class Activity : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Display(Name = "Loại")]
     public ActivityType Type { get; set; } = ActivityType.Call;
@@ -403,9 +427,13 @@ public class Product
 }
 
 /// <summary>Báo giá</summary>
-public class Quote : IOwned
+public class Quote : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required, StringLength(30)]
     [Display(Name = "Số báo giá")]
@@ -545,8 +573,12 @@ public class CatalogItem
 /// Phương án kinh doanh (PAKD) của một thương vụ: giá vốn – giá bán – chi phí – lợi nhuận,
 /// được quản lý duyệt trước khi ký hợp đồng. Số tiền tính trước thuế GTGT.
 /// </summary>
-public class BusinessPlan : IOwned
+public class BusinessPlan : IOwned, IBranchScoped
 {
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
+
     /// <summary>Ngưỡng cảnh báo tỷ suất lợi nhuận (%)</summary>
     public const decimal LowMargin = 10m, GoodMargin = 20m;
 

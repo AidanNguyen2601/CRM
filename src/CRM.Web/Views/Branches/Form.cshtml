@@ -1,0 +1,39 @@
+@model Branch
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Thêm đơn vị") : T("Sửa đơn vị {0}", Model.Name);
+    var isRoot = (bool)ViewBag.IsRoot;
+}
+<div class="card" style="max-width:960px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <h6 class="text-muted">@T("Thông tin chung")</h6>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control text-uppercase" placeholder="vd. HN, HCM-Q1" /><span asp-validation-for="Code" class="text-danger small"></span></div>
+        <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="ShortName" class="form-label"></label><input asp-for="ShortName" class="form-control" placeholder="@T("Hiển thị trên menu, bộ chọn")" /></div>
+        <div class="col-md-3"><label asp-for="Type" class="form-label"></label><select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<BranchType>()"></select>
+            <div class="form-text">@T("Công ty = pháp nhân riêng (MST, hoá đơn riêng); Chi nhánh dùng thông tin pháp lý của công ty cấp trên nếu để trống.")</div></div>
+        <div class="col-md-6"><label asp-for="ParentId" class="form-label"></label>
+            @if (isRoot) { <input class="form-control" disabled value="@T("— Đơn vị gốc —")" /> }
+            else { <select asp-for="ParentId" class="form-select" asp-items="ViewBag.Parents"></select> }
+            <span asp-validation-for="ParentId" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" class="form-control" /></div>
+        <div class="col-12"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+            <span asp-validation-for="IsActive" class="text-danger small"></span></div>
+    </div>
+    <h6 class="text-muted">@T("Thông tin pháp lý & liên hệ")</h6>
+    <div class="row g-3">
+        <div class="col-md-4"><label asp-for="TaxCode" class="form-label"></label><input asp-for="TaxCode" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="Representative" class="form-label"></label><input asp-for="Representative" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="InvoiceSymbol" class="form-label"></label><input asp-for="InvoiceSymbol" class="form-control text-uppercase" placeholder="vd. 1C26THN" />
+            <div class="form-text">@T("Ký hiệu mặc định khi xuất hoá đơn của đơn vị này")</div></div>
+        <div class="col-12"><label asp-for="Address" class="form-label"></label><input asp-for="Address" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="BankAccount" class="form-label"></label><input asp-for="BankAccount" class="form-control" /></div>
+    </div>
+    <div class="mt-4"><button class="btn btn-primary">@Icon("check") @T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

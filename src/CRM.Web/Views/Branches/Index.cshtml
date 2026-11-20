@@ -1,0 +1,64 @@
+@model List<(Branch Branch, int Depth)>
+@{
+    ViewData["Title"] = T("Công ty & chi nhánh");
+    var snap = (BranchSnapshot)ViewBag.Snapshot;
+    var users = (Dictionary<int, (int N, int Active)>)ViewBag.Users;
+    var customers = (Dictionary<int, int>)ViewBag.Customers;
+    var won = (Dictionary<int, decimal>)ViewBag.Won;
+    var tickets = (Dictionary<int, int>)ViewBag.OpenTickets;
+    // Gộp số liệu cả nhánh (đơn vị + trực thuộc)
+    int SumUsers(int id) => snap.Subtree(id).Sum(i => users.TryGetValue(i, out var u) ? u.Active : 0);
+    int SumCust(int id) => snap.Subtree(id).Sum(i => customers.GetValueOrDefault(i));
+    decimal SumWon(int id) => snap.Subtree(id).Sum(i => won.GetValueOrDefault(i));
+    int SumTickets(int id) => snap.Subtree(id).Sum(i => tickets.GetValueOrDefault(i));
+}
+<div class="toolbar">
+    <a class="btn btn-outline-secondary" asp-controller="Users" asp-action="Index">@Icon("users") @T("Người dùng & phân quyền")</a>
+    <a class="btn btn-primary ms-auto" asp-action="Create">@Icon("plus") @T("Thêm đơn vị")</a>
+</div>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0 branch-tree" data-no-grid>
+    <thead><tr><th>@T("Đơn vị")</th><th>@T("Loại")</th><th>@T("Mã số thuế")</th><th class="money">@T("Nhân sự")</th><th class="money">@T("Khách hàng")</th>
+        <th class="money">@T("Doanh số thắng năm nay")</th><th class="money">@T("Phiếu hỗ trợ mở")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var (b, depth) in Model)
+    {
+        var hasChildren = snap.Branches.Any(x => x.ParentId == b.Id);
+        <tr class="@(b.IsActive ? "" : "text-muted")">
+            <td style="padding-left:@(12 + depth * 26)px">
+                @if (depth > 0) { <span class="text-muted">└</span> }
+                <span class="badge bg-light text-dark border">@b.Code</span>
+                <a asp-action="Edit" asp-route-id="@b.Id" class="fw-semibold">@b.Name</a>
+                @if (b.ParentId == null) { <span class="badge bg-dark">@T("Gốc")</span> }
+                @if (!string.IsNullOrEmpty(b.Address)) { <div class="small text-muted" style="padding-left:@(depth > 0 ? 14 : 0)px">@b.Address</div> }
+            </td>
+            <td><span class="badge @(b.Type == BranchType.Company ? "bg-primary" : "bg-info text-dark")">@b.Type.GetDisplayName()</span></td>
+            <td class="small">@(b.TaxCode ?? snap.LegalEntityOf(b.Id)?.TaxCode)</td>
+            <td class="money"><a asp-controller="Users" asp-action="Index" asp-route-branchId="@b.Id">@SumUsers(b.Id)</a>
+                @if (hasChildren) { <div class="small text-muted">@T("riêng: {0}", users.TryGetValue(b.Id, out var u) ? u.Active : 0)</div> }</td>
+            <td class="money">@SumCust(b.Id).ToString("N0")</td>
+            <td class="money">@SumWon(b.Id).ToShortMoney()</td>
+            <td class="money">@SumTickets(b.Id)</td>
+            <td>@(b.IsActive ? Html.Raw($"<span class='badge bg-success'>{T("Hoạt động")}</span>") : Html.Raw($"<span class='badge bg-secondary'>{T("Ngừng hoạt động")}</span>"))</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-primary" asp-action="Create" asp-route-parentId="@b.Id" title="@T("Thêm đơn vị trực thuộc")">@Icon("plus")</a>
+                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@b.Id">@T("Sửa")</a>
+                @if (b.ParentId != null)
+                {
+                    <form asp-action="Delete" asp-route-id="@b.Id" method="post" class="d-inline" data-confirm="@T("Xóa đơn vị {0}?", b.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>
+<div class="card mt-3"><div class="card-body small">
+    <b>@T("Cách hoạt động:")</b>
+    <ul class="mb-0">
+        <li>@T("Mỗi người dùng thuộc một đơn vị. Bản ghi nghiệp vụ (khách hàng, cơ hội, hợp đồng, hoá đơn, phiếu hỗ trợ…) tự thuộc đơn vị của người phụ trách; đổi người phụ trách sang đơn vị khác thì bản ghi chuyển theo.")</li>
+        <li>@T("Quản trị hệ thống thấy toàn chuỗi; quản lý và nhân viên thấy dữ liệu của đơn vị mình và các đơn vị trực thuộc (nhân viên vẫn chỉ thấy bản ghi mình phụ trách).")</li>
+        <li>@T("Dùng bộ chọn đơn vị trên thanh trên cùng để xem riêng một công ty / chi nhánh hoặc gộp cả nhánh. Số liệu ở bảng trên đã gộp cả các đơn vị trực thuộc.")</li>
+        <li>@T("Thông tin pháp lý (MST, địa chỉ, ký hiệu hoá đơn) lấy từ đơn vị loại Công ty gần nhất: in trên báo giá, hợp đồng, hoá đơn.")</li>
+    </ul>
+</div></div>

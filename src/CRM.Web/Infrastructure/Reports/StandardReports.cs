@@ -16,6 +16,7 @@ public static class StandardReports
     public static string GroupFinance => T("Tài chính & công nợ");
     public static string GroupActivity => T("Hoạt động");
     public static string GroupSupport => T("Chăm sóc khách hàng");
+    public static string GroupBranch => T("Chuỗi công ty / chi nhánh");
 
     public static IReadOnlyList<ReportDefinition> All => new ReportDefinition[]
     {
@@ -48,6 +49,9 @@ public static class StandardReports
 
         new("activities-by-rep", GroupActivity, T("Hoạt động theo nhân viên"), T("Số cuộc gọi, cuộc họp, email, công việc hoàn thành trong kỳ và số việc đang quá hạn của từng nhân viên."), "calendar",
             ReportFilters.Period, ActivitiesByRep),
+
+        new("by-branch", GroupBranch, T("Kết quả kinh doanh theo công ty / chi nhánh"), T("So sánh các đơn vị trong phạm vi: nhân sự, khách hàng mới, cơ hội thắng, hợp đồng ký, hoá đơn, tiền thu, công nợ, phiếu hỗ trợ và mức hài lòng trong kỳ."), "branch",
+            ReportFilters.Period | ReportFilters.Owner, ByBranch),
 
         new("support-by-agent", GroupSupport, T("Hiệu suất xử lý theo nhân viên"), T("Số phiếu tiếp nhận, đã giải quyết, tỷ lệ đúng hạn SLA, thời gian phản hồi / giải quyết trung bình, phiếu đang mở, trễ hạn và mức hài lòng của từng người xử lý."), "support",
             ReportFilters.Period | ReportFilters.Owner, SupportByAgent),
@@ -339,6 +343,60 @@ public static class StandardReports
         return r.AutoTotals(T("Tổng cộng")).Chart(0, r.Columns.Count - 2);
     }
 
+    // ================== CHUỖI CÔNG TY / CHI NHÁNH ==================
+
+    private sealed class BranchValue { public int B { get; set; } public decimal V { get; set; } }
+
+    /// <summary>
+    /// Kết quả kinh doanh từng đơn vị trong phạm vi đang xem (theo cây: công ty mẹ → con → chi nhánh).
+    /// Số của mỗi dòng là của riêng đơn vị đó; dòng tổng = cả phạm vi.
+    /// </summary>
+    private static async Task<ReportResult> ByBranch(ReportContext x)
+    {
+        var f = x.Filter; var from = f.FromDate; var to = f.ToExclusive;
+        var owner = x.Owner;
+        var snap = x.Scope?.Snapshot;
+        var ids = x.Scope is { Active: true } s ? s.Ids.ToList() : snap?.Branches.Select(b => b.Id).ToList() ?? new();
+
+        // Dữ liệu đã được giới hạn theo phạm vi đơn vị (bộ lọc toàn cục) + quyền người phụ trách
+        IQueryable<T> Own<T>(IQueryable<T> q) where T : class, IOwned => owner == null ? q : q.Where(e => e.OwnerId == owner);
+        async Task<Dictionary<int, (int N, decimal V)>> Sum(IQueryable<BranchValue> q) =>
+            (await q.GroupBy(e => e.B).Select(g => new { g.Key, N = g.Count(), V = g.Sum(e => e.V) }).ToListAsync())
+                .ToDictionary(k => k.Key, k => (k.N, k.V));
+
+        var staff = await x.Db.UsersInScope.Where(u => u.IsActive).GroupBy(u => u.BranchId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(k => k.Key, k => k.N);
+        var newCust = await Sum(Own(x.Db.Customers).Where(c => c.CreatedAt >= from && c.CreatedAt < to).Select(c => new BranchValue { B = c.BranchId, V = 0m }));
+        var won = await Sum(Own(x.Db.Opportunities).Where(o => o.Stage == OpportunityStage.ClosedWon && o.ClosedAt >= from && o.ClosedAt < to).Select(o => new BranchValue { B = o.BranchId, V = o.Amount }));
+        var signed = await Sum(Own(x.Db.Contracts).Where(k => k.SignDate >= from && k.SignDate < to && k.Status != ContractStatus.Cancelled).Select(k => new BranchValue { B = k.BranchId, V = k.Total }));
+        var invoiced = await Sum(Own(x.Db.Invoices).Where(i => i.InvoiceDate >= from && i.InvoiceDate < to
+            && (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.PartiallyPaid || i.Status == InvoiceStatus.Paid)).Select(i => new BranchValue { B = i.BranchId, V = i.Total }));
+        var collected = await Sum(Own(x.Db.Payments).Where(p => p.PaymentDate >= from && p.PaymentDate < to).Select(p => new BranchValue { B = p.BranchId, V = p.Amount }));
+        var receivable = await Sum(Own(x.Db.Invoices).Where(i => i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.PartiallyPaid).Select(i => new BranchValue { B = i.BranchId, V = i.Total - i.PaidAmount }));
+        var openTickets = await Sum(x.Db.Tickets.VisibleTickets(x.User)
+            .Where(t => t.Status == TicketStatus.New || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingCustomer).Select(t => new BranchValue { B = t.BranchId, V = 0m }));
+        var csat = (await x.Db.Tickets.VisibleTickets(x.User).Where(t => t.SatisfactionScore != null && t.ClosedAt >= from && t.ClosedAt < to)
+                .GroupBy(t => t.BranchId).Select(g => new { g.Key, A = g.Average(t => (double)t.SatisfactionScore!) }).ToListAsync())
+            .ToDictionary(k => k.Key, k => Math.Round((decimal)k.A, 2));
+
+        var r = new ReportResult().Col(T("Đơn vị")).Col(T("Loại")).Col(T("Nhân sự"), K.Number).Col(T("KH mới"), K.Number)
+            .Col(T("Cơ hội thắng"), K.Number).Col(T("Doanh số thắng"), K.Money).Col(T("Hợp đồng ký"), K.Money)
+            .Col(T("Đã xuất hoá đơn"), K.Money).Col(T("Đã thu"), K.Money).Col(T("Còn phải thu (hiện tại)"), K.Money)
+            .Col(T("Phiếu hỗ trợ mở"), K.Number).Col("CSAT", K.Number, false);
+        var tree = snap?.Tree(ids) ?? new();
+        var minDepth = tree.Count == 0 ? 0 : tree.Min(t => t.Depth);
+        foreach (var (b, depth) in tree)
+        {
+            var id = b.Id;
+            r.Add(new string(' ', depth * 4) + (depth > 0 ? "└ " : "") + b.Name, b.Type.GetDisplayName(),
+                staff.GetValueOrDefault(id), newCust.GetValueOrDefault(id).N, won.GetValueOrDefault(id).N, won.GetValueOrDefault(id).V,
+                signed.GetValueOrDefault(id).V, invoiced.GetValueOrDefault(id).V, collected.GetValueOrDefault(id).V, receivable.GetValueOrDefault(id).V,
+                openTickets.GetValueOrDefault(id).N, csat.TryGetValue(id, out var cs) ? cs : null);
+        }
+        r.AutoTotals(T("Tổng cộng"));
+        r.Note = T("Số liệu mỗi dòng là của riêng đơn vị đó (không gộp đơn vị trực thuộc). Dùng bộ chọn đơn vị trên thanh trên cùng để thu hẹp phạm vi.");
+        return r.Chart(0, 5);
+    }
+
     // ================== CHĂM SÓC KHÁCH HÀNG ==================
 
     private record TicketRow(int? OwnerId, string? Category, TicketPriority Priority, TicketStatus Status, DateTime CreatedAt,
@@ -462,7 +520,7 @@ public static class StandardReports
     private static async Task<List<AppUser>> SalesUsers(ReportContext x)
     {
         var owner = x.Owner;
-        return await x.Db.Users.Where(u => (owner == null ? (u.IsActive && (u.Role == AppRoles.Sales || u.Role == AppRoles.Manager)) : u.Id == owner))
+        return await x.Db.UsersInScope.Where(u => (owner == null ? (u.IsActive && (u.Role == AppRoles.Sales || u.Role == AppRoles.Manager)) : u.Id == owner))
             .OrderBy(u => u.FullName).ToListAsync();
     }
 

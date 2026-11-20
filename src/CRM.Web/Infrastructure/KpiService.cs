@@ -66,7 +66,7 @@ public class KpiService
 
     /// <summary>Nhân viên được giao KPI: nhân viên kinh doanh + quản lý kinh doanh đang hoạt động</summary>
     public Task<List<AppUser>> SalesUsersAsync() =>
-        _db.Users.Where(u => u.IsActive && (u.Role == AppRoles.Sales || u.Role == AppRoles.Manager))
+        _db.UsersInScope.Where(u => u.IsActive && (u.Role == AppRoles.Sales || u.Role == AppRoles.Manager))
             .OrderBy(u => u.Role == AppRoles.Manager).ThenBy(u => u.FullName).ToListAsync();
 
     public async Task<List<KpiRow>> ComputeAsync(KpiPeriod p, IReadOnlyCollection<AppUser> users)

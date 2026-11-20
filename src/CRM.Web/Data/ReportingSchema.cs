@@ -73,8 +73,10 @@ public static class ReportingSchema
                o.ExpectedCloseDate, o.ClosedAt, o.LostReason,
                CASE o.Source WHEN 1 THEN N'Website' WHEN 2 THEN N'Giới thiệu' WHEN 3 THEN N'Sự kiện / Hội thảo' WHEN 4 THEN N'Gọi điện chủ động'
                              WHEN 5 THEN N'Mạng xã hội' WHEN 6 THEN N'Email marketing' WHEN 9 THEN N'Khác' END AS SourceName,
-               o.CampaignId, o.OwnerId, u.FullName AS OwnerName, o.CreatedAt
+               o.CampaignId, o.OwnerId, u.FullName AS OwnerName, o.CreatedAt,
+               o.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Opportunities o
+        LEFT JOIN dbo.Branches br ON br.Id = o.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = o.CustomerId
         LEFT JOIN dbo.Users u ON u.Id = o.OwnerId
         """,
@@ -85,8 +87,10 @@ public static class ReportingSchema
                              WHEN 5 THEN N'Mạng xã hội' WHEN 6 THEN N'Email marketing' WHEN 9 THEN N'Khác' END AS SourceName,
                CASE l.Status WHEN 1 THEN N'Mới' WHEN 2 THEN N'Đã liên hệ' WHEN 3 THEN N'Đủ điều kiện' WHEN 4 THEN N'Không phù hợp' WHEN 5 THEN N'Đã chuyển đổi' END AS StatusName,
                CASE l.Rating WHEN 1 THEN N'Nóng' WHEN 2 THEN N'Ấm' WHEN 3 THEN N'Lạnh' END AS RatingName,
-               l.EstimatedValue, l.ConvertedAt, l.CampaignId, l.OwnerId, u.FullName AS OwnerName, l.CreatedAt
+               l.EstimatedValue, l.ConvertedAt, l.CampaignId, l.OwnerId, u.FullName AS OwnerName, l.CreatedAt,
+               l.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Leads l
+        LEFT JOIN dbo.Branches br ON br.Id = l.BranchId
         LEFT JOIN dbo.Users u ON u.Id = l.OwnerId
         """,
         """
@@ -97,8 +101,10 @@ public static class ReportingSchema
                ISNULL((SELECT SUM(o.Amount) FROM dbo.Opportunities o WHERE o.CustomerId = c.Id AND o.Stage = 100), 0) AS WonRevenue,
                ISNULL((SELECT SUM(o.Amount) FROM dbo.Opportunities o WHERE o.CustomerId = c.Id AND o.Stage NOT IN (0, 100)), 0) AS OpenPipeline,
                ISNULL((SELECT SUM(i.Total - i.PaidAmount) FROM dbo.Invoices i WHERE i.CustomerId = c.Id AND i.Status IN (2, 3)), 0) AS Outstanding,
-               c.OwnerId, u.FullName AS OwnerName, c.CreatedAt
+               c.OwnerId, u.FullName AS OwnerName, c.CreatedAt,
+               c.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Customers c
+        LEFT JOIN dbo.Branches br ON br.Id = c.BranchId
         LEFT JOIN dbo.Users u ON u.Id = c.OwnerId
         """,
         """
@@ -108,8 +114,10 @@ public static class ReportingSchema
                CASE a.Status WHEN 1 THEN N'Kế hoạch' WHEN 2 THEN N'Hoàn thành' WHEN 3 THEN N'Đã hủy' END AS StatusName,
                CAST(CASE WHEN a.Status = 1 AND a.DueDate < GETDATE() THEN 1 ELSE 0 END AS bit) AS IsOverdue,
                a.CompletedAt, c.Name AS CustomerName, l.FullName AS LeadName, o.Name AS OpportunityName,
-               a.OwnerId, u.FullName AS OwnerName, a.CreatedAt
+               a.OwnerId, u.FullName AS OwnerName, a.CreatedAt,
+               a.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Activities a
+        LEFT JOIN dbo.Branches br ON br.Id = a.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = a.CustomerId
         LEFT JOIN dbo.Leads l ON l.Id = a.LeadId
         LEFT JOIN dbo.Opportunities o ON o.Id = a.OpportunityId
@@ -123,8 +131,10 @@ public static class ReportingSchema
                ISNULL((SELECT SUM(i.Total) FROM dbo.Invoices i WHERE i.ContractId = k.Id AND i.Status IN (2, 3, 4)), 0) AS Invoiced,
                ISNULL((SELECT SUM(p.Amount) FROM dbo.Payments p WHERE p.ContractId = k.Id), 0) AS Paid,
                k.Total - ISNULL((SELECT SUM(p.Amount) FROM dbo.Payments p WHERE p.ContractId = k.Id), 0) AS Receivable,
-               k.OwnerId, u.FullName AS OwnerName, k.CreatedAt
+               k.OwnerId, u.FullName AS OwnerName, k.CreatedAt,
+               k.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Contracts k
+        LEFT JOIN dbo.Branches br ON br.Id = k.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = k.CustomerId
         LEFT JOIN dbo.Users u ON u.Id = k.OwnerId
         """,
@@ -135,8 +145,10 @@ public static class ReportingSchema
                i.SubTotal, i.VatAmount, i.Total, i.PaidAmount,
                CASE WHEN i.Status IN (2, 3) THEN i.Total - i.PaidAmount ELSE 0 END AS Outstanding,
                CASE WHEN i.Status IN (2, 3) AND i.DueDate < CAST(GETDATE() AS date) THEN DATEDIFF(day, i.DueDate, CAST(GETDATE() AS date)) ELSE 0 END AS DaysOverdue,
-               i.OwnerId, u.FullName AS OwnerName, i.CreatedAt
+               i.OwnerId, u.FullName AS OwnerName, i.CreatedAt,
+               i.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Invoices i
+        LEFT JOIN dbo.Branches br ON br.Id = i.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = i.CustomerId
         LEFT JOIN dbo.Contracts k ON k.Id = i.ContractId
         LEFT JOIN dbo.Users u ON u.Id = i.OwnerId
@@ -145,8 +157,10 @@ public static class ReportingSchema
         CREATE OR ALTER VIEW [dbo].[vw_Payments] AS
         SELECT p.Id, p.Number, p.PaymentDate, c.Name AS CustomerName, i.Symbol + N'-' + i.Number AS InvoiceNo, k.Number AS ContractNumber,
                p.Amount, p.Method, p.Reference,
-               COALESCE(k.OwnerId, i.OwnerId, p.OwnerId) AS OwnerId, u.FullName AS OwnerName, p.CreatedAt
+               COALESCE(k.OwnerId, i.OwnerId, p.OwnerId) AS OwnerId, u.FullName AS OwnerName, p.CreatedAt,
+               p.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Payments p
+        LEFT JOIN dbo.Branches br ON br.Id = p.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = p.CustomerId
         LEFT JOIN dbo.Invoices i ON i.Id = p.InvoiceId
         LEFT JOIN dbo.Contracts k ON k.Id = p.ContractId
@@ -166,8 +180,10 @@ public static class ReportingSchema
                CAST(DATEDIFF(minute, t.CreatedAt, t.ResolvedAt) / 60.0 AS decimal(10,1)) AS ResolveHours,
                CAST(CASE WHEN COALESCE(t.FirstResponseAt, CASE WHEN t.Status IN (1, 2, 3) THEN GETDATE() END, t.ResolvedAt, t.ClosedAt) > t.ResponseDueAt THEN 1 ELSE 0 END AS bit) AS ResponseBreached,
                CAST(CASE WHEN COALESCE(t.ResolvedAt, CASE WHEN t.Status IN (1, 2, 3) THEN GETDATE() END, t.ClosedAt) > t.ResolveDueAt THEN 1 ELSE 0 END AS bit) AS ResolveBreached,
-               t.SatisfactionScore, t.OwnerId, u.FullName AS OwnerName, c.OwnerId AS AccountOwnerId
+               t.SatisfactionScore, t.OwnerId, u.FullName AS OwnerName, c.OwnerId AS AccountOwnerId,
+               t.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Tickets t
+        LEFT JOIN dbo.Branches br ON br.Id = t.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = t.CustomerId
         LEFT JOIN dbo.Contacts ct ON ct.Id = t.ContactId
         LEFT JOIN dbo.Users u ON u.Id = t.OwnerId
@@ -177,6 +193,20 @@ public static class ReportingSchema
     /// <summary>Báo cáo động mẫu (chỉ nạp khi bảng còn trống) – minh hoạ cả 2 cách: SQL và View</summary>
     public static async Task SeedSamplesAsync(CrmDbContext db)
     {
+        // Báo cáo SQL mẫu chưa bị chỉnh sửa → bổ sung điều kiện lọc theo đơn vị (chuỗi công ty / chi nhánh)
+        foreach (var (alias, anchor) in new[] { ("o", "AND (@SeesAll = 1 OR o.OwnerId = @CurrentUserId)"), ("i", "AND (@SeesAll = 1 OR i.OwnerId = @CurrentUserId)") })
+        {
+            var cond = $"AND (@BranchIds = N'' OR {alias}.BranchId IN (SELECT value FROM STRING_SPLIT(@BranchIds, N',')))";
+            foreach (var r in await db.CustomReports.Where(r => r.SqlText != null && r.SqlText.Contains(anchor) && !r.SqlText.Contains("@BranchIds")).ToListAsync())
+            {
+                var lines = r.SqlText!.Replace("\r\n", "\n").Split('\n').ToList();
+                var idx = lines.FindIndex(l => l.Trim() == anchor);
+                if (idx < 0) continue;
+                lines.Insert(idx + 1, new string(' ', lines[idx].Length - lines[idx].TrimStart().Length) + cond);
+                r.SqlText = string.Join("\n", lines);
+            }
+        }
+        await db.SaveChangesAsync();
         if (await db.CustomReports.AnyAsync()) return;
         db.CustomReports.AddRange(
             new Models.Entities.CustomReport
@@ -192,6 +222,7 @@ public static class ReportingSchema
                     WHERE o.Stage = 100
                       AND o.ClosedAt >= @FromDate AND o.ClosedAt < DATEADD(day, 1, @ToDate)
                       AND (@SeesAll = 1 OR o.OwnerId = @CurrentUserId)
+                      AND (@BranchIds = N'' OR o.BranchId IN (SELECT value FROM STRING_SPLIT(@BranchIds, N',')))
                     GROUP BY o.City
                     ORDER BY [Doanh số] DESC
                     """,
@@ -208,6 +239,7 @@ public static class ReportingSchema
                     WHERE i.DaysOverdue > 0
                       AND (@Keyword IS NULL OR i.CustomerName LIKE N'%' + @Keyword + N'%')
                       AND (@SeesAll = 1 OR i.OwnerId = @CurrentUserId)
+                      AND (@BranchIds = N'' OR i.BranchId IN (SELECT value FROM STRING_SPLIT(@BranchIds, N',')))
                     ORDER BY i.DaysOverdue DESC
                     """,
                 ChartLabelColumn = "Khách hàng", ChartValueColumn = "Còn nợ", AllowedRoles = "Admin,Manager,Sales"

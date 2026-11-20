@@ -37,6 +37,7 @@
             <div class="small mt-1">@T("Ngày: {0}", Model.InvoiceDate.ToDate())@if (Model.DueDate.HasValue) { <br />@T("Hạn thanh toán: {0}", Model.DueDate.ToDate()) }</div>
         </div>
     </div>
+    <partial name="_SellerInfo" model="Model.BranchId" view-data='new ViewDataDictionary(ViewData) { ["SellerLabel"] = T("Đơn vị bán hàng") }' />
     <div class="row small mb-3">
         <div class="col-sm-7">
             <div class="text-muted">@T("Đơn vị mua hàng")</div>

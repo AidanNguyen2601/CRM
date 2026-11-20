@@ -67,6 +67,9 @@ if (!string.IsNullOrWhiteSpace(keysPath))
 // ---------- Services ----------
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<BranchDirectory>();
+builder.Services.AddScoped<BranchScope>();
 builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<KpiService>();

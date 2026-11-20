@@ -10,6 +10,13 @@
         <div class="col-md-6"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /></div>
         <div class="col-md-6"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" placeholder="@(Model.Id == 0 ? "" : T("Để trống nếu không đổi"))" /><span asp-validation-for="Password" class="text-danger small"></span></div>
         <div class="col-md-6"><label asp-for="Role" class="form-label"></label><select asp-for="Role" class="form-select" asp-items="ViewBag.Roles"></select></div>
+        <div class="col-md-6"><label asp-for="BranchId" class="form-label"></label><select asp-for="BranchId" class="form-select" asp-items="ViewBag.Branches"></select><span asp-validation-for="BranchId" class="text-danger small"></span>
+            <div class="form-text">@T("Quản lý thấy dữ liệu của đơn vị mình và các đơn vị trực thuộc; quản trị hệ thống thấy toàn chuỗi.")</div></div>
+        @if (Model.Id != 0)
+        {
+            <div class="col-md-6 d-flex align-items-center"><div class="form-check"><input asp-for="MoveData" class="form-check-input" /><label asp-for="MoveData" class="form-check-label"></label>
+                <div class="form-text">@T("Áp dụng khi đổi đơn vị: khách hàng, cơ hội, hợp đồng… người này phụ trách sẽ thuộc đơn vị mới.")</div></div></div>
+        }
         <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
     </div>
     <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>

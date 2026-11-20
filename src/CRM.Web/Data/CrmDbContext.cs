@@ -1,3 +1,4 @@
+using CRM.Web.Infrastructure;
 using CRM.Web.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -5,7 +6,17 @@ namespace CRM.Web.Data;
 
 public class CrmDbContext : DbContext
 {
-    public CrmDbContext(DbContextOptions<CrmDbContext> options) : base(options) { }
+    private readonly BranchScope? _scope;
+
+    public CrmDbContext(DbContextOptions<CrmDbContext> options, BranchScope? scope = null) : base(options) => _scope = scope;
+
+    // Tham số cho bộ lọc theo đơn vị (EF đọc lại mỗi lần truy vấn)
+    private bool BranchFilterOff => _scope == null || !_scope.Active;
+    private int[] BranchFilterIds => _scope?.Ids ?? Array.Empty<int>();
+
+    public DbSet<Branch> Branches => Set<Branch>();
+    /// <summary>Người dùng thuộc các đơn vị trong phạm vi đang xem (dùng cho danh sách chọn người phụ trách, KPI, báo cáo theo người)</summary>
+    public IQueryable<AppUser> UsersInScope => _scope == null ? Users : _scope.Users(Users);
 
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<Customer> Customers => Set<Customer>();
@@ -69,8 +80,91 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<CampaignMember>().HasIndex(x => new { x.CampaignId, x.Status });
         modelBuilder.Entity<CampaignMember>().HasOne(x => x.Campaign).WithMany(c => c.Members).HasForeignKey(x => x.CampaignId);
 
+        // ---- Cơ cấu chuỗi công ty / chi nhánh ----
+        modelBuilder.Entity<Branch>().HasIndex(x => x.Code).IsUnique();
+        modelBuilder.Entity<Branch>().HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
+        modelBuilder.Entity<AppUser>().HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId);
+        BranchScoped<Customer>(modelBuilder); BranchScoped<Contact>(modelBuilder); BranchScoped<Lead>(modelBuilder);
+        BranchScoped<Opportunity>(modelBuilder); BranchScoped<Activity>(modelBuilder); BranchScoped<Quote>(modelBuilder);
+        BranchScoped<BusinessPlan>(modelBuilder); BranchScoped<Contract>(modelBuilder); BranchScoped<Invoice>(modelBuilder);
+        BranchScoped<Payment>(modelBuilder); BranchScoped<Campaign>(modelBuilder); BranchScoped<Ticket>(modelBuilder);
+
         // Không xóa dây chuyền: dữ liệu khách hàng phải xóa có chủ đích
         foreach (var fk in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
             fk.DeleteBehavior = DeleteBehavior.Restrict;
+    }
+
+    /// <summary>Khóa ngoại tới đơn vị + bộ lọc toàn cục: chỉ thấy dữ liệu của các đơn vị trong phạm vi</summary>
+    private void BranchScoped<T>(ModelBuilder mb) where T : class, IBranchScoped
+    {
+        mb.Entity<T>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        mb.Entity<T>().HasQueryFilter(x => BranchFilterOff || BranchFilterIds.Contains(x.BranchId));
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        AssignBranchesAsync(CancellationToken.None).GetAwaiter().GetResult();
+        var customerMoved = CustomerBranchChanged();
+        var n = base.SaveChanges(acceptAllChangesOnSuccess);
+        if (customerMoved) SyncTicketBranchesAsync().GetAwaiter().GetResult();
+        return n;
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken ct = default)
+    {
+        await AssignBranchesAsync(ct);
+        var customerMoved = CustomerBranchChanged();
+        var n = await base.SaveChangesAsync(acceptAllChangesOnSuccess, ct);
+        if (customerMoved) await SyncTicketBranchesAsync(ct);
+        return n;
+    }
+
+    private bool CustomerBranchChanged() =>
+        ChangeTracker.Entries<Customer>().Any(e => e.State == EntityState.Modified && e.Property(x => x.BranchId).IsModified);
+
+    /// <summary>Phiếu hỗ trợ đi theo đơn vị của khách hàng (sau khi khách hàng chuyển đơn vị)</summary>
+    public Task<int> SyncTicketBranchesAsync(CancellationToken ct = default) =>
+        Database.ExecuteSqlRawAsync("UPDATE t SET t.[BranchId] = c.[BranchId] FROM [dbo].[Tickets] t JOIN [dbo].[Customers] c ON c.[Id] = t.[CustomerId] WHERE t.[BranchId] <> c.[BranchId]", ct);
+
+    /// <summary>
+    /// Gán đơn vị cho bản ghi nghiệp vụ: theo đơn vị của người phụ trách (cả khi đổi người phụ trách);
+    /// phiếu hỗ trợ: theo khách hàng; không có người phụ trách → theo khách hàng → theo đơn vị đang làm việc của người dùng → đơn vị gốc.
+    /// </summary>
+    /// <summary>Phiếu hỗ trợ thuộc đơn vị của khách hàng (tổng đài CSKH xử lý cho cả chuỗi), không theo người xử lý</summary>
+    private static bool FollowsCustomer(object entity) => entity is Ticket;
+
+    private async Task AssignBranchesAsync(CancellationToken ct)
+    {
+        var entries = ChangeTracker.Entries<IBranchScoped>()
+            .Where(e => e.State == EntityState.Added
+                     || e.State == EntityState.Modified && (FollowsCustomer(e.Entity)
+                         ? e.Property("CustomerId").IsModified
+                         : e.Entity is IOwned && e.Property(nameof(IOwned.OwnerId)).IsModified))
+            .ToList();
+        if (entries.Count == 0) return;
+
+        var ownerIds = entries.Select(e => (e.Entity as IOwned)?.OwnerId).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+        var ownerBranch = ownerIds.Count == 0 ? new Dictionary<int, int>()
+            : await Users.Where(u => ownerIds.Contains(u.Id)).Select(u => new { u.Id, u.BranchId }).ToDictionaryAsync(x => x.Id, x => x.BranchId, ct);
+        int? root = null;
+        foreach (var e in entries)
+        {
+            var byCustomer = FollowsCustomer(e.Entity);
+            var owner = (e.Entity as IOwned)?.OwnerId;
+            if (!byCustomer && owner.HasValue && ownerBranch.TryGetValue(owner.Value, out var ob) && ob != 0) { e.Entity.BranchId = ob; continue; }
+            if (!byCustomer && e.State != EntityState.Added) continue;   // bỏ người phụ trách: giữ đơn vị cũ
+            var custProp = e.Metadata.FindProperty("CustomerId");
+            if (custProp != null && e.Property("CustomerId").CurrentValue is int cid && cid > 0)
+            {
+                var cb = Customers.Local.FirstOrDefault(c => c.Id == cid)?.BranchId
+                         ?? await Customers.IgnoreQueryFilters().Where(c => c.Id == cid).Select(c => (int?)c.BranchId).FirstOrDefaultAsync(ct);
+                if (cb is > 0) { e.Entity.BranchId = cb.Value; continue; }
+            }
+            if (e.State != EntityState.Added) continue;
+            if (e.Entity.BranchId > 0 && await Branches.AnyAsync(b => b.Id == e.Entity.BranchId, ct)) continue;   // đã chỉ định sẵn (không người phụ trách / khách hàng)
+            if (_scope?.WorkingBranchId is int wb && wb > 0) { e.Entity.BranchId = wb; continue; }
+            root ??= await Branches.Where(b => b.ParentId == null).OrderBy(b => b.Id).Select(b => (int?)b.Id).FirstOrDefaultAsync(ct) ?? 0;
+            e.Entity.BranchId = root.Value;
+        }
     }
 }

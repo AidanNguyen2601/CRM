@@ -12,6 +12,7 @@ public static class SchemaUpgrader
     public static async Task EnsureAsync(CrmDbContext db)
     {
         foreach (var sql in Steps) await db.Database.ExecuteSqlRawAsync(sql);
+        foreach (var sql in BranchSteps()) await db.Database.ExecuteSqlRawAsync(sql);
         await EnsureCatalogCodesAsync(db);
         await ReportingSchema.EnsureAsync(db);
     }
@@ -54,6 +55,57 @@ public static class SchemaUpgrader
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.CatalogItems') AND name = N'IX_CatalogItems_Group_Code')
                 CREATE UNIQUE INDEX [IX_CatalogItems_Group_Code] ON [dbo].[CatalogItems] ([Group], [Code]);
             """);
+    }
+
+    /// <summary>Bảng đơn vị cho tất cả các bảng thuộc đơn vị (người dùng + nghiệp vụ)</summary>
+    public static readonly string[] BranchScopedTables =
+        { "Users", "Customers", "Contacts", "Leads", "Opportunities", "Activities", "Quotes", "BusinessPlans", "Contracts", "Invoices", "Payments", "Campaigns", "Tickets" };
+
+    /// <summary>
+    /// Chuỗi công ty / chi nhánh: bảng Branches + đơn vị gốc; thêm BranchId (NOT NULL, mặc định = đơn vị gốc cho dữ liệu cũ)
+    /// vào người dùng và các bảng nghiệp vụ.
+    /// </summary>
+    private static IEnumerable<string> BranchSteps()
+    {
+        yield return """
+            IF OBJECT_ID(N'[dbo].[Branches]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[Branches] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_Branches] PRIMARY KEY,
+                    [Code] nvarchar(20) NOT NULL,
+                    [Name] nvarchar(200) NOT NULL,
+                    [ShortName] nvarchar(100) NULL,
+                    [Type] int NOT NULL,
+                    [ParentId] int NULL CONSTRAINT [FK_Branches_Branches_ParentId] REFERENCES [dbo].[Branches] ([Id]),
+                    [TaxCode] nvarchar(20) NULL,
+                    [Address] nvarchar(300) NULL,
+                    [Phone] nvarchar(50) NULL,
+                    [Email] nvarchar(150) NULL,
+                    [Representative] nvarchar(150) NULL,
+                    [BankAccount] nvarchar(200) NULL,
+                    [InvoiceSymbol] nvarchar(20) NULL,
+                    [SortOrder] int NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_Branches_Code] ON [dbo].[Branches] ([Code]);
+                CREATE INDEX [IX_Branches_ParentId] ON [dbo].[Branches] ([ParentId]);
+            END
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[Branches])
+                INSERT INTO [dbo].[Branches] ([Code], [Name], [Type], [SortOrder], [IsActive], [CreatedAt])
+                VALUES (N'HQ', N'Công ty chính', 1, 0, 1, SYSDATETIME());
+            """;
+        foreach (var t in BranchScopedTables)
+            yield return $"""
+                IF COL_LENGTH(N'dbo.{t}', N'BranchId') IS NULL
+                BEGIN
+                    DECLARE @root nvarchar(12) = CAST((SELECT MIN([Id]) FROM [dbo].[Branches] WHERE [ParentId] IS NULL) AS nvarchar(12));
+                    DECLARE @sql nvarchar(max) = N'ALTER TABLE [dbo].[{t}] ADD [BranchId] int NOT NULL CONSTRAINT [DF_{t}_BranchId] DEFAULT ' + @root
+                        + N' CONSTRAINT [FK_{t}_Branches_BranchId] REFERENCES [dbo].[Branches] ([Id])';
+                    EXEC(@sql);
+                    EXEC(N'CREATE INDEX [IX_{t}_BranchId] ON [dbo].[{t}] ([BranchId])');
+                END
+                """;
     }
 
     private static readonly string[] Steps =

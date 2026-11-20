@@ -20,6 +20,7 @@
             <div class="small mt-1">@T("Ngày: {0}", Model.QuoteDate.ToDate())<br />@T("Hiệu lực đến: {0}", Model.ValidUntil.ToDate())</div>
         </div>
     </div>
+    <partial name="_SellerInfo" model="Model.BranchId" view-data='new ViewDataDictionary(ViewData) { ["SellerLabel"] = T("Đơn vị báo giá") }' />
     <div class="row small mb-3">
         <div class="col-6">
             <div class="text-muted">@T("Kính gửi")</div>

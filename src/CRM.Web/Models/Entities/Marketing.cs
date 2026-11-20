@@ -37,9 +37,13 @@ public enum CampaignMemberStatus
 }
 
 /// <summary>Chiến dịch tiếp thị khách hàng: danh sách đối tượng, chi phí, lead / cơ hội / doanh số mang lại.</summary>
-public class Campaign : IOwned
+public class Campaign : IOwned, IBranchScoped
 {
     public int Id { get; set; }
+
+    /// <summary>Đơn vị (công ty / chi nhánh) – tự gán theo người phụ trách khi lưu</summary>
+    [Display(Name = "Đơn vị")]
+    public int BranchId { get; set; }
 
     [Required, StringLength(30)]
     [Display(Name = "Mã chiến dịch")]

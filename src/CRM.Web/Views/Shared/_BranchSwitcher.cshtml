@@ -1,0 +1,31 @@
+@* Bộ chọn đơn vị đang xem: chỉ hiện khi người dùng có phạm vi nhiều đơn vị; một đơn vị thì hiện tên đơn vị *@
+@inject BranchScope Scope
+@{
+    var snap = Scope.Snapshot;
+    var allowed = Scope.Allowed;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var current = Scope.Selected.HasValue ? snap.NameOf(Scope.Selected.Value) : null;
+}
+@if (allowed.Count > 1)
+{
+    <div class="dropdown">
+        <button class="btn btn-sm @(Scope.Selected.HasValue ? "btn-warning" : "btn-outline-secondary") dropdown-toggle branch-switch" data-bs-toggle="dropdown" title="@T("Đơn vị đang xem")">
+            @Icon("branch") <span class="d-none d-md-inline">@(current ?? T("Toàn bộ phạm vi"))</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end branch-menu">
+            <li><h6 class="dropdown-header">@T("Xem dữ liệu của")</h6></li>
+            <li><a class="dropdown-item @(Scope.Selected == null ? "active" : "")" asp-controller="BranchScope" asp-action="Set" asp-route-returnUrl="@returnUrl">@T("Toàn bộ phạm vi ({0} đơn vị)", allowed.Count)</a></li>
+            <li><hr class="dropdown-divider" /></li>
+            @foreach (var (b, depth) in snap.Tree(allowed))
+            {
+                <li><a class="dropdown-item @(Scope.Selected == b.Id ? "active" : "") @(b.IsActive ? "" : "text-muted")" style="padding-left:@(16 + depth * 16)px"
+                       asp-controller="BranchScope" asp-action="Set" asp-route-id="@b.Id" asp-route-returnUrl="@returnUrl">
+                    @(depth > 0 ? "└ " : "")@b.DisplayName @if (b.Type == BranchType.Company) { <span class="badge bg-light text-primary border ms-1">@T("Công ty")</span> }</a></li>
+            }
+        </ul>
+    </div>
+}
+else if (Scope.UserBranchId is int ub && snap.Branches.Count > 1)
+{
+    <span class="small text-muted d-none d-md-inline" title="@snap.PathOf(ub)">@Icon("branch") @snap.NameOf(ub)</span>
+}

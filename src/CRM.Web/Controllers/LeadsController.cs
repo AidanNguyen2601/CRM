@@ -227,9 +227,9 @@ public class LeadsController : CrmControllerBase
 
     private async Task<string> NextCustomerCodeAsync()
     {
-        var n = await Db.Customers.CountAsync() + 1;
+        var n = await Db.Customers.IgnoreQueryFilters().CountAsync() + 1;
         string code;
-        do code = $"KH{n++:0000}"; while (await Db.Customers.AnyAsync(c => c.Code == code));
+        do code = $"KH{n++:0000}"; while (await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.Code == code));
         return code;
     }
 }

@@ -122,7 +122,7 @@ public class CampaignsController : CrmControllerBase
         Campaign entity;
         if (model.Id == 0)
         {
-            if (string.IsNullOrWhiteSpace(model.Code) || await Db.Campaigns.AnyAsync(c => c.Code == model.Code))
+            if (string.IsNullOrWhiteSpace(model.Code) || await Db.Campaigns.IgnoreQueryFilters().AnyAsync(c => c.Code == model.Code))
                 model.Code = await _svc.NextCodeAsync(model.StartDate.Year);
             model.Status = CampaignStatus.Planned;
             model.OwnerId = ResolveOwner(model.OwnerId);
