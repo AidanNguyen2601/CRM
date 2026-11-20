@@ -68,6 +68,7 @@ public class DemoDataController : CrmControllerBase
             (I18n.T("Hoạt động"), "calendar", await Db.Activities.CountAsync()),
             (I18n.L("Báo giá", "Quotes"), "quote", await Db.Quotes.CountAsync()),
             (I18n.T("Phương án kinh doanh"), "plan", await Db.BusinessPlans.CountAsync()),
+            (I18n.T("Kế hoạch bán hàng"), "target", await Db.SalesPlans.CountAsync()),
             (I18n.L("Hợp đồng", "Contracts"), "contract", await Db.Contracts.CountAsync()),
             (I18n.L("Hoá đơn", "Invoices"), "invoice", await Db.Invoices.CountAsync()),
             (I18n.T("Thanh toán"), "wallet", await Db.Payments.CountAsync()),

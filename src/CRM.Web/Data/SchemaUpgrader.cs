@@ -175,6 +175,90 @@ public static class SchemaUpgrader
                     EXEC(N'CREATE INDEX [IX_{t}_BranchId] ON [dbo].[{t}] ([BranchId])');
                 END
                 """;
+        // ---------- Kế hoạch bán hàng ----------
+        yield return """
+            IF OBJECT_ID(N'[dbo].[SalesPlans]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[SalesPlans] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SalesPlans] PRIMARY KEY,
+                    [BranchId] int NOT NULL CONSTRAINT [FK_SalesPlans_Branches_BranchId] REFERENCES [dbo].[Branches] ([Id]),
+                    [Number] nvarchar(30) NOT NULL,
+                    [Title] nvarchar(200) NOT NULL,
+                    [Year] int NOT NULL,
+                    [FromMonth] int NOT NULL,
+                    [ToMonth] int NOT NULL,
+                    [Status] int NOT NULL,
+                    [Objectives] nvarchar(4000) NULL,
+                    [CreatedById] int NULL CONSTRAINT [FK_SalesPlans_Users_CreatedById] REFERENCES [dbo].[Users] ([Id]),
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    [SubmittedAt] datetime2 NULL,
+                    [ApprovedById] int NULL CONSTRAINT [FK_SalesPlans_Users_ApprovedById] REFERENCES [dbo].[Users] ([Id]),
+                    [ApprovedAt] datetime2 NULL,
+                    [ApprovalNote] nvarchar(1000) NULL,
+                    [KpiAppliedAt] datetime2 NULL
+                );
+                CREATE UNIQUE INDEX [IX_SalesPlans_Number] ON [dbo].[SalesPlans] ([Number]);
+                CREATE INDEX [IX_SalesPlans_Year_Status] ON [dbo].[SalesPlans] ([Year], [Status]);
+                CREATE INDEX [IX_SalesPlans_BranchId] ON [dbo].[SalesPlans] ([BranchId]);
+                CREATE INDEX [IX_SalesPlans_CreatedById] ON [dbo].[SalesPlans] ([CreatedById]);
+                CREATE INDEX [IX_SalesPlans_ApprovedById] ON [dbo].[SalesPlans] ([ApprovedById]);
+            END
+            IF OBJECT_ID(N'[dbo].[SalesPlanMonths]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[SalesPlanMonths] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SalesPlanMonths] PRIMARY KEY,
+                    [SalesPlanId] int NOT NULL CONSTRAINT [FK_SalesPlanMonths_SalesPlans_SalesPlanId] REFERENCES [dbo].[SalesPlans] ([Id]),
+                    [Month] int NOT NULL,
+                    [Revenue] decimal(18,0) NOT NULL,
+                    [Collection] decimal(18,0) NOT NULL,
+                    [Contracts] int NOT NULL,
+                    [NewCustomers] int NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_SalesPlanMonths_SalesPlanId_Month] ON [dbo].[SalesPlanMonths] ([SalesPlanId], [Month]);
+            END
+            IF OBJECT_ID(N'[dbo].[SalesPlanProducts]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[SalesPlanProducts] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SalesPlanProducts] PRIMARY KEY,
+                    [SalesPlanId] int NOT NULL CONSTRAINT [FK_SalesPlanProducts_SalesPlans_SalesPlanId] REFERENCES [dbo].[SalesPlans] ([Id]),
+                    [Category] nvarchar(100) NOT NULL,
+                    [Revenue] decimal(18,0) NOT NULL,
+                    [Note] nvarchar(300) NULL,
+                    [SortOrder] int NOT NULL
+                );
+                CREATE INDEX [IX_SalesPlanProducts_SalesPlanId] ON [dbo].[SalesPlanProducts] ([SalesPlanId]);
+            END
+            IF OBJECT_ID(N'[dbo].[SalesPlanMembers]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[SalesPlanMembers] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SalesPlanMembers] PRIMARY KEY,
+                    [SalesPlanId] int NOT NULL CONSTRAINT [FK_SalesPlanMembers_SalesPlans_SalesPlanId] REFERENCES [dbo].[SalesPlans] ([Id]),
+                    [UserId] int NOT NULL CONSTRAINT [FK_SalesPlanMembers_Users_UserId] REFERENCES [dbo].[Users] ([Id]),
+                    [SharePercent] decimal(5,2) NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_SalesPlanMembers_SalesPlanId_UserId] ON [dbo].[SalesPlanMembers] ([SalesPlanId], [UserId]);
+                CREATE INDEX [IX_SalesPlanMembers_UserId] ON [dbo].[SalesPlanMembers] ([UserId]);
+            END
+            IF OBJECT_ID(N'[dbo].[SalesPlanActions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[SalesPlanActions] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SalesPlanActions] PRIMARY KEY,
+                    [SalesPlanId] int NOT NULL CONSTRAINT [FK_SalesPlanActions_SalesPlans_SalesPlanId] REFERENCES [dbo].[SalesPlans] ([Id]),
+                    [Title] nvarchar(200) NOT NULL,
+                    [Description] nvarchar(1000) NULL,
+                    [OwnerId] int NULL CONSTRAINT [FK_SalesPlanActions_Users_OwnerId] REFERENCES [dbo].[Users] ([Id]),
+                    [StartDate] datetime2 NULL,
+                    [DueDate] datetime2 NULL,
+                    [Budget] decimal(18,0) NOT NULL,
+                    [ActivityId] int NULL,
+                    [DoneAt] datetime2 NULL,
+                    [SortOrder] int NOT NULL
+                );
+                CREATE INDEX [IX_SalesPlanActions_SalesPlanId] ON [dbo].[SalesPlanActions] ([SalesPlanId]);
+                CREATE INDEX [IX_SalesPlanActions_OwnerId] ON [dbo].[SalesPlanActions] ([OwnerId]);
+            END
+            """;
     }
 
     private static readonly string[] Steps =

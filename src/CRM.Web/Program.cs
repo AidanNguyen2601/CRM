@@ -79,6 +79,7 @@ builder.Services.AddHostedService<NotificationWorker>();
 builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<KpiService>();
+builder.Services.AddScoped<SalesPlanService>();
 builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.CustomReportService>();
 builder.Services.AddScoped<CampaignService>();
 builder.Services.AddScoped<Customer360Service>();

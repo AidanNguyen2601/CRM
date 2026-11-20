@@ -35,6 +35,7 @@ public static class BranchOps
             all.AddRange((await q.IgnoreQueryFilters().GroupBy(x => x.BranchId).Select(g => new { g.Key, N = g.Count() }).ToListAsync()).Select(x => (x.Key, x.N)));
         await Add(db.Customers); await Add(db.Contacts); await Add(db.Leads); await Add(db.Opportunities); await Add(db.Activities); await Add(db.Quotes);
         await Add(db.BusinessPlans); await Add(db.Contracts); await Add(db.Invoices); await Add(db.Payments); await Add(db.Campaigns); await Add(db.Tickets);
+        await Add(db.SalesPlans);
         return all.GroupBy(x => x.BranchId).ToDictionary(g => g.Key, g => g.Sum(x => x.N));
     }
 

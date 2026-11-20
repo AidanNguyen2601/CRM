@@ -37,6 +37,7 @@ public class NotificationService
         "due" => "clock",
         "overdue" => "alert",
         "ticket" or "sla" => "support",
+        "plan" => "target",
         _ => "bell"
     };
 }

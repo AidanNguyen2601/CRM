@@ -43,6 +43,7 @@
                             <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@Icon("calendar")<span>@T("Lịch làm việc")</span></a>
                             <a class="@Active("Tasks")" asp-controller="Tasks" asp-action="Index">@Icon("kanban")<span>@T("Công việc")</span></a>
                             <a class="@Active("Kpi")" asp-controller="Kpi" asp-action="Index">@Icon("trending")<span>@T("KPI bán hàng")</span></a>
+                            <a class="@Active("SalesPlans")" asp-controller="SalesPlans" asp-action="Index">@Icon("target")<span>@T("Kế hoạch bán hàng")</span></a>
                             <a class="@Active("Reports")" asp-controller="Reports" asp-action="Index">@Icon("report")<span>@T("Báo cáo")</span></a>
                         </div></div>
                     </div>
@@ -159,6 +160,7 @@
                         <li><a class="dropdown-item" asp-controller="Quotes" asp-action="Create">@Icon("quote")@L("Báo giá", "Quote")</a></li>
                         <li><a class="dropdown-item" asp-controller="BusinessPlans" asp-action="Create">@Icon("plan")@T("Phương án kinh doanh")</a></li>
                         <li><a class="dropdown-item" asp-controller="Campaigns" asp-action="Create">@Icon("campaign")@T("Chiến dịch tiếp thị")</a></li>
+                        @if (User.SeesAll()) { <li><a class="dropdown-item" asp-controller="SalesPlans" asp-action="Create">@Icon("target")@T("Kế hoạch bán hàng")</a></li> }
                         <li><hr class="dropdown-divider" /></li>
                         <li><a class="dropdown-item" asp-controller="Contracts" asp-action="Create">@Icon("contract")@T("Hợp đồng")</a></li>
                         <li><a class="dropdown-item" asp-controller="Invoices" asp-action="Create">@Icon("invoice")@T("Hoá đơn")</a></li>

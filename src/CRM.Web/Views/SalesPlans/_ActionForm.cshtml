@@ -1,0 +1,19 @@
+@* Form thêm / sửa một hành động của kế hoạch. Ngân sách nhập theo triệu đồng. *@
+@model (int PlanId, SalesPlanAction? Action, Microsoft.AspNetCore.Mvc.Rendering.SelectList Owners)
+@{
+    var a = Model.Action;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    string D(DateTime? d) => d.HasValue ? d.Value.ToString("yyyy-MM-dd") : "";
+}
+<form asp-action="SaveAction" asp-route-id="@Model.PlanId" method="post" class="row g-2 align-items-end">
+    <input type="hidden" name="Id" value="@(a?.Id ?? 0)" />
+    <div class="col-md-4"><label class="form-label small mb-1">@T("Tên hành động")</label><input name="Title" value="@a?.Title" maxlength="200" required class="form-control form-control-sm" /></div>
+    <div class="col-md-3"><label class="form-label small mb-1">@T("Phụ trách")</label>
+        <select name="OwnerId" class="form-select form-select-sm"><option value="">@T("-- Chưa chọn --")</option>
+            @foreach (var o in Model.Owners) { <option value="@o.Value" selected="@(o.Value == a?.OwnerId?.ToString())">@o.Text</option> }</select></div>
+    <div class="col-md-2"><label class="form-label small mb-1">@T("Bắt đầu")</label><input type="date" name="StartDate" value="@D(a?.StartDate)" class="form-control form-control-sm" /></div>
+    <div class="col-md-2"><label class="form-label small mb-1">@T("Hạn hoàn thành")</label><input type="date" name="DueDate" value="@D(a?.DueDate)" class="form-control form-control-sm" /></div>
+    <div class="col-md-1"><label class="form-label small mb-1" title="@T("Triệu đồng")">@T("Ngân sách (tr)")</label><input type="number" name="Budget" min="0" step="0.1" value="@(a == null || a.Budget == 0 ? "" : (a.Budget / 1_000_000m).ToString("0.##", inv))" class="form-control form-control-sm text-end" /></div>
+    <div class="col-md-10"><input name="Description" value="@a?.Description" maxlength="1000" class="form-control form-control-sm" placeholder="@T("Mô tả, chỉ tiêu cụ thể của hành động")" /></div>
+    <div class="col-md-2 d-grid"><button class="btn btn-sm btn-primary">@(a == null ? T("+ Thêm") : T("Lưu"))</button></div>
+</form>

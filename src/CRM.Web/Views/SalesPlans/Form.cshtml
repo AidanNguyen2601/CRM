@@ -1,0 +1,280 @@
+@model SalesPlanFormViewModel
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Lập kế hoạch bán hàng") : T("Sửa kế hoạch {0}", Model.Number);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var staff = (List<(int Id, string FullName, string Role, int BranchId, string BranchName)>)ViewBag.Staff;
+    var categories = (List<string>)ViewBag.Categories;
+    var shares = Model.Members.ToDictionary(m => m.UserId, m => m.SharePercent);
+    var products = Model.Products.Count > 0 ? Model.Products : new List<SalesPlanProductInput> { new() };
+    string N(decimal v) => v == 0 ? "" : v.ToString("0.##", inv);
+    var periods = new (string Key, string Label, int From, int To)[]
+    {
+        ("y", T("Cả năm"), 1, 12), ("h1", T("6 tháng đầu năm"), 1, 6), ("h2", T("6 tháng cuối năm"), 7, 12),
+        ("q1", T("Quý {0}", 1), 1, 3), ("q2", T("Quý {0}", 2), 4, 6), ("q3", T("Quý {0}", 3), 7, 9), ("q4", T("Quý {0}", 4), 10, 12)
+    };
+}
+<form asp-action="Save" method="post" id="planForm" class="sales-plan-form">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="All" class="text-danger"></div>
+
+    <div class="card mb-3"><div class="card-header">@Icon("target") @T("Thông tin kế hoạch")</div><div class="card-body row g-3">
+        <div class="col-md-3"><label class="form-label">@T("Số kế hoạch")</label><input class="form-control" value="@(Model.Number ?? T("(tự cấp khi lưu)"))" readonly /></div>
+        <div class="col-md-9"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger small"></span></div>
+        <div class="col-md-5"><label asp-for="BranchId" class="form-label"></label>
+            <select asp-for="BranchId" class="form-select" asp-items="ViewBag.Branches" id="branchId"></select>
+            <div class="form-text">@T("Kế hoạch tính cho đơn vị này và các đơn vị trực thuộc.")</div></div>
+        <div class="col-md-2"><label asp-for="Year" class="form-label"></label><input asp-for="Year" type="number" min="2000" max="2100" class="form-control" id="year" /></div>
+        <div class="col-md-5"><label class="form-label">@T("Kỳ kế hoạch")</label>
+            <div class="d-flex gap-2">
+                <select id="periodQuick" class="form-select">
+                    @foreach (var p in periods) { <option value="@p.Key" data-from="@p.From" data-to="@p.To" selected="@(Model.FromMonth == p.From && Model.ToMonth == p.To)">@p.Label</option> }
+                    <option value="custom" selected="@(!periods.Any(p => p.From == Model.FromMonth && p.To == Model.ToMonth))">@T("Tùy chọn")</option>
+                </select>
+                <select asp-for="FromMonth" class="form-select" id="fromMonth" title="@T("Từ tháng")">@for (var i = 1; i <= 12; i++) { <option value="@i">T@(i)</option> }</select>
+                <select asp-for="ToMonth" class="form-select" id="toMonth" title="@T("Đến tháng")">@for (var i = 1; i <= 12; i++) { <option value="@i">T@(i)</option> }</select>
+            </div>
+            <span asp-validation-for="ToMonth" class="text-danger small"></span></div>
+        <div class="col-12"><label asp-for="Objectives" class="form-label"></label>
+            <textarea asp-for="Objectives" rows="4" class="form-control" placeholder="@T("Mục tiêu trọng tâm, thị trường / khách hàng mục tiêu, sản phẩm chủ lực, chính sách bán hàng...")"></textarea></div>
+    </div></div>
+
+    @* ---------- Chỉ tiêu theo tháng ---------- *@
+    <div class="card mb-3">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>@Icon("trending") @T("Chỉ tiêu theo tháng")</span>
+            <span class="d-flex align-items-center gap-2 small">
+                @T("Gợi ý = thực tế cùng kỳ năm trước, tăng trưởng")
+                <input type="number" id="growth" value="10" step="1" min="-90" max="500" class="form-control form-control-sm" style="width:80px" /> %
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnSuggest">@T("Lấy gợi ý")</button>
+            </span>
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-sm mb-0 plan-months" data-no-grid>
+                <thead><tr>
+                    <th style="width:110px">@T("Tháng")</th>
+                    <th class="money">@T("Doanh số (triệu đ)")</th><th class="money">@T("Thu tiền (triệu đ)")</th>
+                    <th class="money">@T("Hợp đồng ký mới")</th><th class="money">@T("Khách hàng mới")</th>
+                </tr></thead>
+                <tbody>
+                @for (var i = 0; i < 12; i++)
+                {
+                    var m = Model.Months[i];
+                    <tr data-month="@m.Month">
+                        <td class="fw-semibold">@T("Tháng {0}", m.Month)<input type="hidden" name="Months[@i].Month" value="@m.Month" /></td>
+                        <td><input type="number" min="0" step="0.1" name="Months[@i].Revenue" value="@N(m.Revenue)" data-k="revenue" class="form-control form-control-sm text-end cell" /></td>
+                        <td><input type="number" min="0" step="0.1" name="Months[@i].Collection" value="@N(m.Collection)" data-k="collection" class="form-control form-control-sm text-end cell" /></td>
+                        <td><input type="number" min="0" step="1" name="Months[@i].Contracts" value="@N(m.Contracts)" data-k="contracts" class="form-control form-control-sm text-end cell" /></td>
+                        <td><input type="number" min="0" step="1" name="Months[@i].NewCustomers" value="@N(m.NewCustomers)" data-k="newCustomers" class="form-control form-control-sm text-end cell" /></td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-semibold"><td>@T("Tổng kỳ")</td>
+                        @foreach (var k in new[] { "revenue", "collection", "contracts", "newCustomers" }) { <td class="money" data-total="@k"></td> }</tr>
+                    <tr class="plan-split"><td class="small text-muted">@T("Chia đều tổng kỳ")</td>
+                        @foreach (var k in new[] { "revenue", "collection", "contracts", "newCustomers" })
+                        {
+                            <td><div class="input-group input-group-sm"><input type="number" min="0" step="1" class="form-control text-end" data-split="@k" placeholder="@T("Tổng")" />
+                                <button type="button" class="btn btn-outline-secondary" data-split-btn="@k" title="@T("Chia đều cho các tháng trong kỳ")">÷</button></div></td>
+                        }
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="card-footer bg-white small text-muted">@T("Doanh số, thu tiền tính trước VAT, đơn vị triệu đồng. Có thể nhập tổng kỳ rồi bấm ÷ để chia đều, sau đó chỉnh từng tháng theo mùa vụ.")</div>
+    </div>
+
+    <div class="row g-3">
+        @* ---------- Theo nhóm sản phẩm ---------- *@
+        <div class="col-xl-6">
+            <div class="card mb-3 h-100">
+                <div class="card-header d-flex justify-content-between align-items-center"><span>@Icon("product") @T("Doanh số theo nhóm sản phẩm")</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addProduct">@T("+ Thêm nhóm")</button></div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-sm mb-0" data-no-grid>
+                        <thead><tr><th>@T("Nhóm sản phẩm")</th><th class="money" style="width:150px">@T("Doanh số (triệu đ)")</th><th>@T("Ghi chú")</th><th style="width:36px"></th></tr></thead>
+                        <tbody id="products">
+                        @foreach (var x in products)
+                        {
+                            <tr class="prow">
+                                <td><select data-f="Category" class="form-select form-select-sm"><option value="">@T("-- Chọn --")</option>
+                                    @foreach (var c in categories) { <option value="@c" selected="@(string.Equals(c, x.Category, StringComparison.OrdinalIgnoreCase))">@Catalogs.Text(CatalogGroup.ProductCategory, c)</option> }</select></td>
+                                <td><input data-f="Revenue" type="number" min="0" step="0.1" value="@N(x.Revenue)" class="form-control form-control-sm text-end" /></td>
+                                <td><input data-f="Note" value="@x.Note" maxlength="300" class="form-control form-control-sm" /></td>
+                                <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="@T("Xóa")">✕</button></td>
+                            </tr>
+                        }
+                        </tbody>
+                        <tfoot><tr class="fw-semibold"><td>@T("Tổng")</td><td class="money" id="productTotal"></td><td colspan="2" class="small fw-normal" id="productCheck"></td></tr></tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @* ---------- Phân bổ cho nhân viên ---------- *@
+        <div class="col-xl-6">
+            <div class="card mb-3 h-100">
+                <div class="card-header d-flex justify-content-between align-items-center"><span>@Icon("users") @T("Phân bổ cho nhân viên")</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="splitStaff" title="@T("Chia đều 100% cho các nhân viên kinh doanh của đơn vị")">@T("Chia đều cho NV kinh doanh")</button></div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-sm mb-0" data-no-grid>
+                        <thead><tr><th>@T("Nhân viên")</th><th>@T("Đơn vị")</th><th class="money" style="width:110px">@T("Tỷ lệ (%)")</th><th class="money">@T("Doanh số")</th></tr></thead>
+                        <tbody id="members">
+                        @foreach (var u in staff)
+                        {
+                            <tr data-branch="@u.BranchId" data-role="@u.Role" data-user="@u.Id">
+                                <td class="text-nowrap">@u.FullName<div class="small text-muted">@AppRoles.DisplayName(u.Role)</div></td>
+                                <td class="small text-nowrap">@u.BranchName</td>
+                                <td><input type="number" min="0" max="100" step="0.01" value="@(shares.TryGetValue(u.Id, out var s) ? N(s) : "")" class="form-control form-control-sm text-end share" /></td>
+                                <td class="money small member-target"></td>
+                            </tr>
+                        }
+                        </tbody>
+                        <tfoot><tr class="fw-semibold"><td colspan="2">@T("Tổng")</td><td class="money" id="shareTotal"></td><td class="money" id="shareMoney"></td></tr></tfoot>
+                    </table>
+                </div>
+                <div class="card-footer bg-white small text-muted">@T("Tỷ lệ áp cho mọi chỉ tiêu và mọi tháng. Sau khi duyệt có thể đẩy phân bổ sang KPI của từng nhân viên.")</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary">@Icon("check") @T("Lưu kế hoạch")</button>
+        <a class="btn btn-light" asp-action="@(Model.Id == 0 ? "Index" : "Details")" asp-route-id="@(Model.Id == 0 ? null : Model.Id)">@T("Hủy")</a>
+        <span class="small text-muted align-self-center">@T("Sau khi lưu, thêm chương trình hành động và gửi duyệt ở trang chi tiết.")</span>
+    </div>
+</form>
+
+<template id="productRow">
+    <tr class="prow">
+        <td><select data-f="Category" class="form-select form-select-sm"><option value="">@T("-- Chọn --")</option>
+            @foreach (var c in categories) { <option value="@c">@Catalogs.Text(CatalogGroup.ProductCategory, c)</option> }</select></td>
+        <td><input data-f="Revenue" type="number" min="0" step="0.1" class="form-control form-control-sm text-end" /></td>
+        <td><input data-f="Note" maxlength="300" class="form-control form-control-sm" /></td>
+        <td><button type="button" class="btn btn-sm btn-link text-danger remove" title="@T("Xóa")">✕</button></td>
+    </tr>
+</template>
+
+@section Scripts {
+<script>
+    (function () {
+        const form = document.getElementById('planForm');
+        const subtrees = @Html.Raw(ViewBag.SubtreesJson);
+        const keys = ['revenue', 'collection', 'contracts', 'newCustomers'];
+        const money = k => k === 'revenue' || k === 'collection';
+        const num = el => parseFloat(el && el.value) || 0;
+        const vn = (x, d) => x.toLocaleString('vi-VN', { maximumFractionDigits: d });
+        // giá trị theo triệu đồng → "x,xx tỷ" / "x tr"
+        const fmtM = n => n >= 1000 ? vn(n / 1000, 2) + ' tỷ' : vn(n, 1) + ' tr';
+        const fmt = (k, n) => money(k) ? fmtM(n) : vn(n, 0);
+        const from = document.getElementById('fromMonth'), to = document.getElementById('toMonth'), quick = document.getElementById('periodQuick');
+        const monthRows = () => [...document.querySelectorAll('.plan-months tbody tr')];
+        const inPeriod = tr => +tr.dataset.month >= +from.value && +tr.dataset.month <= +to.value;
+        const total = k => monthRows().filter(inPeriod).reduce((s, tr) => s + num(tr.querySelector('[data-k="' + k + '"]')), 0);
+
+        function recalc() {
+            monthRows().forEach(tr => tr.classList.toggle('d-none', !inPeriod(tr)));
+            keys.forEach(k => document.querySelector('[data-total="' + k + '"]').textContent = fmt(k, total(k)));
+            // nhóm sản phẩm
+            const rev = total('revenue');
+            const prod = [...document.querySelectorAll('#products [data-f="Revenue"]')].reduce((s, el) => s + num(el), 0);
+            document.getElementById('productTotal').textContent = fmtM(prod);
+            const chk = document.getElementById('productCheck');
+            chk.className = 'small fw-normal ' + (prod === 0 ? 'text-muted' : Math.abs(prod - rev) < 0.05 ? 'text-success' : 'text-warning-emphasis');
+            chk.textContent = prod === 0 ? '' : Math.abs(prod - rev) < 0.05 ? @Json.Serialize(T("Khớp tổng doanh số kỳ")) : (@Json.Serialize(T("Chênh lệch so với tổng doanh số kỳ: {0}"))).replace('{0}', fmtM(prod - rev));
+            // nhân viên: chỉ hiện người thuộc đơn vị đã chọn
+            const allowed = subtrees[document.getElementById('branchId').value] || [];
+            let share = 0;
+            document.querySelectorAll('#members tr').forEach(tr => {
+                const show = allowed.includes(+tr.dataset.branch);
+                tr.classList.toggle('d-none', !show);
+                const v = show ? num(tr.querySelector('.share')) : 0;
+                share += v;
+                tr.querySelector('.member-target').textContent = v > 0 ? fmtM(rev * v / 100) : '';
+            });
+            const st = document.getElementById('shareTotal');
+            st.textContent = vn(share, 2) + '%';
+            st.className = 'money ' + (share > 100.0001 ? 'text-danger' : Math.abs(share - 100) < 0.01 ? 'text-success' : 'text-warning-emphasis');
+            document.getElementById('shareMoney').textContent = share > 0 ? fmtM(rev * share / 100) : '';
+        }
+
+        quick.addEventListener('change', () => {
+            const o = quick.selectedOptions[0];
+            if (o.dataset.from) { from.value = o.dataset.from; to.value = o.dataset.to; }
+            recalc();
+        });
+        [from, to].forEach(s => s.addEventListener('change', () => {
+            const o = [...quick.options].find(x => x.dataset.from === from.value && x.dataset.to === to.value);
+            quick.value = o ? o.value : 'custom';
+            recalc();
+        }));
+        form.addEventListener('input', recalc);
+        form.addEventListener('change', recalc);
+
+        // Chia đều tổng kỳ cho các tháng trong kỳ (làm tròn đơn vị; phần dư dồn vào các tháng cuối)
+        document.querySelectorAll('[data-split-btn]').forEach(btn => btn.addEventListener('click', () => {
+            const k = btn.dataset.splitBtn, totalV = Math.round(num(document.querySelector('[data-split="' + k + '"]')));
+            const rows = monthRows().filter(inPeriod), n = rows.length, base = Math.floor(totalV / n), extra = totalV - base * n;
+            rows.forEach((tr, i) => tr.querySelector('[data-k="' + k + '"]').value = (base + (i >= n - extra ? 1 : 0)) || '');
+            recalc();
+        }));
+
+        // Nhóm sản phẩm: thêm / xóa dòng
+        const products = document.getElementById('products');
+        const addProduct = () => { products.appendChild(document.getElementById('productRow').content.cloneNode(true)); return products.lastElementChild; };
+        document.getElementById('addProduct').addEventListener('click', () => { addProduct(); recalc(); });
+        products.addEventListener('click', e => { if (e.target.closest('.remove')) { e.target.closest('tr').remove(); recalc(); } });
+
+        // Chia đều 100% cho nhân viên kinh doanh của đơn vị (2 chữ số thập phân, phần dư cho người đầu tiên)
+        document.getElementById('splitStaff').addEventListener('click', () => {
+            const rows = [...document.querySelectorAll('#members tr')].filter(tr => !tr.classList.contains('d-none'));
+            const sales = rows.filter(tr => tr.dataset.role === 'Sales');
+            const target = sales.length ? sales : rows;
+            if (!target.length) return;
+            rows.forEach(tr => tr.querySelector('.share').value = '');
+            const each = Math.floor(10000 / target.length) / 100, rest = Math.round((100 - each * target.length) * 100) / 100;
+            target.forEach((tr, i) => tr.querySelector('.share').value = +(each + (i === 0 ? rest : 0)).toFixed(2));
+            recalc();
+        });
+
+        // Gợi ý từ thực tế cùng kỳ năm trước
+        document.getElementById('btnSuggest').addEventListener('click', async () => {
+            const q = new URLSearchParams({ branchId: document.getElementById('branchId').value, year: document.getElementById('year').value,
+                fromMonth: from.value, toMonth: to.value, growth: document.getElementById('growth').value || 0 });
+            const res = await fetch('@Url.Action("Suggest")?' + q);
+            if (!res.ok) { alert(@Json.Serialize(T("Không lấy được gợi ý."))); return; }
+            const d = await res.json();
+            if (!d.total && !d.months.some(m => m.contracts || m.newCustomers || m.collection)) { alert(@Json.Serialize(T("Cùng kỳ năm trước chưa có số liệu thực tế."))); return; }
+            if (!confirm(@Json.Serialize(T("Ghi đè chỉ tiêu các tháng (và nhóm sản phẩm) bằng số liệu gợi ý?")))) return;
+            d.months.forEach(m => {
+                const tr = document.querySelector('.plan-months tr[data-month="' + m.month + '"]');
+                keys.forEach(k => tr.querySelector('[data-k="' + k + '"]').value = m[k] || '');
+            });
+            if (d.products.length) {
+                products.innerHTML = '';
+                d.products.forEach(p => {
+                    const tr = addProduct(), sel = tr.querySelector('select');
+                    if (![...sel.options].some(o => o.value === p.category)) sel.add(new Option(p.category, p.category));
+                    sel.value = p.category;
+                    tr.querySelector('[data-f="Revenue"]').value = p.revenue;
+                });
+            }
+            recalc();
+        });
+
+        // Đặt tên trường theo chỉ số trước khi gửi
+        form.addEventListener('submit', () => {
+            form.querySelectorAll('input[data-gen]').forEach(x => x.remove());
+            const add = (name, value) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; i.dataset.gen = '1'; form.appendChild(i); };
+            [...products.querySelectorAll('tr')].forEach((tr, i) => tr.querySelectorAll('[data-f]').forEach(el => el.name = 'Products[' + i + '].' + el.dataset.f));
+            let j = 0;
+            document.querySelectorAll('#members tr').forEach(tr => {
+                const v = num(tr.querySelector('.share'));
+                if (tr.classList.contains('d-none') || v <= 0) return;
+                add('Members[' + j + '].UserId', tr.dataset.user); add('Members[' + j + '].SharePercent', v); j++;
+            });
+        });
+        recalc();
+    })();
+</script>
+}

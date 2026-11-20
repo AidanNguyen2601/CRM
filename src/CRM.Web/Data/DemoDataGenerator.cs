@@ -382,6 +382,7 @@ public static class DemoDataGenerator
             await _db.SaveChangesAsync();
 
             await EnsureTargetsAsync();
+            await EnsureSalesPlansAsync();
             var campaigns = await GenerateCampaignsAsync(Math.Clamp(n / 12, 3, 12), customers, contactsByCustomer, leads, opps);
             var tickets = (await GenerateTicketsAsync(SourcesOf(contracts), contactsByCustomer)).Count;
 
@@ -430,6 +431,124 @@ public static class DemoDataGenerator
                             UpdatedAt = DateTime.Now
                         });
                     }
+                }
+            }
+            await _db.SaveChangesAsync();
+        }
+
+        private static readonly (string Title, string Description, int StartMonth, int Months, decimal BudgetMil)[] PlanActionTemplates =
+        {
+            ("Rà soát và phân loại tập khách hàng hiện có", "Phân hạng A/B/C theo doanh số 12 tháng, lên danh sách khách hàng cần tái kích hoạt.", 1, 1, 0),
+            ("Chương trình ưu đãi khách hàng cũ quý I", "Giảm 5–10% khi gia hạn / mua thêm gói trong quý.", 1, 3, 30),
+            ("Hội thảo giới thiệu giải pháp cho doanh nghiệp", "Tổ chức 2 buổi hội thảo trực tiếp, mục tiêu 80 khách mời, 20 cơ hội mới.", 4, 2, 120),
+            ("Chiến dịch email / Zalo khách hàng tiềm năng", "Chuỗi 4 email nuôi dưỡng lead theo ngành, đo tỷ lệ phản hồi.", 3, 3, 15),
+            ("Đào tạo kỹ năng bán giải pháp cho đội kinh doanh", "2 buổi đào tạo nội bộ: khai thác nhu cầu, xử lý từ chối, chốt hợp đồng.", 2, 1, 20),
+            ("Mở rộng kênh đối tác / đại lý", "Ký mới tối thiểu 3 đối tác giới thiệu khách hàng.", 5, 4, 50),
+            ("Tham gia triển lãm chuyên ngành", "Gian hàng tại triển lãm công nghệ, thu thập lead tại chỗ.", 9, 1, 150),
+            ("Chăm sóc và gia hạn hợp đồng cuối năm", "Liên hệ toàn bộ khách hàng sắp hết hạn hợp đồng trong quý IV.", 10, 3, 25)
+        };
+
+        /// <summary>
+        /// Kế hoạch bán hàng mẫu cho từng đơn vị đang có nhân viên kinh doanh: năm trước (đã kết thúc) và năm nay (đã duyệt),
+        /// chỉ tiêu dựa trên thực tế bình quân 12 tháng của đơn vị, phân bổ đều cho nhân viên kinh doanh, kèm chương trình hành động.
+        /// Bỏ qua đơn vị / năm đã có kế hoạch.
+        /// </summary>
+        private async Task EnsureSalesPlansAsync()
+        {
+            var branches = await _db.Branches.Where(b => b.IsActive).AsNoTracking().ToListAsync();
+            if (branches.Count == 0) return;
+            List<int> Subtree(int id)
+            {
+                var res = new List<int> { id };
+                for (var i = 0; i < res.Count; i++) res.AddRange(branches.Where(b => b.ParentId == res[i]).Select(b => b.Id));
+                return res;
+            }
+            var users = await _db.Users.Where(u => u.IsActive).AsNoTracking().ToListAsync();
+            var admin = users.FirstOrDefault(u => u.Role == AppRoles.Admin) ?? users.First();
+            var existing = (await _db.SalesPlans.IgnoreQueryFilters().Select(p => new { p.BranchId, p.Year }).ToListAsync()).Select(x => (x.BranchId, x.Year)).ToHashSet();
+            var since = _today.AddMonths(-12);
+            var categories = await _db.CatalogItems.Where(c => c.Group == CatalogGroup.ProductCategory && c.IsActive).Select(c => c.Name).ToListAsync();
+            var numbers = await _db.SalesPlans.IgnoreQueryFilters().Select(p => p.Number).ToListAsync();
+
+            foreach (var b in branches.OrderBy(b => b.ParentId.HasValue).ThenBy(b => b.SortOrder))
+            {
+                var sub = Subtree(b.Id);
+                var sales = users.Where(u => u.Role == AppRoles.Sales && sub.Contains(u.BranchId)).OrderBy(u => u.FullName).ToList();
+                if (sales.Count == 0) continue;
+                var creator = users.FirstOrDefault(u => u.Role == AppRoles.Manager && u.BranchId == b.Id) ?? admin;
+                var approver = creator.Id == admin.Id ? admin : users.FirstOrDefault(u => u.Role == AppRoles.Manager && u.BranchId != b.Id && Subtree(u.BranchId).Contains(b.Id)) ?? admin;
+
+                var revenue = await _db.Opportunities.IgnoreQueryFilters().Where(o => sub.Contains(o.BranchId) && o.Stage == OpportunityStage.ClosedWon && o.ClosedAt >= since).SumAsync(o => (decimal?)o.Amount) ?? 0;
+                var contracts = await _db.Contracts.IgnoreQueryFilters().CountAsync(c => sub.Contains(c.BranchId) && c.SignDate >= since && c.Status != ContractStatus.Cancelled);
+                var newCust = await _db.Customers.IgnoreQueryFilters().CountAsync(c => sub.Contains(c.BranchId) && c.CreatedAt >= since);
+                var mix = await _db.ContractLines.IgnoreQueryFilters().Where(l => sub.Contains(l.Contract!.BranchId) && l.Contract.SignDate >= since && l.Product != null && l.Product.Category != null)
+                    .GroupBy(l => l.Product!.Category!).Select(g => new { g.Key, V = g.Sum(l => l.LineTotal) }).ToListAsync();
+                var monthly = Math.Max(200_000_000m, revenue / 12m);
+
+                foreach (var (year, status) in new[] { (_today.Year - 1, SalesPlanStatus.Closed), (_today.Year, SalesPlanStatus.Approved) })
+                {
+                    if (existing.Contains((b.Id, year))) continue;
+                    // Kế hoạch năm trước chỉ tạo khi năm đó đã có doanh số (tránh kế hoạch "0%" vô nghĩa)
+                    if (year < _today.Year && !await _db.Opportunities.IgnoreQueryFilters().AnyAsync(o => sub.Contains(o.BranchId)
+                            && o.Stage == OpportunityStage.ClosedWon && o.ClosedAt >= new DateTime(year, 1, 1) && o.ClosedAt < new DateTime(year + 1, 1, 1))) continue;
+                    var growth = year == _today.Year ? 1.1m + (decimal)_r.NextDouble() * 0.15m : 0.95m;
+                    var prefix = $"KHBH-{year}-";
+                    var n = numbers.Count(x => x.StartsWith(prefix)) + 1;
+                    string no;
+                    do no = $"{prefix}{n++:000}"; while (numbers.Contains(no));
+                    numbers.Add(no);
+                    var created = new DateTime(year - 1, 12, 10 + _r.Next(10)).AddHours(9);
+                    var p = new SalesPlan
+                    {
+                        Number = no, BranchId = b.Id, Year = year, FromMonth = 1, ToMonth = 12, Status = status,
+                        Title = $"Kế hoạch bán hàng năm {year} – {b.ShortName ?? b.Name}",
+                        Objectives = $"- Tăng trưởng doanh số {(growth - 1) * 100:0}% so với năm {year - 1}, tập trung khách hàng doanh nghiệp vừa và lớn.\n"
+                            + "- Đẩy mạnh bán chéo dịch vụ triển khai / bảo trì cho khách hàng hiện có.\n"
+                            + "- Mở rộng kênh đối tác giới thiệu, hội thảo chuyên ngành.\n"
+                            + "- Thu hồi công nợ đúng hạn, tỷ lệ thu ≥ 90% doanh số.",
+                        CreatedById = creator.Id, CreatedAt = created, SubmittedAt = created.AddDays(2),
+                        ApprovedById = approver.Id, ApprovedAt = created.AddDays(4), ApprovalNote = "Đồng ý triển khai.",
+                        KpiAppliedAt = null
+                    };
+                    for (var m = 1; m <= 12; m++)
+                    {
+                        var season = m is 12 or 6 ? 1.25m : m is 1 or 2 ? 0.75m : m is 3 or 9 or 11 ? 1.1m : 1m;   // Tết thấp, cuối quý / cuối năm cao
+                        var rev = Math.Round(monthly * growth * season / 10_000_000m) * 10_000_000m;
+                        p.Months.Add(new SalesPlanMonth
+                        {
+                            Month = m, Revenue = rev, Collection = Math.Round(rev * 0.9m / 10_000_000m) * 10_000_000m,
+                            Contracts = Math.Max(1, (int)Math.Round(contracts / 12m * growth * season)),
+                            NewCustomers = Math.Max(1, (int)Math.Round(newCust / 12m * growth))
+                        });
+                    }
+                    // Nhóm sản phẩm: theo cơ cấu hợp đồng 12 tháng gần nhất (không có thì chia đều các nhóm)
+                    var total = p.Months.Sum(x => x.Revenue);
+                    var mixSum = mix.Sum(x => x.V);
+                    var groups = mixSum > 0 ? mix.OrderByDescending(x => x.V).Take(6).Select(x => (x.Key, Share: x.V / mixSum)).ToList()
+                        : categories.Take(4).Select(c => (Key: c, Share: 1m / Math.Min(4, categories.Count))).ToList();
+                    var shareSum = groups.Sum(x => x.Share);
+                    var sort = 1;
+                    foreach (var (cat, share) in groups)
+                        p.Products.Add(new SalesPlanProduct { Category = cat, Revenue = Math.Round(total * share / shareSum / 10_000_000m) * 10_000_000m, SortOrder = sort++ });
+                    // Phân bổ đều cho nhân viên kinh doanh (2 chữ số thập phân, phần dư cho người đầu)
+                    var each = Math.Floor(10000m / sales.Count) / 100m;
+                    for (var i = 0; i < sales.Count; i++)
+                        p.Members.Add(new SalesPlanMember { UserId = sales[i].Id, SharePercent = each + (i == 0 ? 100m - each * sales.Count : 0) });
+                    // Chương trình hành động
+                    sort = 1;
+                    foreach (var t in PlanActionTemplates.Where(_ => _r.Next(100) < 75))
+                    {
+                        var start = new DateTime(year, t.StartMonth, 1 + _r.Next(10));
+                        var due = new DateTime(year, Math.Min(12, t.StartMonth + t.Months - 1), 1).AddMonths(1).AddDays(-1 - _r.Next(5));
+                        p.Actions.Add(new SalesPlanAction
+                        {
+                            Title = t.Title, Description = t.Description, OwnerId = Pick(sales.Append(creator).ToList()).Id,
+                            StartDate = start, DueDate = due, Budget = t.BudgetMil * 1_000_000m, SortOrder = sort++,
+                            DoneAt = due < _today && _r.Next(100) < 80 ? Min(due, _today).AddHours(16) : null
+                        });
+                    }
+                    _db.SalesPlans.Add(p);
+                    existing.Add((b.Id, year));
                 }
             }
             await _db.SaveChangesAsync();

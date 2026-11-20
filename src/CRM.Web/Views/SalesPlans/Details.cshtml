@@ -1,0 +1,319 @@
+@model SalesPlan
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Kế hoạch bán hàng {0}", Model.Number);
+    var pr = (SalesPlanProgress)ViewBag.Progress;
+    var states = (Dictionary<int, PlanActionState>)ViewBag.ActionStates;
+    var canManage = (bool)ViewBag.CanManage;
+    var canDecide = (bool)ViewBag.CanDecide;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var el = pr.Elapsed;
+    var me = User.GetUserId();
+    var maxRev = Math.Max(1m, pr.Months.Count == 0 ? 1m : pr.Months.Max(x => Math.Max(x.Target[KpiMetric.Revenue], x.Actual[KpiMetric.Revenue])));
+    var actions = Model.Actions.OrderBy(a => a.SortOrder).ToList();
+    var doneActions = actions.Count(a => states[a.Id].Key == "done");
+    string Css(decimal pct, double elapsed) => elapsed <= 0 ? "secondary" : KpiUi.Css(pct, elapsed);
+    string W(decimal pct) => Math.Min(pct, 100m).ToString("0.#", inv);
+    string D(DateTime? d) => d.HasValue ? d.Value.ToString("yyyy-MM-dd") : "";
+}
+@functions {
+    // Ô thực tế / kế hoạch + thanh tiến độ (vạch dọc = tiến độ thời gian)
+    void Progress(KpiMetric m, decimal actual, decimal target, double elapsed)
+    {
+        var pct = target == 0 ? 0 : Math.Round(actual * 100m / target, 1);
+        var css = elapsed <= 0 ? "secondary" : KpiUi.Css(pct, elapsed);
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        <div class="kpi-cell">
+            <div class="d-flex justify-content-between gap-2 text-nowrap"><span class="fw-semibold">@KpiUi.Format(m, actual)</span><span class="text-muted small">/ @(target > 0 ? KpiUi.Format(m, target) : "–")</span></div>
+            @if (target > 0)
+            {
+                <div class="kpi-bar"><div class="bg-@css" style="width:@(Math.Min(pct, 100m).ToString("0.#", inv))%"></div><span class="kpi-mark" style="left:@((elapsed * 100).ToString("0.#", inv))%"></span></div>
+                <div class="small fw-semibold text-@css">@pct.ToString("0.#")%</div>
+            }
+        </div>
+    }
+}
+
+<div class="toolbar no-print">
+    <a class="btn btn-light" asp-action="Index">← @T("Danh sách")</a>
+    @if (canManage && Model.IsEditable)
+    {
+        <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">@T("Sửa")</a>
+        <form asp-action="Submit" asp-route-id="@Model.Id" method="post" data-confirm="@T("Gửi kế hoạch này cho cấp trên duyệt?")">
+            <button class="btn btn-primary">@Icon("send") @T("Gửi duyệt")</button></form>
+    }
+    @if (canManage && Model.Status == SalesPlanStatus.Pending)
+    {
+        <form asp-action="Recall" asp-route-id="@Model.Id" method="post"><button class="btn btn-outline-secondary">@Icon("undo") @T("Thu hồi")</button></form>
+    }
+    @if (canManage && Model.Status == SalesPlanStatus.Approved && Model.Members.Any())
+    {
+        <form asp-action="ApplyKpi" asp-route-id="@Model.Id" method="post"
+              data-confirm="@T("Cập nhật chỉ tiêu KPI tháng (doanh số, thu tiền, hợp đồng, khách hàng mới) của {0} nhân viên theo phân bổ của kế hoạch? Chỉ tiêu KPI hiện có của các tháng trong kỳ sẽ bị ghi đè.", Model.Members.Count)">
+            <button class="btn btn-outline-success">@Icon("trending") @T("Đẩy sang KPI")</button></form>
+    }
+    @if (canManage)
+    {
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">@T("Nhân bản")</button>
+            <div class="dropdown-menu">
+                <form asp-action="Duplicate" asp-route-id="@Model.Id" method="post"><button class="dropdown-item">@T("Nhân bản (cùng kỳ)")</button></form>
+                <form asp-action="Duplicate" asp-route-id="@Model.Id" asp-route-nextYear="true" method="post"><button class="dropdown-item">@T("Nhân bản sang năm {0}", Model.Year + 1)</button></form>
+            </div>
+        </div>
+    }
+    @if (canManage && Model.Status == SalesPlanStatus.Approved)
+    {
+        <form asp-action="Close" asp-route-id="@Model.Id" method="post" data-confirm="@T("Kết thúc kế hoạch {0}? Kế hoạch đã kết thúc không sửa được chương trình hành động.", Model.Number)">
+            <button class="btn btn-outline-dark">@T("Kết thúc kế hoạch")</button></form>
+    }
+    @if (canManage && Model.Status == SalesPlanStatus.Closed)
+    {
+        <form asp-action="Close" asp-route-id="@Model.Id" asp-route-reopen="true" method="post"><button class="btn btn-outline-secondary">@T("Mở lại")</button></form>
+    }
+    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+    @if (canManage && Model.IsEditable)
+    {
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" data-confirm="@T("Xóa kế hoạch {0}?", Model.Number)"><button class="btn btn-outline-danger">@T("Xóa")</button></form>
+    }
+</div>
+
+@if (canDecide)
+{
+    <div class="card mb-3 border-warning no-print"><div class="card-body">
+        <div class="fw-semibold mb-2">@Icon("check") @T("Phê duyệt kế hoạch")</div>
+        <form asp-action="Decide" asp-route-id="@Model.Id" method="post">
+            <textarea name="note" class="form-control mb-2" rows="2" style="max-width:640px" placeholder="@T("Ý kiến duyệt (bắt buộc khi từ chối)")"></textarea>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="assignTasks" value="true" id="assignTasks" checked /><label class="form-check-label" for="assignTasks">@T("Giao việc cho các hành động đã có người phụ trách")</label></div>
+            @if (Model.Members.Any())
+            {
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="applyKpi" value="true" id="applyKpi" /><label class="form-check-label" for="applyKpi">@T("Đẩy phân bổ sang KPI nhân viên (ghi đè chỉ tiêu KPI các tháng trong kỳ)")</label></div>
+            }
+            <div class="d-flex gap-2 mt-2">
+                <button name="approve" value="true" class="btn btn-success">@Icon("check") @T("Duyệt")</button>
+                <button name="approve" value="false" class="btn btn-outline-danger">@Icon("x") @T("Từ chối")</button>
+            </div>
+        </form>
+    </div></div>
+}
+else if (Model.Status == SalesPlanStatus.Pending)
+{
+    <div class="alert alert-warning no-print">@T("Kế hoạch đang chờ cấp trên duyệt.")</div>
+}
+@if (Model.Status == SalesPlanStatus.Rejected && !string.IsNullOrEmpty(Model.ApprovalNote))
+{
+    <div class="alert alert-danger no-print"><b>@T("Lý do từ chối:")</b> @Model.ApprovalNote <div class="small">@T("Hãy sửa kế hoạch rồi gửi duyệt lại.")</div></div>
+}
+
+<div class="card mb-3"><div class="card-body">
+    <div class="d-flex justify-content-between flex-wrap gap-3">
+        <div>
+            <div class="small text-muted">@T("KẾ HOẠCH BÁN HÀNG") · @Model.Number</div>
+            <h4 class="mb-1">@Model.Title</h4>
+            <div class="small">@Icon("branch") @ViewBag.BranchPath · @Icon("calendar") @Model.PeriodLabel() (@Model.Start.ToDate() – @Model.End.AddDays(-1).ToDate())</div>
+            <div class="small text-muted mt-1">
+                @T("Người lập: {0}", Model.CreatedBy?.FullName ?? "") · @Model.CreatedAt.ToDate()
+                @if (Model.ApprovedAt.HasValue) { <span>· @(Model.Status == SalesPlanStatus.Rejected ? T("Từ chối") : T("Duyệt")): @Model.ApprovedBy?.FullName (@Model.ApprovedAt.Value.ToDate())</span> }
+                @if (Model.KpiAppliedAt.HasValue) { <span>· @T("Đã đẩy sang KPI {0}", Model.KpiAppliedAt.Value.ToDateTime())</span> }
+            </div>
+        </div>
+        <div class="text-end">
+            <partial name="_Badge" model="Model.Status" />
+            <div class="small text-muted mt-2">
+                @if (el >= 1) { <span>@T("Kỳ đã kết thúc")</span> } else if (el <= 0) { <span>@T("Kỳ chưa bắt đầu")</span> } else { <span>@T("Đã qua {0}% thời gian", (el * 100).ToString("0"))</span> }
+            </div>
+        </div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Objectives))
+    {
+        <hr />
+        <div class="small text-muted mb-1">@T("Mục tiêu & chiến lược")</div>
+        <div style="white-space:pre-line">@Model.Objectives</div>
+    }
+</div></div>
+
+@* ---------- Tổng quan chỉ tiêu ---------- *@
+<div class="row g-3 mb-3">
+    @foreach (var m in SalesPlanProgress.Metrics)
+    {
+        <div class="col-6 col-lg-3"><div class="card stat h-100">
+            <div class="label">@Icon(KpiUi.Icon(m), "stat-ico")@m.GetDisplayName()</div>
+            @{ Progress(m, pr.Actual[m], pr.Target[m], el); }
+            @if (m == KpiMetric.Revenue)
+            {
+                <div class="small text-muted mt-1" title="@T("Thực tế + pipeline có trọng số dự kiến chốt đến hết kỳ")">@T("Dự báo: {0}", pr.Forecast.ToShortMoney())
+                    @if (pr.Target[m] > 0) { <span>(@((pr.Forecast * 100m / pr.Target[m]).ToString("0"))%)</span> }</div>
+            }
+        </div></div>
+    }
+</div>
+
+@if (pr.Target[KpiMetric.Revenue] > 0 && el < 1)
+{
+    var cov = pr.Coverage;
+    var covCss = cov == null ? "success" : cov >= 3 ? "success" : cov >= 1.5m ? "warning" : "danger";
+    <div class="alert alert-light border d-flex flex-wrap gap-4 align-items-center">
+        <div>@Icon("pipeline") <b>@T("Pipeline đến hết kỳ:")</b> @T("{0} cơ hội, giá trị {1}, có trọng số {2}", pr.PipelineCount, pr.PipelineOpen.ToShortMoney(), pr.PipelineWeighted.ToShortMoney())</div>
+        <div>@T("Còn thiếu so với kế hoạch:") <b>@pr.Gap.ToShortMoney()</b></div>
+        <div title="@T("Tổng giá trị pipeline / doanh số còn thiếu. Từ 3 lần trở lên thường được coi là an toàn.")">@T("Độ phủ pipeline:")
+            <span class="badge bg-@covCss @(covCss == "warning" ? "text-dark" : "")">@(cov == null ? T("Đã đạt") : cov.Value.ToString("0.#") + "x")</span></div>
+    </div>
+}
+
+@* ---------- Theo tháng ---------- *@
+<div class="card mb-3">
+    <div class="card-header">@Icon("trophy") @T("Doanh số theo tháng: kế hoạch và thực tế")</div>
+    <div class="card-body">
+        <div class="kpi-chart">
+            @foreach (var row in pr.Months)
+            {
+                var t = row.Target[KpiMetric.Revenue]; var a = row.Actual[KpiMetric.Revenue];
+                <div class="kpi-col" title="@T("Tháng {0}", row.Month): @T("thực tế {0} / chỉ tiêu {1}", a.ToShortMoney(), t.ToShortMoney())">
+                    <div class="kpi-val">@(a > 0 ? a.ToShortMoney() : "")</div>
+                    <div class="kpi-bars">
+                        <div class="kpi-b target" style="height:@((t * 150m / maxRev).ToString("0", inv))px"></div>
+                        <div class="kpi-b actual @(t > 0 && a >= t ? "hit" : "")" style="height:@((a * 150m / maxRev).ToString("0", inv))px"></div>
+                    </div>
+                    <div class="small text-muted mt-1">T@(row.Month)</div>
+                </div>
+            }
+        </div>
+        <div class="small text-muted mt-2"><span class="kpi-legend target"></span> @T("Kế hoạch") <span class="kpi-legend actual ms-3"></span> @T("Thực tế") <span class="kpi-legend hit ms-3"></span> @T("Đạt kế hoạch")</div>
+    </div>
+    <div class="card-body p-0 table-responsive border-top">
+        <table class="table table-sm table-hover mb-0 kpi-table">
+            <thead><tr>
+                <th>@T("Tháng")</th>
+                @foreach (var m in SalesPlanProgress.Metrics) { <th style="min-width:150px">@m.GetDisplayName()</th> }
+                <th class="money">@T("Doanh số lũy kế KH")</th><th class="money">@T("Doanh số lũy kế TT")</th>
+            </tr></thead>
+            <tbody>
+            @foreach (var row in pr.Months)
+            {
+                <tr class="@(row.Elapsed > 0 && row.Elapsed < 1 ? "table-active" : "")">
+                    <td class="fw-semibold text-nowrap">@T("Tháng {0}", row.Month)</td>
+                    @foreach (var m in SalesPlanProgress.Metrics) { <td>@{ Progress(m, row.Actual[m], row.Target[m], row.Elapsed); }</td> }
+                    <td class="money">@row.CumTarget.ToShortMoney()</td>
+                    <td class="money @(row.Elapsed > 0 && row.CumActual < row.CumTarget ? "text-danger" : "")">@(row.Elapsed > 0 ? row.CumActual.ToShortMoney() : "–")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    @* ---------- Theo nhóm sản phẩm ---------- *@
+    <div class="col-xl-6"><div class="card h-100">
+        <div class="card-header">@Icon("product") @T("Doanh số theo nhóm sản phẩm")</div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-sm mb-0 kpi-table">
+                <thead><tr><th>@T("Nhóm sản phẩm")</th><th style="min-width:200px">@T("Thực tế / kế hoạch")</th></tr></thead>
+                <tbody>
+                @foreach (var c in pr.Categories)
+                {
+                    <tr><td>@Catalogs.Text(CatalogGroup.ProductCategory, c.Category)@if (!string.IsNullOrEmpty(c.Note)) { <div class="small text-muted">@c.Note</div> }</td>
+                        <td>@{ Progress(KpiMetric.Revenue, c.Actual, c.Target, el); }</td></tr>
+                }
+                @if (!pr.Categories.Any()) { <tr><td colspan="2" class="text-center text-muted p-3">@T("Chưa có chỉ tiêu và chưa có hợp đồng trong kỳ.")</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white small text-muted">@T("Thực tế theo nhóm tính trên dòng hàng của hợp đồng ký trong kỳ (trước VAT, trừ hợp đồng đã hủy).")</div>
+    </div></div>
+
+    @* ---------- Theo nhân viên ---------- *@
+    <div class="col-xl-6"><div class="card h-100">
+        <div class="card-header">@Icon("users") @T("Phân bổ doanh số cho nhân viên")</div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-sm mb-0 kpi-table">
+                <thead><tr><th>@T("Nhân viên")</th><th class="text-center">%</th><th style="min-width:200px">@T("Thực tế / kế hoạch")</th><th class="money" title="@T("Thực tế + pipeline có trọng số dự kiến chốt đến hết kỳ")">@T("Dự báo")</th></tr></thead>
+                <tbody>
+                @foreach (var r in pr.Members)
+                {
+                    <tr>
+                        <td class="text-nowrap"><a asp-controller="Kpi" asp-action="Member" asp-route-id="@r.User.Id" asp-route-year="@Model.Year">@r.User.FullName</a>
+                            <div class="small text-muted">@AppRoles.DisplayName(r.User.Role)</div></td>
+                        <td class="text-center">@r.Share.ToString("0.##")</td>
+                        <td>@{ Progress(KpiMetric.Revenue, r.Actual, r.Target, el); }</td>
+                        <td class="money">@r.Forecast.ToShortMoney()</td>
+                    </tr>
+                }
+                @if (!pr.Members.Any()) { <tr><td colspan="4" class="text-center text-muted p-3">@T("Chưa phân bổ cho nhân viên.")</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white small text-muted">@T("Thực tế của nhân viên = cơ hội thắng trong kỳ do nhân viên phụ trách.")</div>
+    </div></div>
+</div>
+
+@* ---------- Chương trình hành động ---------- *@
+<div class="card mb-3" id="actions">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>@Icon("task") @T("Chương trình hành động") <span class="badge bg-secondary">@doneActions/@actions.Count</span>
+            @if (actions.Any(a => a.Budget > 0)) { <span class="small text-muted ms-2">@T("Ngân sách: {0}", actions.Sum(a => a.Budget).ToShortMoney())</span> }</span>
+        @if (canManage && Model.Status == SalesPlanStatus.Approved && actions.Any(a => a.OwnerId.HasValue && states[a.Id].Key == "none"))
+        {
+            <form asp-action="AssignAction" asp-route-id="@Model.Id" method="post" class="no-print" data-confirm="@T("Giao việc cho tất cả hành động chưa giao (đã có người phụ trách)?")">
+                <button class="btn btn-sm btn-primary">@Icon("send") @T("Giao việc tất cả")</button></form>
+        }
+    </div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th style="width:36px">#</th><th>@T("Hành động")</th><th>@T("Phụ trách")</th><th>@T("Thời gian")</th><th class="money">@T("Ngân sách")</th><th style="min-width:150px">@T("Trạng thái")</th><th class="no-print"></th></tr></thead>
+            <tbody>
+            @{ var idx = 1; }
+            @foreach (var a in actions)
+            {
+                var st = states[a.Id];
+                <tr>
+                    <td class="text-muted">@(idx++)</td>
+                    <td><div class="fw-semibold">@a.Title</div>@if (!string.IsNullOrEmpty(a.Description)) { <div class="small text-muted" style="white-space:pre-line">@a.Description</div> }</td>
+                    <td class="text-nowrap">@(a.Owner?.FullName ?? "–")</td>
+                    <td class="text-nowrap small">@(a.StartDate.HasValue ? a.StartDate.ToDate() + " – " : "")@a.DueDate.ToDate()</td>
+                    <td class="money">@(a.Budget > 0 ? a.Budget.ToShortMoney() : "")</td>
+                    <td>
+                        <span class="badge @st.Css">@st.Label</span>
+                        @if (st.Overdue) { <span class="badge bg-danger">@T("Quá hạn")</span> }
+                        @if (st.Key == "doing") { <div class="progress mt-1" style="height:5px"><div class="progress-bar" style="width:@(st.Progress)%"></div></div> }
+                        @if (st.TaskId.HasValue) { <div class="small"><a asp-controller="Tasks" asp-action="Details" asp-route-id="@st.TaskId">@T("Xem công việc")</a></div> }
+                    </td>
+                    <td class="text-end text-nowrap no-print">
+                        @if (Model.Status == SalesPlanStatus.Approved && !st.TaskId.HasValue && (canManage || a.OwnerId == me))
+                        {
+                            <form asp-action="ToggleAction" asp-route-id="@Model.Id" asp-route-actionId="@a.Id" method="post" class="d-inline">
+                                <button class="btn btn-sm btn-outline-success" title="@(a.DoneAt.HasValue ? T("Mở lại") : T("Đánh dấu hoàn thành"))">@Icon(a.DoneAt.HasValue ? "undo" : "check")</button></form>
+                        }
+                        @if (canManage && Model.Status == SalesPlanStatus.Approved && st.Key == "none" && a.OwnerId.HasValue)
+                        {
+                            <form asp-action="AssignAction" asp-route-id="@Model.Id" asp-route-actionId="@a.Id" method="post" class="d-inline">
+                                <button class="btn btn-sm btn-outline-primary" title="@T("Giao việc cho người phụ trách")">@Icon("send")</button></form>
+                        }
+                        @if (canManage && Model.Status != SalesPlanStatus.Closed)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#act-@a.Id" title="@T("Sửa")">✎</button>
+                            <form asp-action="DeleteAction" asp-route-id="@Model.Id" asp-route-actionId="@a.Id" method="post" class="d-inline" data-confirm="@T("Xóa hành động \"{0}\"?", a.Title)">
+                                <button class="btn btn-sm btn-outline-danger" title="@T("Xóa")">✕</button></form>
+                        }
+                    </td>
+                </tr>
+                @if (canManage && Model.Status != SalesPlanStatus.Closed)
+                {
+                    <tr class="collapse no-print" id="act-@a.Id"><td></td><td colspan="6">
+                        <partial name="_ActionForm" model="(Model.Id, a, (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.ActionOwners)" />
+                    </td></tr>
+                }
+            }
+            @if (!actions.Any()) { <tr><td colspan="7" class="text-center text-muted p-3">@T("Chưa có hành động nào.")</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    @if (canManage && Model.Status != SalesPlanStatus.Closed)
+    {
+        <div class="card-footer bg-white no-print">
+            <div class="fw-semibold small mb-2">@T("Thêm hành động")</div>
+            <partial name="_ActionForm" model="(Model.Id, (SalesPlanAction?)null, (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.ActionOwners)" />
+            @if (Model.Status != SalesPlanStatus.Approved) { <div class="form-text">@T("Khi kế hoạch được duyệt, các hành động có người phụ trách có thể giao thành công việc và theo dõi tiến độ tại đây.")</div> }
+        </div>
+    }
+</div>

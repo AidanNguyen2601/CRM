@@ -1,0 +1,72 @@
+@model PagedList<SalesPlan>
+@inject BranchDirectory BranchDir
+@{
+    ViewData["Title"] = T("Kế hoạch bán hàng");
+    var f = (SalesPlanFilter)ViewBag.Filter;
+    var counts = (Dictionary<SalesPlanStatus, int>)ViewBag.Counts;
+    var progress = (Dictionary<int, SalesPlanProgress>)ViewBag.Progress;
+    var years = (List<int>)ViewBag.Years;
+    var snap = BranchDir.Get();
+    string Tab(SalesPlanStatus? s) => f.Status == s ? "active" : "";
+    int Count(SalesPlanStatus s) => counts.TryGetValue(s, out var n) ? n : 0;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<ul class="nav nav-pills mb-3 flex-wrap">
+    <li class="nav-item"><a class="nav-link @Tab(null)" asp-route-Year="@f.Year" asp-route-Keyword="@f.Keyword">@T("Tất cả") <span class="badge bg-secondary">@counts.Values.Sum()</span></a></li>
+    @foreach (var s in Enum.GetValues<SalesPlanStatus>())
+    {
+        <li class="nav-item"><a class="nav-link @Tab(s)" asp-route-Status="@s" asp-route-Year="@f.Year" asp-route-Keyword="@f.Keyword">
+            @s.GetDisplayName() <span class="badge @(s == SalesPlanStatus.Pending && Count(s) > 0 ? "bg-warning text-dark" : "bg-secondary")">@Count(s)</span></a></li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="Status" value="@f.Status" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Số, tên kế hoạch")" /></div>
+    <div><label class="form-label small mb-1">@T("Năm")</label>
+        <select name="Year" class="form-select" onchange="this.form.submit()"><option value="">@T("-- Tất cả --")</option>
+            @foreach (var y in years) { <option value="@y" selected="@(y == f.Year)">@y</option> }</select></div>
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    @if ((bool)ViewBag.CanCreate) { <a class="btn btn-primary ms-auto" asp-action="Create">@Icon("plus") @T("Lập kế hoạch")</a> }
+</form>
+
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0 kpi-table">
+    <thead><tr>
+        <th>@T("Số")</th><th>@T("Tên kế hoạch")</th><th>@T("Đơn vị")</th><th>@T("Kỳ")</th>
+        <th style="min-width:210px">@T("Doanh số: thực tế / kế hoạch")</th><th class="money" title="@T("Thực tế + pipeline có trọng số dự kiến chốt đến hết kỳ")">@T("Dự báo")</th>
+        <th>@T("Trạng thái")</th><th>@T("Người lập")</th>
+    </tr></thead>
+    <tbody>
+    @foreach (var p in Model.Items)
+    {
+        var pr = progress[p.Id];
+        var pct = pr.Percent(KpiMetric.Revenue);
+        var css = pr.Elapsed <= 0 ? "secondary" : KpiUi.Css(pct, pr.Elapsed);
+        var target = pr.Target[KpiMetric.Revenue];
+        <tr>
+            <td><a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold text-nowrap">@p.Number</a></td>
+            <td>@p.Title</td>
+            <td class="text-nowrap">@snap.NameOf(p.BranchId)</td>
+            <td class="text-nowrap">@p.PeriodLabel()</td>
+            <td>
+                <div class="d-flex justify-content-between gap-2 text-nowrap"><span class="fw-semibold">@pr.Actual[KpiMetric.Revenue].ToShortMoney()</span><span class="small text-muted">/ @(target > 0 ? target.ToShortMoney() : "–")</span></div>
+                @if (target > 0)
+                {
+                    <div class="kpi-bar"><div class="bg-@css" style="width:@(Math.Min(pct, 100m).ToString("0.#", inv))%"></div><span class="kpi-mark" style="left:@((pr.Elapsed * 100).ToString("0.#", inv))%"></span></div>
+                    <div class="small fw-semibold text-@css">@pct.ToString("0.#")%</div>
+                }
+            </td>
+            <td class="money">@pr.Forecast.ToShortMoney()
+                @if (target > 0) { <div class="small text-muted">@((pr.Forecast * 100m / target).ToString("0"))%</div> }</td>
+            <td><partial name="_Badge" model="p.Status" /></td>
+            <td class="text-nowrap">@p.CreatedBy?.FullName</td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="8" class="text-center text-muted p-4">@T("Chưa có kế hoạch bán hàng.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-muted">@T("{0} kế hoạch", Model.TotalCount) · @T("Vạch dọc trên thanh tiến độ là tiến độ thời gian của kỳ.")</span>
+    <partial name="_Pager" model="Model" />
+</div></div>

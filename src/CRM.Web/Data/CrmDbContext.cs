@@ -48,6 +48,11 @@ public class CrmDbContext : DbContext
     public DbSet<TicketComment> TicketComments => Set<TicketComment>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<CampaignMember> CampaignMembers => Set<CampaignMember>();
+    public DbSet<SalesPlan> SalesPlans => Set<SalesPlan>();
+    public DbSet<SalesPlanMonth> SalesPlanMonths => Set<SalesPlanMonth>();
+    public DbSet<SalesPlanProduct> SalesPlanProducts => Set<SalesPlanProduct>();
+    public DbSet<SalesPlanMember> SalesPlanMembers => Set<SalesPlanMember>();
+    public DbSet<SalesPlanAction> SalesPlanActions => Set<SalesPlanAction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -92,6 +97,20 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<CampaignMember>().HasIndex(x => new { x.CampaignId, x.Status });
         modelBuilder.Entity<CampaignMember>().HasOne(x => x.Campaign).WithMany(c => c.Members).HasForeignKey(x => x.CampaignId);
 
+        // ---- Kế hoạch bán hàng ----
+        modelBuilder.Entity<SalesPlan>().HasIndex(x => x.Number).IsUnique();
+        modelBuilder.Entity<SalesPlan>().HasIndex(x => new { x.Year, x.Status });
+        modelBuilder.Entity<SalesPlan>().HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById);
+        modelBuilder.Entity<SalesPlan>().HasOne(x => x.ApprovedBy).WithMany().HasForeignKey(x => x.ApprovedById);
+        modelBuilder.Entity<SalesPlanMonth>().HasOne(x => x.SalesPlan).WithMany(p => p.Months).HasForeignKey(x => x.SalesPlanId);
+        modelBuilder.Entity<SalesPlanMonth>().HasIndex(x => new { x.SalesPlanId, x.Month }).IsUnique();
+        modelBuilder.Entity<SalesPlanProduct>().HasOne(x => x.SalesPlan).WithMany(p => p.Products).HasForeignKey(x => x.SalesPlanId);
+        modelBuilder.Entity<SalesPlanMember>().HasOne(x => x.SalesPlan).WithMany(p => p.Members).HasForeignKey(x => x.SalesPlanId);
+        modelBuilder.Entity<SalesPlanMember>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+        modelBuilder.Entity<SalesPlanMember>().HasIndex(x => new { x.SalesPlanId, x.UserId }).IsUnique();
+        modelBuilder.Entity<SalesPlanAction>().HasOne(x => x.SalesPlan).WithMany(p => p.Actions).HasForeignKey(x => x.SalesPlanId);
+        modelBuilder.Entity<SalesPlanAction>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
+
         // ---- Cơ cấu chuỗi công ty / chi nhánh ----
         modelBuilder.Entity<Branch>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<Branch>().HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
@@ -100,6 +119,7 @@ public class CrmDbContext : DbContext
         BranchScoped<Opportunity>(modelBuilder); BranchScoped<Activity>(modelBuilder); BranchScoped<Quote>(modelBuilder);
         BranchScoped<BusinessPlan>(modelBuilder); BranchScoped<Contract>(modelBuilder); BranchScoped<Invoice>(modelBuilder);
         BranchScoped<Payment>(modelBuilder); BranchScoped<Campaign>(modelBuilder); BranchScoped<Ticket>(modelBuilder);
+        BranchScoped<SalesPlan>(modelBuilder);
 
         // Không xóa dây chuyền: dữ liệu khách hàng phải xóa có chủ đích
         foreach (var fk in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
