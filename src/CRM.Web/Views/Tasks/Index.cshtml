@@ -151,7 +151,7 @@ else if (paged != null)
                 if (!r.ok) {
                     from.querySelector('.task-col-body').prepend(card);
                     let msg = ''; try { msg = (await r.json()).message; } catch (x) { }
-                    alert(msg || 'Error');
+                    CrmDialog.alert(msg || 'Error', { variant: 'danger' });
                 }
                 boardEl.querySelectorAll('.task-col').forEach(c => c.querySelector('.badge').textContent = c.querySelectorAll('.task-card').length);
             });

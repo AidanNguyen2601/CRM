@@ -272,6 +272,8 @@ public static class I18n
         ["Dạng bảng"] = "Table view",
         ["xác suất {0}%"] = "probability {0}%",
         ["Lý do thua?"] = "Loss reason?",
+        ["Đánh dấu cơ hội thua"] = "Mark opportunity as lost",
+        ["Ghi đè"] = "Overwrite",
         ["Chuyển giai đoạn…"] = "Move to stage…",
 
         // ---------- Sản phẩm ----------

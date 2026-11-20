@@ -234,9 +234,7 @@
         }
         if (all) all.addEventListener('change', () => { boxes().forEach(b => b.checked = all.checked); refresh(); });
         form.addEventListener('change', e => { if (e.target.name === 'memberIds') refresh(); });
-        form.querySelectorAll('[data-confirm-click]').forEach(b => b.addEventListener('click', e => {
-            if (!confirm(b.getAttribute('data-confirm-click'))) e.preventDefault();
-        }));
+        // Nút có data-confirm-click: xác nhận bằng hộp thoại chung (site.js)
         refresh();
     })();
     document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {

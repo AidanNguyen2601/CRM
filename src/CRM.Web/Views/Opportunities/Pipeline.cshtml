@@ -25,7 +25,7 @@
                 <div class="meta">@o.Owner?.FullName</div>
                 <form asp-action="ChangeStage" asp-route-id="@o.Id" method="post" class="mt-2">
                     <input type="hidden" name="returnTo" value="pipeline" />
-                    <select name="stage" class="form-select form-select-sm" onchange="if(this.value=='0'){var r=prompt('@T("Lý do thua?")');if(!r){this.selectedIndex=0;return;}this.form.lostReason.value=r;}this.form.submit()">
+                    <select name="stage" class="form-select form-select-sm" data-stage-select>
                         <option value="">@T("Chuyển giai đoạn…")</option>
                         @foreach (var t in Enum.GetValues<OpportunityStage>().Where(x => x != s))
                         {
@@ -39,3 +39,17 @@
     </div>
 }
 </div>
+@section Scripts {
+<script>
+    // Chuyển giai đoạn ngay trên thẻ; chọn "Thua" → hỏi lý do bằng hộp thoại của ứng dụng
+    document.querySelectorAll('[data-stage-select]').forEach(sel => sel.addEventListener('change', async () => {
+        if (!sel.value) return;
+        if (sel.value === '0') {
+            const reason = await CrmDialog.prompt(@Json.Serialize(T("Lý do thua?")), { title: @Json.Serialize(T("Đánh dấu cơ hội thua")), required: true, multiline: true, danger: true });
+            if (!reason) { sel.selectedIndex = 0; return; }
+            sel.form.lostReason.value = reason;
+        }
+        sel.form.submit();
+    }));
+</script>
+}

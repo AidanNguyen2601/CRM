@@ -266,7 +266,7 @@
                 return;
             }
             const hasData = monthRows().filter(inPeriod).some(tr => keys.some(k => num(tr.querySelector('[data-k="' + k + '"]')) > 0));
-            if (hasData && !confirm(@Json.Serialize(T("Ghi đè chỉ tiêu các tháng (và nhóm sản phẩm) bằng số liệu gợi ý?")))) { msg.className = 'd-none'; return; }
+            if (hasData && !await CrmDialog.confirm(@Json.Serialize(T("Ghi đè chỉ tiêu các tháng (và nhóm sản phẩm) bằng số liệu gợi ý?")), { ok: @Json.Serialize(T("Ghi đè")) })) { msg.className = 'd-none'; return; }
             d.months.forEach(m => {
                 const tr = document.querySelector('.plan-months tr[data-month="' + m.month + '"]');
                 keys.forEach(k => tr.querySelector('[data-k="' + k + '"]').value = m[k] || '');

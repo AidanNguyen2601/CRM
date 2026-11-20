@@ -1,9 +1,109 @@
-// Xác nhận trước các thao tác quan trọng: <form data-confirm="...">
+// ---------- Hộp thoại của ứng dụng (thay confirm / alert / prompt của trình duyệt) ----------
+// CrmDialog.confirm(msg, opts) → Promise<boolean>; CrmDialog.alert(msg, opts) → Promise; CrmDialog.prompt(msg, opts) → Promise<string|null>
+// opts: { title, ok, cancel, danger, variant: 'info'|'warning'|'danger'|'success', placeholder, value, required, multiline }
+window.CrmDialog = (function () {
+    const en = () => document.documentElement.lang === 'en';
+    const L = {
+        confirm: () => en() ? 'Confirm' : 'Xác nhận', notice: () => en() ? 'Notice' : 'Thông báo', input: () => en() ? 'Enter information' : 'Nhập thông tin',
+        ok: () => en() ? 'OK' : 'Đồng ý', cancel: () => en() ? 'Cancel' : 'Hủy', close: () => en() ? 'Close' : 'Đóng', required: () => en() ? 'Please enter a value.' : 'Vui lòng nhập nội dung.'
+    };
+    const icons = {
+        confirm: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
+        danger: '<path d="M21.73 18l-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+        success: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'
+    };
+    let el, modal, state = null;
+    function build() {
+        if (el) return;
+        el = document.createElement('div');
+        el.className = 'modal fade crm-dialog';
+        el.tabIndex = -1;
+        el.setAttribute('aria-hidden', 'true');
+        el.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+            + '<div class="modal-body d-flex gap-3"><div class="crm-dialog-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg></div>'
+            + '<div class="flex-grow-1 min-w-0"><h5 class="crm-dialog-title mb-1"></h5><div class="crm-dialog-msg"></div>'
+            + '<div class="crm-dialog-field mt-2"></div><div class="crm-dialog-err text-danger small mt-1 d-none"></div></div></div>'
+            + '<div class="modal-footer"><button type="button" class="btn btn-light crm-dialog-cancel"></button><button type="button" class="btn crm-dialog-ok"></button></div>'
+            + '</div></div>';
+        document.body.appendChild(el);
+        modal = new bootstrap.Modal(el, { backdrop: 'static' });
+        el.querySelector('.crm-dialog-ok').addEventListener('click', () => finish(true));
+        el.querySelector('.crm-dialog-cancel').addEventListener('click', () => finish(false));
+        el.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+            else if (e.key === 'Enter' && !(e.target.tagName === 'TEXTAREA' && !e.ctrlKey) && !e.target.classList.contains('crm-dialog-cancel')) { e.preventDefault(); finish(true); }
+        });
+        el.addEventListener('shown.bs.modal', () => {
+            const f = el.querySelector('.crm-dialog-field input, .crm-dialog-field textarea');
+            (f || el.querySelector('.crm-dialog-ok')).focus();
+        });
+        el.addEventListener('hidden.bs.modal', () => {
+            const s = state; state = null;
+            if (s) s.resolve(s.result);
+            if (queue.length) open(queue.shift());
+        });
+    }
+    function finish(ok) {
+        if (!state || state.done) return;
+        const input = el.querySelector('.crm-dialog-field input, .crm-dialog-field textarea');
+        if (ok && input && state.required && !input.value.trim()) {
+            const err = el.querySelector('.crm-dialog-err'); err.textContent = L.required(); err.classList.remove('d-none'); input.focus(); return;
+        }
+        state.done = true;
+        state.result = state.kind === 'prompt' ? (ok ? input.value.trim() : null) : state.kind === 'alert' ? undefined : ok;
+        modal.hide();
+    }
+    const queue = [];
+    function open(req) {
+        build();
+        if (state) { queue.push(req); return; }
+        const o = req.opts || {};
+        const variant = o.danger ? 'danger' : o.variant || (req.kind === 'confirm' ? 'confirm' : req.kind === 'prompt' ? 'confirm' : 'info');
+        state = { kind: req.kind, resolve: req.resolve, required: !!o.required, done: false };
+        el.dataset.variant = variant;
+        el.querySelector('svg').innerHTML = icons[variant === 'warning' ? 'danger' : variant] || icons.info;
+        el.querySelector('.crm-dialog-title').textContent = o.title || (req.kind === 'alert' ? L.notice() : req.kind === 'prompt' ? L.input() : L.confirm());
+        el.querySelector('.crm-dialog-msg').textContent = req.msg || '';
+        const field = el.querySelector('.crm-dialog-field');
+        field.innerHTML = '';
+        if (req.kind === 'prompt') {
+            const inp = document.createElement(o.multiline ? 'textarea' : 'input');
+            inp.className = 'form-control'; if (o.multiline) inp.rows = 3;
+            inp.placeholder = o.placeholder || ''; inp.value = o.value || ''; inp.maxLength = o.maxLength || 500;
+            field.appendChild(inp);
+        }
+        el.querySelector('.crm-dialog-err').classList.add('d-none');
+        const okBtn = el.querySelector('.crm-dialog-ok'), cancelBtn = el.querySelector('.crm-dialog-cancel');
+        okBtn.textContent = o.ok || (req.kind === 'alert' ? L.close() : L.ok());
+        okBtn.className = 'btn crm-dialog-ok ' + (o.danger ? 'btn-danger' : 'btn-primary');
+        cancelBtn.textContent = o.cancel || L.cancel();
+        cancelBtn.classList.toggle('d-none', req.kind === 'alert');
+        modal.show();
+    }
+    const ask = kind => (msg, opts) => new Promise(resolve => open({ kind, msg, opts, resolve }));
+    return { confirm: ask('confirm'), alert: ask('alert'), prompt: ask('prompt') };
+})();
+
+// Xác nhận trước các thao tác quan trọng: <form data-confirm="..."> hoặc nút submit <button data-confirm-click="...">.
+// Bắt ở pha capture để chặn trước các xử lý submit khác của form; người dùng đồng ý → gửi lại form với đúng nút đã bấm.
 document.addEventListener('submit', function (e) {
-    // Nút submit riêng có thể yêu cầu xác nhận: <button data-confirm-click="...">
-    const msg = (e.submitter && e.submitter.getAttribute('data-confirm-click')) || e.target.getAttribute('data-confirm');
-    if (msg && !confirm(msg)) e.preventDefault();
-});
+    const form = e.target;
+    if (form.dataset.confirmed === '1') { delete form.dataset.confirmed; return; }
+    const btn = e.submitter;
+    const msg = (btn && btn.getAttribute('data-confirm-click')) || form.getAttribute('data-confirm');
+    if (!msg) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const danger = !!((btn && /\bbtn-(outline-)?danger\b/.test(btn.className)) || form.querySelector('.btn-danger, .btn-outline-danger') && !btn);
+    CrmDialog.confirm(msg, { danger }).then(ok => {
+        if (!ok) return;
+        form.dataset.confirmed = '1';
+        if (btn && form.requestSubmit) form.requestSubmit(btn);
+        else if (form.requestSubmit) form.requestSubmit();
+        else form.submit();
+    });
+}, true);
 
 // Dropdown phụ thuộc: chọn khách hàng → nạp lại danh sách người liên hệ
 // <select data-contacts-for="#ContactId"> trên ô khách hàng
@@ -265,7 +365,7 @@ document.addEventListener('change', async function (e) {
                 span.textContent = (th.innerText || '').trim() || ('#' + (id + 1));
                 row.append(cb, span);
                 cb.addEventListener('change', () => {
-                    if (!cb.checked && hidden.size >= n - 1) { cb.checked = true; alert(TXT.keepOne); return; }
+                    if (!cb.checked && hidden.size >= n - 1) { cb.checked = true; CrmDialog.alert(TXT.keepOne, { variant: "warning" }); return; }
                     if (cb.checked) hidden.delete(id); else hidden.add(id);
                     applyHidden(); save();
                 });

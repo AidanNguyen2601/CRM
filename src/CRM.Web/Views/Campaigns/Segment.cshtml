@@ -79,10 +79,4 @@
     </div>
 }
 
-@section Scripts {
-<script>
-    document.querySelectorAll('[data-confirm-click]').forEach(b => b.addEventListener('click', e => {
-        if (!confirm(b.getAttribute('data-confirm-click'))) e.preventDefault();
-    }));
-</script>
-}
+@* Nút có data-confirm-click: xác nhận bằng hộp thoại chung (site.js) *@
