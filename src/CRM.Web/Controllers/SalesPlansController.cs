@@ -234,11 +234,11 @@ public class SalesPlansController : CrmControllerBase
 
     /// <summary>Gợi ý chỉ tiêu từ thực tế cùng kỳ năm trước (JSON, tiền theo triệu đồng)</summary>
     [Authorize(Roles = AppRoles.ManagerGroup)]
-    public async Task<IActionResult> Suggest(int branchId, int year, int fromMonth = 1, int toMonth = 12, decimal growth = 10)
+    public async Task<IActionResult> Suggest(int branchId, int year, int fromMonth = 1, int toMonth = 12, decimal growth = 10, string basis = "auto")
     {
         if (!_scope.Allowed.Contains(branchId) || year is < 2001 or > 2100 || fromMonth < 1 || toMonth > 12 || fromMonth > toMonth || growth is < -90 or > 500)
             return BadRequest();
-        return Json(await _svc.SuggestAsync(branchId, year, fromMonth, toMonth, growth));
+        return Json(await _svc.SuggestAsync(branchId, year, fromMonth, toMonth, growth, basis is "prev" or "recent" ? basis : "auto"));
     }
 
     private async Task LoadLookupsAsync(SalesPlanFormViewModel vm)

@@ -178,25 +178,78 @@ public class SalesPlanService
     }
 
     /// <summary>
-    /// Gợi ý chỉ tiêu: thực tế cùng kỳ năm trước của đơn vị × (1 + tăng trưởng %).
+    /// Gợi ý chỉ tiêu × (1 + tăng trưởng %). Cơ sở (basis):
+    /// "prev" – thực tế cùng kỳ năm trước;
+    /// "recent" – thực tế 12 tháng gần nhất: mỗi tháng của kỳ lấy lần xuất hiện gần nhất của tháng đó (giữ tính mùa vụ),
+    ///            tháng hiện tại mới đi được một phần thì quy đổi ra cả tháng;
+    /// "auto" – cùng kỳ năm trước nếu có doanh số ở ít nhất một nửa số tháng, ngược lại dùng 12 tháng gần nhất.
     /// Tiền làm tròn đến triệu đồng (trả về theo đơn vị triệu), số lượng làm tròn lên.
     /// </summary>
-    public async Task<object> SuggestAsync(int branchId, int year, int fromMonth, int toMonth, decimal growth)
+    public async Task<object> SuggestAsync(int branchId, int year, int fromMonth, int toMonth, decimal growth, string basis = "auto")
     {
-        var prev = new SalesPlan { BranchId = branchId, Year = year - 1, FromMonth = fromMonth, ToMonth = toMonth };
-        var r = await ComputeAsync(prev);
+        var months = Enumerable.Range(fromMonth, toMonth - fromMonth + 1).ToList();
+        var prev = await ComputeAsync(new SalesPlan { BranchId = branchId, Year = year - 1, FromMonth = fromMonth, ToMonth = toMonth });
+        var prevMonthsWithData = prev.Months.Count(m => m.Actual[KpiMetric.Revenue] > 0);
+        var useRecent = basis == "recent" || basis != "prev" && prevMonthsWithData * 2 < months.Count;
+
+        // Giá trị gốc theo tháng (đồng / số lượng) + doanh số theo nhóm sản phẩm
+        var baseMonths = new Dictionary<int, Dictionary<KpiMetric, decimal>>();
+        List<(string Category, decimal V)> cats;
+        string label;
+        if (!useRecent)
+        {
+            foreach (var m in prev.Months) baseMonths[m.Month] = SalesPlanProgress.Metrics.ToDictionary(k => k, k => m.Actual[k]);
+            cats = prev.Categories.Where(c => c.Actual > 0).Select(c => (c.Category, c.Actual)).ToList();
+            label = I18n.T("thực tế cùng kỳ năm {0}", year - 1);
+        }
+        else
+        {
+            var today = DateTime.Today;
+            var thisMonth = new DateTime(today.Year, today.Month, 1);
+            var windowStart = thisMonth.AddMonths(-11);
+            // Tháng hiện tại mới qua một phần → quy đổi ra cả tháng
+            var scale = (decimal)DateTime.DaysInMonth(today.Year, today.Month) / today.Day;
+            var catTotal = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+            foreach (var m in months)
+            {
+                var start = new DateTime(m <= today.Month ? today.Year : today.Year - 1, m, 1);   // lần gần nhất, không quá tháng hiện tại
+                var r = await ComputeAsync(new SalesPlan { BranchId = branchId, Year = start.Year, FromMonth = m, ToMonth = m });
+                var f0 = start == thisMonth ? scale : 1m;
+                baseMonths[m] = SalesPlanProgress.Metrics.ToDictionary(k => k, k => r.Actual[k] * f0);
+                foreach (var c in r.Categories.Where(c => c.Actual > 0))
+                    catTotal[c.Category] = catTotal.GetValueOrDefault(c.Category) + c.Actual * f0;
+            }
+            // Tháng chưa có số liệu (vd. đầu kỳ dữ liệu) → lấy bình quân các tháng có số liệu của chỉ tiêu đó
+            foreach (var k in SalesPlanProgress.Metrics)
+            {
+                var has = baseMonths.Values.Where(x => x[k] > 0).Select(x => x[k]).ToList();
+                if (has.Count == 0) continue;
+                var avg = has.Average();
+                foreach (var x in baseMonths.Values.Where(x => x[k] == 0)) x[k] = avg;
+            }
+            cats = catTotal.Select(x => (x.Key, x.Value)).OrderByDescending(x => x.Value).ToList();
+            label = I18n.T("thực tế 12 tháng gần nhất ({0} – {1})", windowStart.ToString("MM/yyyy"), thisMonth.ToString("MM/yyyy"));
+        }
+
+        // Nhóm sản phẩm: giữ cơ cấu, quy về đúng tổng doanh số gợi ý
+        var revTotal = months.Sum(m => baseMonths[m][KpiMetric.Revenue]);
+        var catSum = cats.Sum(c => c.V);
+        if (catSum > 0 && revTotal > 0) cats = cats.Select(c => (c.Category, c.V * revTotal / catSum)).ToList();
+
         var f = 1 + growth / 100m;
         decimal Mil(decimal v) => Math.Round(v * f / 1_000_000m, 0);
-        decimal Qty(decimal v) => Math.Ceiling(v * f);
+        decimal Qty(decimal v) => Math.Ceiling(Math.Round(v * f, 2));
         return new
         {
-            months = r.Months.Select(m => new
+            basis = useRecent ? "recent" : "prev",
+            label,
+            months = months.Select(m => new
             {
-                month = m.Month, revenue = Mil(m.Actual[KpiMetric.Revenue]), collection = Mil(m.Actual[KpiMetric.Collection]),
-                contracts = Qty(m.Actual[KpiMetric.Contracts]), newCustomers = Qty(m.Actual[KpiMetric.NewCustomers])
+                month = m, revenue = Mil(baseMonths[m][KpiMetric.Revenue]), collection = Mil(baseMonths[m][KpiMetric.Collection]),
+                contracts = Qty(baseMonths[m][KpiMetric.Contracts]), newCustomers = Qty(baseMonths[m][KpiMetric.NewCustomers])
             }),
-            products = r.Categories.Where(c => c.Actual > 0).Select(c => new { category = c.Category, revenue = Mil(c.Actual) }),
-            total = Mil(r.Actual[KpiMetric.Revenue])
+            products = cats.Select(c => new { category = c.Category, revenue = Mil(c.V) }),
+            total = Mil(months.Sum(m => baseMonths[m][KpiMetric.Revenue]))
         };
     }
 

@@ -42,12 +42,19 @@
     <div class="card mb-3">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span>@Icon("trending") @T("Chỉ tiêu theo tháng")</span>
-            <span class="d-flex align-items-center gap-2 small">
-                @T("Gợi ý = thực tế cùng kỳ năm trước, tăng trưởng")
+            <span class="d-flex flex-wrap align-items-center gap-2 small">
+                @T("Gợi ý từ")
+                <select id="basis" class="form-select form-select-sm" style="width:auto">
+                    <option value="auto">@T("Tự động")</option>
+                    <option value="prev">@T("Thực tế cùng kỳ năm trước")</option>
+                    <option value="recent">@T("Thực tế 12 tháng gần nhất")</option>
+                </select>
+                @T("tăng trưởng")
                 <input type="number" id="growth" value="10" step="1" min="-90" max="500" class="form-control form-control-sm" style="width:80px" /> %
                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnSuggest">@T("Lấy gợi ý")</button>
             </span>
         </div>
+        <div id="suggestMsg" class="alert py-2 px-3 mb-0 rounded-0 small d-none"></div>
         <div class="card-body p-0 table-responsive">
             <table class="table table-sm mb-0 plan-months" data-no-grid>
                 <thead><tr>
@@ -237,15 +244,29 @@
             recalc();
         });
 
-        // Gợi ý từ thực tế cùng kỳ năm trước
-        document.getElementById('btnSuggest').addEventListener('click', async () => {
+        // Gợi ý từ thực tế (cùng kỳ năm trước / 12 tháng gần nhất) – kết quả báo ngay dưới tiêu đề
+        const msg = document.getElementById('suggestMsg'), btnSuggest = document.getElementById('btnSuggest');
+        const say = (text, css) => { msg.textContent = text; msg.className = 'alert py-2 px-3 mb-0 rounded-0 small alert-' + css; };
+        btnSuggest.addEventListener('click', async () => {
             const q = new URLSearchParams({ branchId: document.getElementById('branchId').value, year: document.getElementById('year').value,
-                fromMonth: from.value, toMonth: to.value, growth: document.getElementById('growth').value || 0 });
-            const res = await fetch('@Url.Action("Suggest")?' + q);
-            if (!res.ok) { alert(@Json.Serialize(T("Không lấy được gợi ý."))); return; }
-            const d = await res.json();
-            if (!d.total && !d.months.some(m => m.contracts || m.newCustomers || m.collection)) { alert(@Json.Serialize(T("Cùng kỳ năm trước chưa có số liệu thực tế."))); return; }
-            if (!confirm(@Json.Serialize(T("Ghi đè chỉ tiêu các tháng (và nhóm sản phẩm) bằng số liệu gợi ý?")))) return;
+                fromMonth: from.value, toMonth: to.value, growth: document.getElementById('growth').value || 0, basis: document.getElementById('basis').value });
+            btnSuggest.disabled = true;
+            say(@Json.Serialize(T("Đang tính gợi ý...")), 'secondary');
+            let d;
+            try {
+                const res = await fetch('@Url.Action("Suggest")?' + q, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) throw new Error(res.status);
+                d = await res.json();
+            } catch (e) {
+                say(@Json.Serialize(T("Không lấy được gợi ý. Hãy tải lại trang (có thể phiên đăng nhập đã hết hạn).")), 'danger');
+                return;
+            } finally { btnSuggest.disabled = false; }
+            if (!d.total && !d.months.some(m => m.contracts || m.newCustomers || m.collection)) {
+                say((@Json.Serialize(T("Không có số liệu để gợi ý ({0}). Hãy chọn cơ sở gợi ý khác hoặc nhập tay."))).replace('{0}', d.label), 'warning');
+                return;
+            }
+            const hasData = monthRows().filter(inPeriod).some(tr => keys.some(k => num(tr.querySelector('[data-k="' + k + '"]')) > 0));
+            if (hasData && !confirm(@Json.Serialize(T("Ghi đè chỉ tiêu các tháng (và nhóm sản phẩm) bằng số liệu gợi ý?")))) { msg.className = 'd-none'; return; }
             d.months.forEach(m => {
                 const tr = document.querySelector('.plan-months tr[data-month="' + m.month + '"]');
                 keys.forEach(k => tr.querySelector('[data-k="' + k + '"]').value = m[k] || '');
@@ -260,6 +281,8 @@
                 });
             }
             recalc();
+            say((@Json.Serialize(T("Đã điền gợi ý theo {0}, tăng trưởng {1}%: doanh số kỳ {2}. Có thể chỉnh lại từng tháng."))).replace('{0}', d.label)
+                .replace('{1}', q.get('growth')).replace('{2}', fmtM(d.total)), 'success');
         });
 
         // Đặt tên trường theo chỉ số trước khi gửi
