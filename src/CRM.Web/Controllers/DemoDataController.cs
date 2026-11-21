@@ -74,6 +74,12 @@ public class DemoDataController : CrmControllerBase
             (I18n.T("Thanh toán"), "wallet", await Db.Payments.CountAsync()),
             (I18n.T("Chiến dịch tiếp thị"), "campaign", await Db.Campaigns.CountAsync()),
             (I18n.T("Phiếu hỗ trợ"), "support", await Db.Tickets.CountAsync()),
+            (I18n.T("Bảng giá"), "coins", await Db.PriceLists.CountAsync()),
+            (I18n.T("Nhãn đã gắn"), "category", await Db.EntityTags.CountAsync()),
+            (I18n.T("Chính sách SLA"), "clock", await Db.SlaPolicies.CountAsync()),
+            (I18n.T("Câu trả lời NPS"), "star", await Db.NpsResponses.CountAsync(x => x.Score != null)),
+            (I18n.T("Form thu lead website"), "globe", await Db.WebForms.CountAsync()),
+            (I18n.T("Bài viết kho kiến thức"), "catalog", await Db.KbArticles.CountAsync()),
             (I18n.T("Công ty & chi nhánh"), "branch", await Db.Branches.CountAsync()),
         };
         ViewBag.BranchCount = await Db.Branches.CountAsync();
@@ -112,6 +118,22 @@ public class DemoDataController : CrmControllerBase
         var r = await DemoDataGenerator.GenerateMarketingAsync(Db, campaigns);
         TempData["Success"] = I18n.T("Đã nạp {0} chiến dịch tiếp thị với {1} đối tượng; gắn {2} lead và {3} cơ hội vào chiến dịch.",
             r.Campaigns, r.Members, r.Leads, r.Opportunities);
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Dữ liệu mẫu cho nghiệp vụ mở rộng (bảng giá, nhãn, trường tùy biến, SLA, dự báo, định kỳ, duyệt chiết khấu, NPS, form website)</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenerateExtended()
+    {
+        if (!await Db.Customers.AnyAsync())
+        {
+            TempData["Error"] = I18n.T("Chưa có khách hàng. Hãy nạp dữ liệu mẫu trước.");
+            return RedirectToAction(nameof(Index));
+        }
+        var x = await DemoDataExtended.GenerateAsync(Db, HttpContext.RequestServices);
+        TempData["Success"] = I18n.T("Đã nạp nghiệp vụ mở rộng: {0} bảng giá (gắn {1} khách hàng), gắn nhãn {2} bản ghi, {3} giá trị trường tùy biến, SLA VIP cho {4} khách hàng và {5} hợp đồng, {6} cơ hội có nhóm dự báo, {7} hợp đồng định kỳ, {8} báo giá duyệt chiết khấu, {9} đợt NPS ({10}/{11} khách trả lời), {12} form website với {13} lead có UTM; chấm lại sức khoẻ {14} khách hàng.",
+            x.PriceLists, x.PricedCustomers, x.TaggedRecords, x.CustomValues, x.VipCustomers, x.VipContracts, x.ForecastSet, x.RecurringContracts, x.QuoteApprovals,
+            x.NpsSurveys, x.NpsAnswered, x.NpsResponses, x.WebForms, x.WebLeads, x.HealthScored);
         return RedirectToAction(nameof(Index));
     }
 

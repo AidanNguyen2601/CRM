@@ -53,6 +53,12 @@
                     <div class="form-text text-warning-emphasis">@T("Chưa có người dùng vai trò Nhân viên CSKH – phiếu sẽ được giao cho quản lý / quản trị.")</div>
                 }
             </form>
+            <hr />
+            <h6>@Icon("plus") @T("Nghiệp vụ mở rộng")</h6>
+            <p class="small text-muted">@T("Dựng trên dữ liệu đang có: bảng giá (gắn đối tác, khách dự án), nhãn và trường tùy biến, gói SLA VIP cho khách / hợp đồng doanh thu cao, nhóm dự báo của cơ hội, hợp đồng thanh toán định kỳ, báo giá chờ / đã duyệt chiết khấu, 2 đợt khảo sát NPS, 3 form thu lead website kèm lead có UTM; sau đó chấm lại điểm lead và sức khoẻ khách hàng. Chạy lại không tạo trùng cấu hình.")</p>
+            <form asp-action="GenerateExtended" method="post" data-confirm="@T("Nạp dữ liệu mẫu cho các nghiệp vụ mở rộng? Thao tác này không hoàn tác tự động.")">
+                <button class="btn btn-outline-primary">@T("Nạp dữ liệu nghiệp vụ mở rộng")</button>
+            </form>
         </div></div>
     </div>
     <div class="col-lg-7">

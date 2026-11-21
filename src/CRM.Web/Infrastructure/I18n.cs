@@ -2923,6 +2923,16 @@ public static class I18n
         ["UTM source"] = "UTM source",
         ["UTM medium"] = "UTM medium",
         ["UTM campaign"] = "UTM campaign",
+        // ---- Dá»¯ liá»u máº«u nghiá»p vá»¥ má» rá»ng ----
+        ["Nghiệp vụ mở rộng"] = "Extended modules",
+        ["Dựng trên dữ liệu đang có: bảng giá (gắn đối tác, khách dự án), nhãn và trường tùy biến, gói SLA VIP cho khách / hợp đồng doanh thu cao, nhóm dự báo của cơ hội, hợp đồng thanh toán định kỳ, báo giá chờ / đã duyệt chiết khấu, 2 đợt khảo sát NPS, 3 form thu lead website kèm lead có UTM; sau đó chấm lại điểm lead và sức khoẻ khách hàng. Chạy lại không tạo trùng cấu hình."] = "Built on existing data: price lists (assigned to partners, project customers), tags and custom fields, VIP SLA for high-revenue customers / contracts, opportunity forecast categories, recurring contracts, quotes pending / approved for discount, 2 NPS surveys, 3 website lead forms with UTM leads; then lead and customer health scores are recalculated. Re-running does not duplicate configuration.",
+        ["Nạp dữ liệu mẫu cho các nghiệp vụ mở rộng? Thao tác này không hoàn tác tự động."] = "Load sample data for the extended modules? This cannot be undone automatically.",
+        ["Nạp dữ liệu nghiệp vụ mở rộng"] = "Load extended module data",
+        ["Nhãn đã gắn"] = "Tags assigned",
+        ["Câu trả lời NPS"] = "NPS answers",
+        ["Bài viết kho kiến thức"] = "Knowledge base articles",
+        ["Chưa có khách hàng. Hãy nạp dữ liệu mẫu trước."] = "No customers yet. Load sample data first.",
+        ["Đã nạp nghiệp vụ mở rộng: {0} bảng giá (gắn {1} khách hàng), gắn nhãn {2} bản ghi, {3} giá trị trường tùy biến, SLA VIP cho {4} khách hàng và {5} hợp đồng, {6} cơ hội có nhóm dự báo, {7} hợp đồng định kỳ, {8} báo giá duyệt chiết khấu, {9} đợt NPS ({10}/{11} khách trả lời), {12} form website với {13} lead có UTM; chấm lại sức khoẻ {14} khách hàng."] = "Extended modules loaded: {0} price lists ({1} customers assigned), {2} records tagged, {3} custom field values, VIP SLA for {4} customers and {5} contracts, {6} opportunities with a forecast category, {7} recurring contracts, {8} quotes with discount approval, {9} NPS surveys ({10}/{11} answered), {12} website forms with {13} UTM leads; health recalculated for {14} customers.",
     };
 }
 
