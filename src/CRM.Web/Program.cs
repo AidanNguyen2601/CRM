@@ -113,6 +113,7 @@ builder.Services.AddHostedService<InboundWorker>();
 builder.Services.AddHostedService<AutomationWorker>();
 builder.Services.AddHostedService<EmailWorker>();
 builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.CustomReportService>();
+builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.ReportAccessService>();
 builder.Services.AddScoped<CampaignService>();
 builder.Services.AddScoped<Customer360Service>();
 

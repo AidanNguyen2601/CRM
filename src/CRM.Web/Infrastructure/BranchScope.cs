@@ -155,6 +155,25 @@ public class BranchScope
         }
     }
 
+    /// <summary>
+    /// Thay phạm vi đơn vị cho request hiện tại (vùng dữ liệu của báo cáo). ids = null → toàn hệ thống.
+    /// Nếu người dùng đang chọn một đơn vị trên bộ chọn và đơn vị đó giao với vùng được cấp thì thu hẹp theo lựa chọn.
+    /// </summary>
+    public int[] Override(IReadOnlyCollection<int>? ids)
+    {
+        Init();
+        var snap = _dir.Get();
+        var view = ids?.Distinct().ToList() ?? snap.Branches.Select(b => b.Id).ToList();
+        if (_selected is int sel)
+        {
+            var narrowed = snap.Subtree(sel).Where(view.Contains).ToList();
+            if (narrowed.Count > 0) view = narrowed;
+        }
+        _ids = view.ToArray();
+        _active = _ids.Length < snap.Branches.Count;
+        return _ids;
+    }
+
     /// <summary>Tắt giới hạn đơn vị trong request hiện tại (thao tác quản trị trên toàn chuỗi: nạp dữ liệu mẫu...)</summary>
     public void Bypass() { Init(); _active = false; }
 

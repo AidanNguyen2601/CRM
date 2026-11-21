@@ -14,6 +14,10 @@
     <div>
         <a asp-action="Index" class="small">← @T("Tất cả báo cáo")</a>
         @if (!string.IsNullOrEmpty(Model.Description)) { <div class="text-muted small mt-1">@Model.Description</div> }
+        @if (!string.IsNullOrEmpty(Model.ScopeText))
+        {
+            <div class="small mt-1"><span class="badge text-bg-light border" title="@T("Theo: {0}", Model.Grant?.Source ?? "")">@Icon("key") @T("Vùng dữ liệu: {0}", Model.ScopeText)</span></div>
+        }
     </div>
     @if (Model.Custom != null && User.IsInRole(AppRoles.Admin))
     {
@@ -40,7 +44,7 @@
         <div><label class="form-label small mb-1">@T("Năm")</label>
             <select name="Year" class="form-select">@foreach (var y in years) { <option value="@y" selected="@(y == f.YearValue)">@y</option> }</select></div>
     }
-    @if (fl.HasFlag(ReportFilters.Owner) && (User.SeesAll() || (User.IsSupportDesk() && Model.Group == StandardReports.GroupSupport)))
+    @if (fl.HasFlag(ReportFilters.Owner) && Model.ShowOwnerFilter)
     {
         <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div>
     }
@@ -62,7 +66,7 @@
     <div class="ms-auto d-flex gap-2">
         @if (Model.Result != null)
         {
-            <a class="btn btn-success" href="@exportUrl">@Icon("download") @T("Xuất Excel")</a>
+            @if (Model.Grant?.CanExport != false) { <a class="btn btn-success" href="@exportUrl">@Icon("download") @T("Xuất Excel")</a> }
             <button type="button" class="btn btn-outline-secondary" onclick="window.print()">@T("In")</button>
         }
     </div>

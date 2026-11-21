@@ -1,0 +1,133 @@
+@using CRM.Web.Infrastructure.Reports
+@{
+    ViewData["Title"] = T("Phân quyền báo cáo");
+    var items = (List<CRM.Web.Controllers.ReportsController.ReportItem>)ViewBag.Items;
+    var key = (string)ViewBag.Key;
+    var rules = (List<ReportAccess>)ViewBag.Rules;
+    var counts = (Dictionary<string, int>)ViewBag.RuleCounts;
+    var userNames = (Dictionary<string, string>)ViewBag.UserNames;
+    var users = (List<(int Id, string Name)>)ViewBag.Users;
+    var snap = (BranchSnapshot)ViewBag.Snapshot;
+    var current = items.First(i => i.Key == key);
+    var checkRows = ViewBag.CheckRows as List<(CRM.Web.Controllers.ReportsController.ReportItem Item, ReportGrant Grant, string Scope)>;
+    var userId = ViewBag.UserId as int?;
+    string Subject(ReportAccess r) => r.SubjectType == ReportAccessSubject.Role ? ReportAccessService.RoleLabel(r.Subject) : userNames.GetValueOrDefault(r.Subject, "#" + r.Subject);
+    string Units(ReportAccess r) => string.Join(", ", ReportAccessService.ParseIds(r.BranchIds).Select(snap.NameOf));
+}
+<div class="toolbar">
+    <a asp-action="Index" class="small">← @T("Tất cả báo cáo")</a>
+</div>
+<div class="alert alert-light border small">
+    @T("Mỗi quy tắc gán cho một vai trò hoặc một người dùng: được xem, được xuất Excel và vùng dữ liệu khi xem báo cáo. Thứ tự ưu tiên: người dùng + báo cáo cụ thể → người dùng + mọi báo cáo → vai trò + báo cáo cụ thể → vai trò + mọi báo cáo (quy tắc riêng của người dùng luôn thắng quy tắc theo vai trò).")
+    @T("Người không có quy tắc nào khớp dùng quyền mặc định (quản lý: đơn vị mình và cấp dưới, nhân viên: dữ liệu mình phụ trách). Muốn ẩn một báo cáo với ai, thêm quy tắc bỏ chọn \"Được xem\" cho vai trò / người đó. Quyền chức năng \"Báo cáo\" trong Bảo mật & phân quyền vẫn áp dụng trước.")
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">@Icon("report") @T("Báo cáo")</div>
+            <div class="list-group list-group-flush" style="max-height:640px;overflow:auto">
+                @foreach (var g in items.GroupBy(i => i.Group))
+                {
+                    <div class="list-group-item small text-muted fw-semibold bg-light">@g.Key</div>
+                    @foreach (var it in g)
+                    {
+                        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(it.Key == key ? "active" : "")" asp-route-key="@it.Key" asp-route-userId="@userId">
+                            <span>@it.Title</span>
+                            @if (counts.TryGetValue(it.Key, out var n)) { <span class="badge rounded-pill @(it.Key == key ? "text-bg-light" : "text-bg-primary")">@n</span> }
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-header">@Icon("key") @current.Title</div>
+            <div class="card-body p-0"><table class="table mb-0 align-middle">
+                <thead><tr><th>@T("Áp cho")</th><th class="text-center">@T("Xem")</th><th class="text-center">@T("Xuất Excel")</th><th>@T("Vùng dữ liệu")</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var r in rules)
+                {
+                    <tr>
+                        <td><span class="badge text-bg-light border me-1">@r.SubjectType.GetDisplayName()</span>@Subject(r)</td>
+                        <td class="text-center">@(r.CanView ? Html.Raw("<span class='text-success'>✓</span>") : Html.Raw("<span class='text-danger'>✗</span>"))</td>
+                        <td class="text-center">@(r.CanExport ? Html.Raw("<span class='text-success'>✓</span>") : Html.Raw("<span class='text-muted'>–</span>"))</td>
+                        <td>@r.Scope.GetDisplayName()@if (r.Scope == ReportDataScope.Specific) { <div class="small text-muted">@Units(r)</div> }</td>
+                        <td class="text-end"><form asp-action="AccessDelete" asp-route-id="@r.Id" method="post" data-confirm="@T("Xóa quy tắc phân quyền này?")"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form></td>
+                    </tr>
+                }
+                @if (!rules.Any())
+                {
+                    <tr><td colspan="5" class="text-muted p-3">@(key == ReportAccess.AllReports ? T("Chưa có quy tắc chung – mọi báo cáo dùng quyền mặc định theo vai trò.") : T("Chưa có quy tắc riêng – báo cáo dùng quy tắc chung hoặc quyền mặc định."))</td></tr>
+                }
+                </tbody>
+            </table></div>
+            <div class="card-body border-top">
+                <form asp-action="AccessSave" method="post" class="row g-2 align-items-end" id="ruleForm">
+                    <input type="hidden" name="key" value="@key" />
+                    <div class="col-md-3"><label class="form-label small mb-1">@T("Áp cho")</label>
+                        <select name="subjectType" class="form-select" id="subjectType">
+                            <option value="@((int)ReportAccessSubject.Role)">@T("Vai trò")</option>
+                            <option value="@((int)ReportAccessSubject.User)">@T("Người dùng")</option>
+                        </select></div>
+                    <div class="col-md-5" data-for="1"><label class="form-label small mb-1">@T("Vai trò")</label>
+                        <select name="role" class="form-select">@foreach (var r in AppRoles.All.Where(r => r != AppRoles.Admin)) { <option value="@r">@ReportAccessService.RoleLabel(r)</option> }</select></div>
+                    <div class="col-md-5 d-none" data-for="2"><label class="form-label small mb-1">@T("Người dùng")</label>
+                        <select name="userId" class="form-select">@foreach (var u in users) { <option value="@u.Id">@u.Name</option> }</select></div>
+                    <div class="col-md-4"><label class="form-label small mb-1">@T("Vùng dữ liệu")</label>
+                        <select name="scope" class="form-select" id="scopeSel" asp-items="Html.GetEnumSelectList<ReportDataScope>()"></select></div>
+                    <div class="col-12 d-none" id="branchBox"><label class="form-label small mb-1">@T("Đơn vị (gồm cả đơn vị trực thuộc)")</label>
+                        <div class="d-flex flex-wrap gap-3 border rounded p-2">
+                            @foreach (var (b, depth) in snap.Tree())
+                            {
+                                <div class="form-check" style="margin-left:@(depth * 12)px"><input class="form-check-input" type="checkbox" name="branchIds" value="@b.Id" id="br@(b.Id)" /><label class="form-check-label" for="br@(b.Id)">@b.DisplayName</label></div>
+                            }
+                        </div></div>
+                    <div class="col-auto"><div class="form-check"><input class="form-check-input" type="checkbox" name="canView" value="true" id="cv" checked /><label class="form-check-label" for="cv">@T("Được xem")</label></div></div>
+                    <div class="col-auto"><div class="form-check"><input class="form-check-input" type="checkbox" name="canExport" value="true" id="ce" checked /><label class="form-check-label" for="ce">@T("Được xuất Excel")</label></div></div>
+                    <div class="col-auto ms-auto"><button class="btn btn-primary">@T("Lưu quy tắc")</button></div>
+                    <div class="col-12 small text-muted">@T("Bỏ chọn \"Được xem\" để chặn vai trò / người dùng này xem báo cáo. Lưu lại cùng đối tượng sẽ cập nhật quy tắc cũ.")</div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card"><div class="card-header">@Icon("users") @T("Kiểm tra quyền theo người dùng")</div>
+            <div class="card-body">
+                <form method="get" class="d-flex gap-2">
+                    <input type="hidden" name="key" value="@key" />
+                    <select name="userId" class="form-select" onchange="this.form.submit()" aria-label="@T("Người dùng")"><option value="">@T("-- Chọn người dùng --")</option>
+                        @foreach (var u in users) { <option value="@u.Id" selected="@(u.Id == userId)">@u.Name</option> }</select>
+                </form>
+            </div>
+            @if (checkRows != null)
+            {
+                <div class="card-body p-0 border-top"><div class="small px-3 pt-2 text-muted">@ViewBag.CheckUser</div>
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead><tr><th>@T("Báo cáo")</th><th class="text-center">@T("Xem")</th><th class="text-center">@T("Xuất")</th><th>@T("Vùng dữ liệu")</th><th>@T("Theo")</th></tr></thead>
+                        <tbody>
+                        @foreach (var (it, g, scope) in checkRows)
+                        {
+                            <tr class="@(g.CanView ? "" : "text-muted")">
+                                <td><a asp-route-key="@it.Key" asp-route-userId="@userId">@it.Title</a></td>
+                                <td class="text-center">@(g.CanView ? Html.Raw("<span class='text-success'>✓</span>") : Html.Raw("<span class='text-danger'>✗</span>"))</td>
+                                <td class="text-center">@(g.CanExport ? "✓" : "–")</td>
+                                <td class="small">@(g.CanView ? scope : g.DenyReason)</td>
+                                <td class="small text-muted">@g.Source</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table></div>
+            }
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    (function () {
+        const st = document.getElementById('subjectType'), sc = document.getElementById('scopeSel'), box = document.getElementById('branchBox');
+        function sync() {
+            document.querySelectorAll('#ruleForm [data-for]').forEach(el => el.classList.toggle('d-none', el.dataset.for !== st.value));
+            box.classList.toggle('d-none', sc.value !== '@((int)ReportDataScope.Specific)');
+        }
+        st.addEventListener('change', sync); sc.addEventListener('change', sync); sync();
+    })();
+</script>
+}

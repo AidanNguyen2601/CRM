@@ -405,8 +405,15 @@ public static class StandardReports
     /// <summary>Phiếu hỗ trợ theo quyền: CSKH / quản lý thấy tất cả (lọc theo người xử lý nếu chọn); Sales thấy phiếu của mình hoặc khách mình phụ trách</summary>
     private static IQueryable<Ticket> TicketsQuery(ReportContext x)
     {
-        var q = x.Db.Tickets.VisibleTickets(x.User);
-        if (x.User.IsSupportDesk() && x.Filter.OwnerId.HasValue) q = q.Where(t => t.OwnerId == x.Filter.OwnerId);
+        // Vùng dữ liệu theo phân quyền báo cáo: "của mình" → phiếu mình xử lý; đơn vị / toàn hệ thống → mọi phiếu trong vùng
+        var me = x.User.GetUserId();
+        var q = x.OwnOnly switch
+        {
+            true => x.Db.Tickets.Where(t => t.OwnerId == me),
+            false => x.Db.Tickets.AsQueryable(),
+            _ => x.Db.Tickets.VisibleTickets(x.User)
+        };
+        if ((x.OwnOnly == false || x.OwnOnly == null && x.User.IsSupportDesk()) && x.Filter.OwnerId.HasValue) q = q.Where(t => t.OwnerId == x.Filter.OwnerId);
         return q;
     }
 

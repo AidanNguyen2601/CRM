@@ -61,3 +61,41 @@ public class CustomReport
     public bool CanRun(System.Security.Claims.ClaimsPrincipal user) =>
         IsActive && (user.IsInRole(AppRoles.Admin) || AllowedRoles.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Any(user.IsInRole));
 }
+
+/// <summary>Vùng dữ liệu được xem trong báo cáo</summary>
+public enum ReportDataScope
+{
+    [Display(Name = "Chỉ dữ liệu mình phụ trách")] Own = 1,
+    [Display(Name = "Đơn vị của mình")] Unit = 2,
+    [Display(Name = "Đơn vị của mình và cấp dưới")] UnitTree = 3,
+    [Display(Name = "Các đơn vị chỉ định (kèm cấp dưới)")] Specific = 4,
+    [Display(Name = "Toàn hệ thống")] All = 5
+}
+
+public enum ReportAccessSubject
+{
+    [Display(Name = "Vai trò")] Role = 1,
+    [Display(Name = "Người dùng")] User = 2
+}
+
+/// <summary>
+/// Phân quyền báo cáo: ai (vai trò / người dùng) được xem, xuất Excel báo cáo nào (ReportKey = "std:{key}", "custom:{id}" hoặc "*" = mọi báo cáo)
+/// và trong vùng dữ liệu nào. Ưu tiên: người dùng + báo cáo cụ thể → người dùng + "*" → vai trò + báo cáo cụ thể → vai trò + "*".
+/// Không có quy tắc khớp → quyền mặc định theo vai trò; muốn chặn ai xem báo cáo thì thêm quy tắc CanView = false cho vai trò / người đó.
+/// </summary>
+public class ReportAccess
+{
+    public const string AllReports = "*";
+    public int Id { get; set; }
+    [Required, StringLength(60)] public string ReportKey { get; set; } = AllReports;
+    public ReportAccessSubject SubjectType { get; set; } = ReportAccessSubject.Role;
+    /// <summary>Tên vai trò hoặc Id người dùng</summary>
+    [Required, StringLength(50)] public string Subject { get; set; } = string.Empty;
+    [Display(Name = "Được xem")] public bool CanView { get; set; } = true;
+    [Display(Name = "Được xuất Excel")] public bool CanExport { get; set; } = true;
+    [Display(Name = "Vùng dữ liệu")] public ReportDataScope Scope { get; set; } = ReportDataScope.UnitTree;
+    /// <summary>Đơn vị chỉ định (Id, cách nhau dấu phẩy) khi Scope = Specific</summary>
+    [StringLength(500)] public string? BranchIds { get; set; }
+    public int? UpdatedById { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}

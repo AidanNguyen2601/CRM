@@ -4,8 +4,13 @@
     var standard = (IReadOnlyList<ReportDefinition>)ViewBag.Standard;
     var custom = (List<CustomReport>)ViewBag.Custom;
     var isAdmin = User.IsInRole(AppRoles.Admin);
+    var grants = (Dictionary<string, ReportGrant>)ViewBag.Grants;
+    string ScopeBadge(string key) => grants.TryGetValue(key, out var g) ? g.Scope.GetDisplayName() + (g.CanExport ? "" : " · " + T("không xuất Excel")) : "";
 }
-<h5 class="mb-3">@Icon("trending") @T("Báo cáo chuẩn")</h5>
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0">@Icon("trending") @T("Báo cáo chuẩn")</h5>
+    @if (isAdmin) { <a class="btn btn-outline-primary" asp-action="Access">@Icon("key") @T("Phân quyền báo cáo")</a> }
+</div>
 <div class="row g-3 mb-4">
     @foreach (var g in standard.GroupBy(r => r.Group))
     {
@@ -18,7 +23,8 @@
                         <a class="list-group-item list-group-item-action report-link" asp-action="Run" asp-route-id="@r.Key">
                             <div class="d-flex gap-2 align-items-start">
                                 @Icon(r.Icon, "report-ico")
-                                <div><div class="fw-semibold">@r.Title</div><div class="small text-muted">@r.Description</div></div>
+                                <div><div class="fw-semibold">@r.Title</div><div class="small text-muted">@r.Description</div>
+                                    <div class="small mt-1"><span class="badge text-bg-light border">@Icon("key") @ScopeBadge(ReportAccessService.StdKey(r.Key))</span></div></div>
                             </div>
                         </a>
                     }
@@ -52,7 +58,8 @@ else
         {
             <tr class="@(r.IsActive ? "" : "text-muted")">
                 <td><a asp-action="Custom" asp-route-id="@r.Id" class="fw-semibold">@r.Name</a>
-                    @if (!string.IsNullOrEmpty(r.Description)) { <div class="small text-muted">@r.Description</div> }</td>
+                    @if (!string.IsNullOrEmpty(r.Description)) { <div class="small text-muted">@r.Description</div> }
+                    <div class="small mt-1"><span class="badge text-bg-light border">@Icon("key") @ScopeBadge(ReportAccessService.CustomKey(r.Id))</span></div></td>
                 <td>@r.Category</td>
                 <td><span class="badge @(r.SourceType == CustomReportSource.Sql ? "bg-dark" : "bg-info text-dark")">@r.SourceType.GetDisplayName()</span>
                     @if (r.SourceType == CustomReportSource.View) { <div class="small text-muted">@r.ViewName</div> }</td>

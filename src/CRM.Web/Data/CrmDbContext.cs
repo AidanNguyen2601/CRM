@@ -44,6 +44,7 @@ public class CrmDbContext : DbContext
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<SalesTarget> SalesTargets => Set<SalesTarget>();
     public DbSet<CustomReport> CustomReports => Set<CustomReport>();
+    public DbSet<ReportAccess> ReportAccesses => Set<ReportAccess>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketComment> TicketComments => Set<TicketComment>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
@@ -184,6 +185,8 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<WebForm>().HasOne(x => x.Campaign).WithMany().HasForeignKey(x => x.CampaignId);
         modelBuilder.Entity<WebForm>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
         modelBuilder.Entity<Lead>().HasOne(x => x.WebForm).WithMany().HasForeignKey(x => x.WebFormId);
+
+        modelBuilder.Entity<ReportAccess>().HasIndex(x => new { x.ReportKey, x.SubjectType, x.Subject }).IsUnique();
 
         // ---- Kế hoạch bán hàng ----
         modelBuilder.Entity<SalesPlan>().HasIndex(x => x.Number).IsUnique();

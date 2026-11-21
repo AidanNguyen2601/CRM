@@ -105,8 +105,11 @@ public class ReportContext
     /// <summary>Phạm vi đơn vị (báo cáo theo công ty / chi nhánh)</summary>
     public BranchScope? Scope { get; init; }
 
-    /// <summary>Người phụ trách cần lọc: nhân viên kinh doanh luôn = chính mình; quản lý = theo bộ lọc (null = tất cả)</summary>
-    public int? Owner => User.SeesAll() ? Filter.OwnerId : User.GetUserId();
+    /// <summary>Vùng dữ liệu "chỉ dữ liệu mình phụ trách" (theo phân quyền báo cáo). null = mặc định theo vai trò (nhân viên chỉ thấy của mình)</summary>
+    public bool? OwnOnly { get; init; }
+
+    /// <summary>Người phụ trách cần lọc: vùng "của mình" → luôn = chính mình; vùng đơn vị / toàn hệ thống → theo bộ lọc (null = tất cả)</summary>
+    public int? Owner => (OwnOnly ?? !User.SeesAll()) ? User.GetUserId() : Filter.OwnerId;
 }
 
 /// <summary>Định nghĩa một báo cáo chuẩn</summary>

@@ -135,7 +135,7 @@ public class CustomReportService
 
     /// <summary>Chạy câu lệnh dưới người dùng chỉ đọc; trả về kết quả hoặc thông báo lỗi thân thiện</summary>
     public async Task<(ReportResult? Result, string? Error)> RunAsync(string sql, ReportFilter f, ClaimsPrincipal user, int maxRows,
-        string? chartLabel = null, string? chartValue = null)
+        string? chartLabel = null, string? chartValue = null, bool? ownOnly = null)
     {
         var err = Validate(sql);
         if (err != null) return (null, err);
@@ -147,7 +147,8 @@ public class CustomReportService
         cmd.CommandTimeout = TimeoutSeconds;
         cmd.CommandText = $"EXECUTE AS USER = N'{ReportingSchema.ReaderUser}';\n{sql.Trim().TrimEnd(';')}\n;\nREVERT;";
 
-        var seesAll = user.SeesAll();
+        // @SeesAll = 1 khi vùng dữ liệu không giới hạn theo người phụ trách (đơn vị / toàn hệ thống)
+        var seesAll = ownOnly.HasValue ? !ownOnly.Value : user.SeesAll();
         cmd.Parameters.Add(new SqlParameter("@FromDate", SqlDbType.Date) { Value = f.FromDate });
         cmd.Parameters.Add(new SqlParameter("@ToDate", SqlDbType.Date) { Value = f.ToExclusive.AddDays(-1) });
         cmd.Parameters.Add(new SqlParameter("@Year", SqlDbType.Int) { Value = f.YearValue });

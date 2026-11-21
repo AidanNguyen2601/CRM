@@ -597,6 +597,26 @@ public static class SchemaUpgrader
                 ALTER TABLE [dbo].[Customers] ADD [HealthScore] int NULL, [HealthUpdatedAt] datetime2 NULL;
             """;
 
+        // ---------- Phân quyền báo cáo + vùng dữ liệu ----------
+        yield return """
+            IF OBJECT_ID(N'[dbo].[ReportAccesses]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[ReportAccesses] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_ReportAccesses] PRIMARY KEY,
+                    [ReportKey] nvarchar(60) NOT NULL,
+                    [SubjectType] int NOT NULL,
+                    [Subject] nvarchar(50) NOT NULL,
+                    [CanView] bit NOT NULL,
+                    [CanExport] bit NOT NULL,
+                    [Scope] int NOT NULL,
+                    [BranchIds] nvarchar(500) NULL,
+                    [UpdatedById] int NULL,
+                    [UpdatedAt] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_ReportAccesses_ReportKey_SubjectType_Subject] ON [dbo].[ReportAccesses] ([ReportKey], [SubjectType], [Subject]);
+            END
+            """;
+
         // ---------- Kế hoạch bán hàng ----------
         yield return """
             IF OBJECT_ID(N'[dbo].[SalesPlans]', N'U') IS NULL
