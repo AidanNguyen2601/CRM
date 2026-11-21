@@ -1,0 +1,53 @@
+@model AppUser
+@{
+    ViewData["Title"] = T("Tài khoản của tôi");
+    var logins = (List<LoginLog>)ViewBag.Logins;
+    var mailReady = (bool)ViewBag.MailReady;
+}
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card mb-3"><div class="card-header">@Icon("contact") @T("Thông tin tài khoản")</div><div class="card-body">
+            <dl class="row mb-3 small">
+                <dt class="col-5 text-muted">@T("Họ và tên")</dt><dd class="col-7 fw-semibold">@Model.FullName</dd>
+                <dt class="col-5 text-muted">@T("Tên đăng nhập")</dt><dd class="col-7">@Model.Username</dd>
+                <dt class="col-5 text-muted">@T("Vai trò")</dt><dd class="col-7">@AppRoles.DisplayName(Model.Role)</dd>
+                <dt class="col-5 text-muted">@T("Đơn vị")</dt><dd class="col-7">@Model.Branch?.DisplayName</dd>
+                <dt class="col-5 text-muted">@T("Đổi mật khẩu lần cuối")</dt><dd class="col-7">@(Model.PasswordChangedAt?.ToDateTime() ?? T("Chưa đổi"))</dd>
+            </dl>
+            <form asp-action="Profile" method="post">
+                <div class="mb-2"><label class="form-label">Email</label><input name="email" type="email" value="@Model.Email" class="form-control" />
+                    <div class="form-text">@T("Dùng để nhận liên kết đặt lại mật khẩu và thông báo.")</div></div>
+                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="emailNotifications" value="true" id="emailNoti" @(Model.EmailNotifications ? "checked" : "") />
+                    <label class="form-check-label" for="emailNoti">@T("Nhận thông báo qua email (giao việc, nhắc hạn, SLA, duyệt kế hoạch...)")</label>
+                    @if (!mailReady) { <div class="form-text text-warning-emphasis">@T("Hệ thống chưa cấu hình gửi email – sẽ gửi khi quản trị cấu hình xong.")</div> }</div>
+                <button class="btn btn-primary">@T("Lưu")</button>
+                <a class="btn btn-outline-secondary" asp-action="ChangePassword">@Icon("key") @T("Đổi mật khẩu")</a>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card mb-3"><div class="card-header">@Icon("badge") @T("Xác thực 2 lớp")</div><div class="card-body">
+            @if (Model.TwoFactorEnabled)
+            {
+                <p class="mb-2"><span class="badge bg-success">@T("Đang bật")</span> @T("Mỗi lần đăng nhập cần thêm mã từ ứng dụng Authenticator.")</p>
+            }
+            else
+            {
+                <p class="mb-2"><span class="badge bg-secondary">@T("Chưa bật")</span> @T("Nên bật để bảo vệ tài khoản khi lộ mật khẩu.")</p>
+            }
+            <a class="btn btn-outline-primary" asp-action="TwoFactor">@(Model.TwoFactorEnabled ? T("Quản lý") : T("Bật xác thực 2 lớp"))</a>
+        </div></div>
+        <div class="card"><div class="card-header">@Icon("clock") @T("Đăng nhập gần đây")</div>
+            <ul class="list-group list-group-flush small">
+                @foreach (var l in logins)
+                {
+                    <li class="list-group-item d-flex justify-content-between gap-2">
+                        <span>@l.At.ToDateTime() · @l.Ip</span>
+                        @if (l.Success) { <span class="text-success">@T(l.Reason ?? "Thành công")</span> } else { <span class="text-danger">@T(l.Reason ?? "Thất bại")</span> }
+                    </li>
+                }
+                @if (!logins.Any()) { <li class="list-group-item text-muted">@T("Chưa có dữ liệu.")</li> }
+            </ul>
+        </div>
+    </div>
+</div>

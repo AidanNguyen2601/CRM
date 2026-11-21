@@ -1,0 +1,71 @@
+@model List<Tag>
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Nhãn & trường tùy biến");
+    var tab = (string)ViewBag.Tab;
+    var usage = (Dictionary<int, int>)ViewBag.Usage;
+    var fields = (List<CustomFieldDef>)ViewBag.Fields;
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(tab == "tags" ? "active" : "")" asp-route-tab="tags">@Icon("category") @T("Nhãn")</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "fields" ? "active" : "")" asp-route-tab="fields">@Icon("file") @T("Trường tùy biến")</a></li>
+</ul>
+@if (tab == "tags")
+{
+    <div class="row g-3">
+        <div class="col-lg-7"><div class="card"><div class="card-body p-0 table-responsive">
+            <table class="table mb-0 align-middle" data-no-grid>
+                <thead><tr><th>@T("Nhãn")</th><th class="text-center">@T("Đang gắn")</th><th style="width:330px">@T("Sửa")</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td><span class="tag-chip" style="--tag:@t.Color">@t.Name</span></td>
+                        <td class="text-center">@usage.GetValueOrDefault(t.Id)</td>
+                        <td><form asp-action="SaveTag" method="post" class="d-flex gap-1">
+                            <input type="hidden" name="id" value="@t.Id" />
+                            <input name="name" value="@t.Name" maxlength="50" class="form-control form-control-sm" aria-label="@T("Tên nhãn")" />
+                            <input type="color" name="color" value="@t.Color" class="form-control form-control-sm form-control-color" aria-label="@T("Màu")" />
+                            <button class="btn btn-sm btn-outline-primary">@T("Lưu")</button></form></td>
+                        <td class="text-end"><form asp-action="DeleteTag" asp-route-id="@t.Id" method="post" data-confirm="@T("Xóa nhãn \"{0}\" (gỡ khỏi {1} bản ghi)?", t.Name, usage.GetValueOrDefault(t.Id))"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form></td>
+                    </tr>
+                }
+                @if (!Model.Any()) { <tr><td colspan="4" class="text-center text-muted p-4">@T("Chưa có nhãn. Gắn nhãn trực tiếp trên trang khách hàng, lead, cơ hội hoặc tạo ở bên phải.")</td></tr> }
+                </tbody>
+            </table>
+        </div></div></div>
+        <div class="col-lg-5">
+            <form asp-action="SaveTag" method="post" class="card"><div class="card-header">@T("Thêm nhãn")</div><div class="card-body d-flex gap-2">
+                <input type="hidden" name="id" value="0" />
+                <input name="name" maxlength="50" class="form-control" placeholder="@T("Vd. VIP, Khách quay lại, Đối thủ dùng X")" required />
+                <input type="color" name="color" value="@TagsController.Colors[1]" class="form-control form-control-color" />
+                <button class="btn btn-primary">@T("Thêm")</button>
+            </div></form>
+            <p class="small text-muted mt-2">@T("Nhãn dùng để phân loại linh hoạt khách hàng, người liên hệ, lead, cơ hội và lọc danh sách theo nhãn.")</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="toolbar"><span class="small text-muted">@T("Trường bổ sung hiển thị trên form và trang chi tiết – doanh nghiệp tự thêm, không cần sửa phần mềm.")</span>
+        <a class="btn btn-primary ms-auto" asp-action="Field">@Icon("plus") @T("Thêm trường")</a></div>
+    <div class="card"><div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>@T("Dùng cho")</th><th>@T("Tên trường")</th><th>@T("Kiểu dữ liệu")</th><th class="text-center">@T("Bắt buộc")</th><th class="text-center">@T("Hiện ở danh sách")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var f in fields)
+            {
+                <tr class="@(f.IsActive ? "" : "text-muted")">
+                    <td>@AuditTrail.TypeLabel(f.EntityType)</td>
+                    <td><a asp-action="Field" asp-route-id="@f.Id" class="fw-semibold">@f.Label</a>@if (f.Type == CustomFieldType.Select) { <div class="small text-muted">@string.Join(", ", f.OptionList)</div> }</td>
+                    <td>@f.Type.GetDisplayName()</td>
+                    <td class="text-center">@(f.Required ? "✓" : "")</td><td class="text-center">@(f.ShowInList ? "✓" : "")</td>
+                    <td>@if (f.IsActive) { <span class="badge bg-success">@T("Đang dùng")</span> } else { <span class="badge bg-secondary">@T("Tắt")</span> }</td>
+                    <td class="text-end"><form asp-action="DeleteField" asp-route-id="@f.Id" method="post" data-confirm="@T("Xóa trường \"{0}\" và toàn bộ dữ liệu đã nhập?", f.Label)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form></td>
+                </tr>
+            }
+            @if (!fields.Any()) { <tr><td colspan="7" class="text-center text-muted p-4">@T("Chưa có trường tùy biến.")</td></tr> }
+            </tbody>
+        </table>
+    </div></div>
+}

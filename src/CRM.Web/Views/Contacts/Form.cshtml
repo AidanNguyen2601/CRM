@@ -4,6 +4,7 @@
 <form asp-action="Save" method="post">
     <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" />
     <input type="hidden" name="returnTo" value="customer" />
+    <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
     <div class="row g-3">
         <div class="col-md-6"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
         <div class="col-md-6"><label asp-for="JobTitle" class="form-label"></label><input asp-for="JobTitle" class="form-control" /></div>
@@ -14,8 +15,28 @@
         @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
         <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="IsPrimary" class="form-check-input" /><label asp-for="IsPrimary" class="form-check-label"></label></div></div>
         <div class="col-12"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" class="form-control" rows="3"></textarea></div>
+        @await Component.InvokeAsync("CustomFields", new { type = "Contact", id = Model.Id, edit = true })
     </div>
     <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>
+@if (Model.Id > 0) { <div class="mt-3" style="max-width:960px"><span class="small text-muted me-2">@T("Nhãn")</span>@await Component.InvokeAsync("Tags", new { type = "Contact", id = Model.Id })</div> }
+@if (Model.Id > 0 && Model.CustomerId.HasValue)
+{
+    <div class="card mt-3" style="max-width:960px"><div class="card-body d-flex flex-wrap gap-2 align-items-center">
+        <span class="fw-semibold">@Icon("globe") @T("Cổng khách hàng")</span>
+        @if (Model.PortalEnabled)
+        {
+            <span class="badge bg-success">@(Model.PortalPasswordHash != null ? T("Đang sử dụng") : T("Đã mời, chưa đặt mật khẩu"))</span>
+            @if (Model.PortalLastLoginAt.HasValue) { <span class="small text-muted">@T("Đăng nhập gần nhất {0}", Model.PortalLastLoginAt.Value.ToDateTime())</span> }
+            <form asp-controller="PortalAccess" asp-action="Invite" asp-route-contactId="@Model.Id" method="post" class="ms-auto"><button class="btn btn-sm btn-outline-primary">@T("Gửi lại lời mời")</button></form>
+            <form asp-controller="PortalAccess" asp-action="Revoke" asp-route-contactId="@Model.Id" method="post" data-confirm="@T("Thu hồi quyền vào cổng khách hàng của {0}?", Model.FullName)"><button class="btn btn-sm btn-outline-danger">@T("Thu hồi")</button></form>
+        }
+        else
+        {
+            <span class="small text-muted">@T("Cho phép người liên hệ tự gửi / theo dõi yêu cầu hỗ trợ, xem hoá đơn và hợp đồng.")</span>
+            <form asp-controller="PortalAccess" asp-action="Invite" asp-route-contactId="@Model.Id" method="post" class="ms-auto"><button class="btn btn-sm btn-primary" @(string.IsNullOrEmpty(Model.Email) ? "disabled" : "")>@Icon("send") @T("Mời vào cổng khách hàng")</button></form>
+        }
+    </div></div>
+}
 </div></div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

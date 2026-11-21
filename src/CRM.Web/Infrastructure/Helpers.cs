@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Security.Claims;
 using CRM.Web.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace CRM.Web.Infrastructure;
 
@@ -53,6 +54,16 @@ public static class QueryExtensions
         if (user.SeesAll()) return q;
         var uid = user.GetUserId();
         return q.Where(x => x.OwnerId == uid);
+    }
+
+    /// <summary>Như VisibleTo nhưng nhân viên thấy thêm bản ghi được chia sẻ cho mình (bảng RecordShares)</summary>
+    public static IQueryable<T> VisibleTo<T>(this IQueryable<T> q, ClaimsPrincipal user, Data.CrmDbContext db) where T : class, IOwned
+    {
+        if (user.SeesAll()) return q;
+        var uid = user.GetUserId();
+        var type = typeof(T).Name;
+        return q.Where(x => x.OwnerId == uid
+            || db.RecordShares.Any(s => s.EntityType == type && s.UserId == uid && s.EntityId == EF.Property<int>(x, "Id")));
     }
 
     public static bool CanAccess(this ClaimsPrincipal user, IOwned item) =>

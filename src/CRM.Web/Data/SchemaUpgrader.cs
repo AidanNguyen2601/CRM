@@ -15,6 +15,7 @@ public static class SchemaUpgrader
         foreach (var sql in BranchSteps()) await db.Database.ExecuteSqlRawAsync(sql);
         await EnsureCatalogCodesAsync(db);
         await ReportingSchema.EnsureAsync(db);
+        await Infrastructure.PlatformDefaults.EnsureAsync(db);
     }
 
     private sealed class CatalogCodeRow
@@ -175,6 +176,326 @@ public static class SchemaUpgrader
                     EXEC(N'CREATE INDEX [IX_{t}_BranchId] ON [dbo].[{t}] ([BranchId])');
                 END
                 """;
+        // ---------- Nền tảng: nhật ký, bảo mật đăng nhập, email, phân quyền, chia sẻ ----------
+        yield return """
+            IF COL_LENGTH(N'dbo.Users', N'FailedLoginCount') IS NULL
+                ALTER TABLE [dbo].[Users] ADD
+                    [FailedLoginCount] int NOT NULL CONSTRAINT [DF_Users_FailedLoginCount] DEFAULT 0,
+                    [LockoutUntil] datetime2 NULL,
+                    [TwoFactorEnabled] bit NOT NULL CONSTRAINT [DF_Users_TwoFactorEnabled] DEFAULT 0,
+                    [TwoFactorSecret] nvarchar(500) NULL,
+                    [PasswordChangedAt] datetime2 NULL,
+                    [EmailNotifications] bit NOT NULL CONSTRAINT [DF_Users_EmailNotifications] DEFAULT 0;
+            IF OBJECT_ID(N'[dbo].[AuditLogs]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[AuditLogs] (
+                    [Id] bigint IDENTITY(1,1) NOT NULL CONSTRAINT [PK_AuditLogs] PRIMARY KEY,
+                    [EntityType] nvarchar(50) NOT NULL,
+                    [EntityId] int NOT NULL,
+                    [Action] nvarchar(20) NOT NULL,
+                    [Title] nvarchar(300) NULL,
+                    [Changes] nvarchar(max) NULL,
+                    [UserId] int NULL,
+                    [UserName] nvarchar(150) NULL,
+                    [Ip] nvarchar(50) NULL,
+                    [At] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_AuditLogs_EntityType_EntityId] ON [dbo].[AuditLogs] ([EntityType], [EntityId]);
+                CREATE INDEX [IX_AuditLogs_At] ON [dbo].[AuditLogs] ([At]);
+            END
+            IF OBJECT_ID(N'[dbo].[LoginLogs]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[LoginLogs] (
+                    [Id] bigint IDENTITY(1,1) NOT NULL CONSTRAINT [PK_LoginLogs] PRIMARY KEY,
+                    [UserId] int NULL,
+                    [Username] nvarchar(50) NOT NULL,
+                    [Success] bit NOT NULL,
+                    [Reason] nvarchar(100) NULL,
+                    [Ip] nvarchar(50) NULL,
+                    [UserAgent] nvarchar(300) NULL,
+                    [At] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_LoginLogs_At] ON [dbo].[LoginLogs] ([At]);
+                CREATE INDEX [IX_LoginLogs_UserId] ON [dbo].[LoginLogs] ([UserId]);
+            END
+            IF OBJECT_ID(N'[dbo].[PasswordResetTokens]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[PasswordResetTokens] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_PasswordResetTokens] PRIMARY KEY,
+                    [UserId] int NOT NULL CONSTRAINT [FK_PasswordResetTokens_Users_UserId] REFERENCES [dbo].[Users] ([Id]),
+                    [TokenHash] nvarchar(100) NOT NULL,
+                    [ExpiresAt] datetime2 NOT NULL,
+                    [UsedAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_PasswordResetTokens_TokenHash] ON [dbo].[PasswordResetTokens] ([TokenHash]);
+                CREATE INDEX [IX_PasswordResetTokens_UserId] ON [dbo].[PasswordResetTokens] ([UserId]);
+            END
+            IF OBJECT_ID(N'[dbo].[EmailMessages]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[EmailMessages] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_EmailMessages] PRIMARY KEY,
+                    [To] nvarchar(500) NOT NULL,
+                    [Cc] nvarchar(500) NULL,
+                    [Subject] nvarchar(300) NOT NULL,
+                    [Body] nvarchar(max) NOT NULL,
+                    [Status] int NOT NULL,
+                    [Attempts] int NOT NULL,
+                    [Error] nvarchar(1000) NULL,
+                    [AttachmentIds] nvarchar(500) NULL,
+                    [RelatedType] nvarchar(30) NULL,
+                    [RelatedId] int NULL,
+                    [CustomerId] int NULL,
+                    [CampaignMemberId] int NULL,
+                    [CreatedById] int NULL CONSTRAINT [FK_EmailMessages_Users_CreatedById] REFERENCES [dbo].[Users] ([Id]),
+                    [CreatedAt] datetime2 NOT NULL,
+                    [SentAt] datetime2 NULL
+                );
+                CREATE INDEX [IX_EmailMessages_Status_CreatedAt] ON [dbo].[EmailMessages] ([Status], [CreatedAt]);
+                CREATE INDEX [IX_EmailMessages_RelatedType_RelatedId] ON [dbo].[EmailMessages] ([RelatedType], [RelatedId]);
+                CREATE INDEX [IX_EmailMessages_CustomerId] ON [dbo].[EmailMessages] ([CustomerId]);
+                CREATE INDEX [IX_EmailMessages_CreatedById] ON [dbo].[EmailMessages] ([CreatedById]);
+            END
+            IF OBJECT_ID(N'[dbo].[EmailTemplates]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[EmailTemplates] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_EmailTemplates] PRIMARY KEY,
+                    [Name] nvarchar(150) NOT NULL,
+                    [Code] nvarchar(50) NULL,
+                    [Scope] nvarchar(30) NULL,
+                    [Subject] nvarchar(300) NOT NULL,
+                    [Body] nvarchar(max) NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [UpdatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_EmailTemplates_Code] ON [dbo].[EmailTemplates] ([Code]);
+            END
+            IF OBJECT_ID(N'[dbo].[RolePermissions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[RolePermissions] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_RolePermissions] PRIMARY KEY,
+                    [Role] nvarchar(20) NOT NULL,
+                    [Permission] nvarchar(60) NOT NULL,
+                    [Allowed] bit NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_RolePermissions_Role_Permission] ON [dbo].[RolePermissions] ([Role], [Permission]);
+            END
+            IF OBJECT_ID(N'[dbo].[RecordShares]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[RecordShares] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_RecordShares] PRIMARY KEY,
+                    [EntityType] nvarchar(30) NOT NULL,
+                    [EntityId] int NOT NULL,
+                    [UserId] int NOT NULL CONSTRAINT [FK_RecordShares_Users_UserId] REFERENCES [dbo].[Users] ([Id]),
+                    [CanEdit] bit NOT NULL,
+                    [SharedById] int NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_RecordShares_EntityType_EntityId_UserId] ON [dbo].[RecordShares] ([EntityType], [EntityId], [UserId]);
+                CREATE INDEX [IX_RecordShares_UserId] ON [dbo].[RecordShares] ([UserId]);
+            END
+            """;
+
+        // ---------- Vận hành bán hàng: tự động hoá, bảng giá, nhãn, trường tùy biến, định kỳ ----------
+        yield return """
+            IF COL_LENGTH(N'dbo.Leads', N'Score') IS NULL
+                ALTER TABLE [dbo].[Leads] ADD [Score] int NOT NULL CONSTRAINT [DF_Leads_Score] DEFAULT 0;
+            IF COL_LENGTH(N'dbo.Quotes', N'ApprovalStatus') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Quotes] ADD
+                    [ApprovalStatus] int NOT NULL CONSTRAINT [DF_Quotes_ApprovalStatus] DEFAULT 0,
+                    [EffectiveDiscount] decimal(5,2) NOT NULL CONSTRAINT [DF_Quotes_EffectiveDiscount] DEFAULT 0,
+                    [DiscountApprovedById] int NULL CONSTRAINT [FK_Quotes_Users_DiscountApprovedById] REFERENCES [dbo].[Users] ([Id]),
+                    [DiscountApprovedAt] datetime2 NULL,
+                    [ApprovalNote] nvarchar(500) NULL;
+                EXEC(N'CREATE INDEX [IX_Quotes_DiscountApprovedById] ON [dbo].[Quotes] ([DiscountApprovedById])');
+            END
+            IF COL_LENGTH(N'dbo.Contracts', N'BillingCycle') IS NULL
+                ALTER TABLE [dbo].[Contracts] ADD
+                    [BillingCycle] int NOT NULL CONSTRAINT [DF_Contracts_BillingCycle] DEFAULT 0,
+                    [RecurringAmount] decimal(18,0) NOT NULL CONSTRAINT [DF_Contracts_RecurringAmount] DEFAULT 0,
+                    [NextBillingDate] datetime2 NULL,
+                    [RenewalNoticeDays] int NOT NULL CONSTRAINT [DF_Contracts_RenewalNoticeDays] DEFAULT 60,
+                    [RenewalOpportunityId] int NULL,
+                    [RenewedFromId] int NULL;
+            IF OBJECT_ID(N'[dbo].[PriceLists]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[PriceLists] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_PriceLists] PRIMARY KEY,
+                    [Name] nvarchar(150) NOT NULL,
+                    [Description] nvarchar(500) NULL,
+                    [ValidFrom] datetime2 NULL,
+                    [ValidTo] datetime2 NULL,
+                    [IsActive] bit NOT NULL,
+                    [UpdatedAt] datetime2 NOT NULL
+                );
+                CREATE TABLE [dbo].[PriceListItems] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_PriceListItems] PRIMARY KEY,
+                    [PriceListId] int NOT NULL CONSTRAINT [FK_PriceListItems_PriceLists_PriceListId] REFERENCES [dbo].[PriceLists] ([Id]),
+                    [ProductId] int NOT NULL CONSTRAINT [FK_PriceListItems_Products_ProductId] REFERENCES [dbo].[Products] ([Id]),
+                    [Price] decimal(18,0) NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_PriceListItems_PriceListId_ProductId] ON [dbo].[PriceListItems] ([PriceListId], [ProductId]);
+                CREATE INDEX [IX_PriceListItems_ProductId] ON [dbo].[PriceListItems] ([ProductId]);
+            END
+            IF COL_LENGTH(N'dbo.Customers', N'PriceListId') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Customers] ADD [PriceListId] int NULL CONSTRAINT [FK_Customers_PriceLists_PriceListId] REFERENCES [dbo].[PriceLists] ([Id]);
+                EXEC(N'CREATE INDEX [IX_Customers_PriceListId] ON [dbo].[Customers] ([PriceListId])');
+            END
+            IF OBJECT_ID(N'[dbo].[AutomationRules]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[AutomationRules] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_AutomationRules] PRIMARY KEY,
+                    [Name] nvarchar(150) NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [Trigger] int NOT NULL,
+                    [Days] int NULL,
+                    [Condition] int NULL,
+                    [Action] int NOT NULL,
+                    [Assignee] int NOT NULL,
+                    [AssigneeUserId] int NULL CONSTRAINT [FK_AutomationRules_Users_AssigneeUserId] REFERENCES [dbo].[Users] ([Id]),
+                    [Title] nvarchar(200) NULL,
+                    [Message] nvarchar(1000) NULL,
+                    [TaskDueDays] int NOT NULL,
+                    [TaskPriority] int NOT NULL,
+                    [EmailTemplateId] int NULL,
+                    [RunCount] int NOT NULL,
+                    [LastRunAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_AutomationRules_AssigneeUserId] ON [dbo].[AutomationRules] ([AssigneeUserId]);
+                CREATE INDEX [IX_AutomationRules_Trigger_IsActive] ON [dbo].[AutomationRules] ([Trigger], [IsActive]);
+                CREATE TABLE [dbo].[AutomationLogs] (
+                    [Id] bigint IDENTITY(1,1) NOT NULL CONSTRAINT [PK_AutomationLogs] PRIMARY KEY,
+                    [RuleId] int NOT NULL,
+                    [EntityType] nvarchar(30) NOT NULL,
+                    [EntityId] int NOT NULL,
+                    [Key] nvarchar(60) NOT NULL,
+                    [Result] nvarchar(300) NULL,
+                    [At] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_AutomationLogs_RuleId_EntityType_EntityId_Key] ON [dbo].[AutomationLogs] ([RuleId], [EntityType], [EntityId], [Key]);
+            END
+            IF OBJECT_ID(N'[dbo].[Tags]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[Tags] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_Tags] PRIMARY KEY,
+                    [Name] nvarchar(50) NOT NULL,
+                    [Color] nvarchar(7) NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_Tags_Name] ON [dbo].[Tags] ([Name]);
+                CREATE TABLE [dbo].[EntityTags] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_EntityTags] PRIMARY KEY,
+                    [TagId] int NOT NULL CONSTRAINT [FK_EntityTags_Tags_TagId] REFERENCES [dbo].[Tags] ([Id]),
+                    [EntityType] nvarchar(30) NOT NULL,
+                    [EntityId] int NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_EntityTags_TagId_EntityType_EntityId] ON [dbo].[EntityTags] ([TagId], [EntityType], [EntityId]);
+                CREATE INDEX [IX_EntityTags_EntityType_EntityId] ON [dbo].[EntityTags] ([EntityType], [EntityId]);
+            END
+            IF OBJECT_ID(N'[dbo].[CustomFieldDefs]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[CustomFieldDefs] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_CustomFieldDefs] PRIMARY KEY,
+                    [EntityType] nvarchar(30) NOT NULL,
+                    [Label] nvarchar(100) NOT NULL,
+                    [Type] int NOT NULL,
+                    [Options] nvarchar(2000) NULL,
+                    [Required] bit NOT NULL,
+                    [ShowInList] bit NOT NULL,
+                    [SortOrder] int NOT NULL,
+                    [IsActive] bit NOT NULL
+                );
+                CREATE INDEX [IX_CustomFieldDefs_EntityType] ON [dbo].[CustomFieldDefs] ([EntityType]);
+                CREATE TABLE [dbo].[CustomFieldValues] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_CustomFieldValues] PRIMARY KEY,
+                    [FieldId] int NOT NULL CONSTRAINT [FK_CustomFieldValues_CustomFieldDefs_FieldId] REFERENCES [dbo].[CustomFieldDefs] ([Id]),
+                    [EntityId] int NOT NULL,
+                    [Value] nvarchar(1000) NULL
+                );
+                CREATE UNIQUE INDEX [IX_CustomFieldValues_FieldId_EntityId] ON [dbo].[CustomFieldValues] ([FieldId], [EntityId]);
+            END
+            """;
+
+        // ---------- Chăm sóc khách hàng nâng cao: kho kiến thức, email → phiếu, cổng khách hàng, NPS ----------
+        yield return """
+            IF COL_LENGTH(N'dbo.Contacts', N'PortalEnabled') IS NULL
+                ALTER TABLE [dbo].[Contacts] ADD
+                    [PortalEnabled] bit NOT NULL CONSTRAINT [DF_Contacts_PortalEnabled] DEFAULT 0,
+                    [PortalPasswordHash] nvarchar(500) NULL,
+                    [PortalLastLoginAt] datetime2 NULL;
+            IF COL_LENGTH(N'dbo.Tickets', N'ReporterEmail') IS NULL
+                ALTER TABLE [dbo].[Tickets] ADD [ReporterEmail] nvarchar(150) NULL;
+            IF COL_LENGTH(N'dbo.TicketComments', N'FromCustomer') IS NULL
+                ALTER TABLE [dbo].[TicketComments] ADD
+                    [FromCustomer] bit NOT NULL CONSTRAINT [DF_TicketComments_FromCustomer] DEFAULT 0,
+                    [AuthorName] nvarchar(150) NULL;
+            IF OBJECT_ID(N'[dbo].[KbArticles]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[KbArticles] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_KbArticles] PRIMARY KEY,
+                    [Title] nvarchar(200) NOT NULL,
+                    [Category] nvarchar(100) NULL,
+                    [Body] nvarchar(max) NOT NULL,
+                    [Keywords] nvarchar(300) NULL,
+                    [IsPublic] bit NOT NULL,
+                    [IsTemplate] bit NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [Views] int NOT NULL,
+                    [Helpful] int NOT NULL,
+                    [NotHelpful] int NOT NULL,
+                    [AuthorId] int NULL CONSTRAINT [FK_KbArticles_Users_AuthorId] REFERENCES [dbo].[Users] ([Id]),
+                    [CreatedAt] datetime2 NOT NULL,
+                    [UpdatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_KbArticles_AuthorId] ON [dbo].[KbArticles] ([AuthorId]);
+                CREATE INDEX [IX_KbArticles_Category] ON [dbo].[KbArticles] ([Category]);
+            END
+            IF OBJECT_ID(N'[dbo].[InboundMessages]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[InboundMessages] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_InboundMessages] PRIMARY KEY,
+                    [MessageKey] nvarchar(300) NOT NULL,
+                    [From] nvarchar(200) NULL,
+                    [Subject] nvarchar(300) NULL,
+                    [TicketId] int NULL,
+                    [Result] nvarchar(20) NULL,
+                    [ReceivedAt] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_InboundMessages_MessageKey] ON [dbo].[InboundMessages] ([MessageKey]);
+            END
+            IF OBJECT_ID(N'[dbo].[NpsSurveys]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[NpsSurveys] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_NpsSurveys] PRIMARY KEY,
+                    [Name] nvarchar(150) NOT NULL,
+                    [Question] nvarchar(300) NOT NULL,
+                    [Status] int NOT NULL,
+                    [CreatedById] int NULL CONSTRAINT [FK_NpsSurveys_Users_CreatedById] REFERENCES [dbo].[Users] ([Id]),
+                    [CreatedAt] datetime2 NOT NULL,
+                    [SentAt] datetime2 NULL
+                );
+                CREATE INDEX [IX_NpsSurveys_CreatedById] ON [dbo].[NpsSurveys] ([CreatedById]);
+                CREATE TABLE [dbo].[NpsResponses] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_NpsResponses] PRIMARY KEY,
+                    [SurveyId] int NOT NULL CONSTRAINT [FK_NpsResponses_NpsSurveys_SurveyId] REFERENCES [dbo].[NpsSurveys] ([Id]),
+                    [ContactId] int NULL CONSTRAINT [FK_NpsResponses_Contacts_ContactId] REFERENCES [dbo].[Contacts] ([Id]),
+                    [CustomerId] int NULL CONSTRAINT [FK_NpsResponses_Customers_CustomerId] REFERENCES [dbo].[Customers] ([Id]),
+                    [Email] nvarchar(150) NOT NULL,
+                    [Token] nvarchar(64) NOT NULL,
+                    [Score] int NULL,
+                    [Comment] nvarchar(2000) NULL,
+                    [SentAt] datetime2 NULL,
+                    [RespondedAt] datetime2 NULL
+                );
+                CREATE UNIQUE INDEX [IX_NpsResponses_Token] ON [dbo].[NpsResponses] ([Token]);
+                CREATE INDEX [IX_NpsResponses_SurveyId] ON [dbo].[NpsResponses] ([SurveyId]);
+                CREATE INDEX [IX_NpsResponses_ContactId] ON [dbo].[NpsResponses] ([ContactId]);
+                CREATE INDEX [IX_NpsResponses_CustomerId] ON [dbo].[NpsResponses] ([CustomerId]);
+            END
+            """;
+
         // ---------- Kế hoạch bán hàng ----------
         yield return """
             IF OBJECT_ID(N'[dbo].[SalesPlans]', N'U') IS NULL

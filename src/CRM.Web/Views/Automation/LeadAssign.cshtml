@@ -1,0 +1,50 @@
+@model LeadAssignSettings
+@{
+    ViewData["Title"] = T("Tự động hoá");
+    var users = (List<AppUser>)ViewBag.Users;
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link" asp-action="Index">@Icon("kanban") @T("Quy tắc tự động")</a></li>
+    <li class="nav-item"><a class="nav-link active" asp-action="LeadAssign">@Icon("lead") @T("Tự phân bổ lead")</a></li>
+</ul>
+<form asp-action="LeadAssign" method="post" style="max-width:900px">
+    <div class="card mb-3"><div class="card-body">
+        <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="enabled" value="true" id="en" @(Model.Enabled ? "checked" : "") />
+            <label class="form-check-label fw-semibold" for="en">@T("Bật tự phân bổ lead")</label>
+            <div class="form-text">@T("Áp dụng khi quản lý tạo lead chọn \"Tự phân bổ\", khi nhập lead từ Excel không ghi người phụ trách, và khi bấm \"Phân bổ\" trên danh sách lead.")</div></div>
+        <label class="form-label">@T("Cách phân bổ")</label>
+        @foreach (var (v, label, hint) in new[] {
+            ("roundrobin", T("Lần lượt (xoay vòng)"), T("Chia đều theo thứ tự cho các nhân viên được chọn")),
+            ("least", T("Ít việc nhất"), T("Giao cho nhân viên đang có ít lead mở nhất")),
+            ("source", T("Theo nguồn lead"), T("Mỗi nguồn giao cho một nhân viên; nguồn chưa gán thì xoay vòng")) })
+        {
+            <div class="form-check"><input class="form-check-input" type="radio" name="method" id="m-@v" value="@v" @(Model.Method == v ? "checked" : "") />
+                <label class="form-check-label" for="m-@v">@label <span class="small text-muted">– @hint</span></label></div>
+        }
+    </div></div>
+    <div class="card mb-3"><div class="card-header">@T("Nhân viên nhận lead")</div><div class="card-body">
+        <div class="row g-2">
+            @foreach (var u in users)
+            {
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="userIds" value="@u.Id" id="u-@u.Id" @(Model.UserIds.Contains(u.Id) ? "checked" : "") />
+                    <label class="form-check-label" for="u-@u.Id">@u.FullName <span class="small text-muted">(@AppRoles.DisplayName(u.Role))</span></label></div></div>
+            }
+        </div>
+    </div></div>
+    <div class="card mb-3" id="sourceRules"><div class="card-header">@T("Theo nguồn lead")</div><div class="card-body row g-2">
+        @foreach (var s in Enum.GetValues<LeadSource>())
+        {
+            <div class="col-md-6 d-flex align-items-center gap-2"><span class="small" style="min-width:150px">@s.GetDisplayName()</span>
+                <select name="src_@((int)s)" class="form-select form-select-sm"><option value="">@T("-- Xoay vòng --")</option>
+                    @foreach (var u in users) { <option value="@u.Id" selected="@(Model.SourceRules.GetValueOrDefault((int)s) == u.Id)">@u.FullName</option> }</select></div>
+        }
+    </div></div>
+    <button class="btn btn-primary">@T("Lưu cấu hình")</button>
+</form>
+@section Scripts {
+<script>
+    const sr = document.getElementById('sourceRules');
+    function upd() { sr.classList.toggle('d-none', document.querySelector('input[name="method"]:checked')?.value !== 'source'); }
+    document.querySelectorAll('input[name="method"]').forEach(r => r.addEventListener('change', upd)); upd();
+</script>
+}

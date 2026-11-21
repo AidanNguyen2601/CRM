@@ -67,6 +67,9 @@ public class UsersController : Controller
             ModelState.AddModelError(nameof(vm.Username), I18n.T("Tên đăng nhập đã tồn tại"));
         if (vm.Id == 0 && string.IsNullOrWhiteSpace(vm.Password))
             ModelState.AddModelError(nameof(vm.Password), I18n.T("Vui lòng nhập mật khẩu"));
+        if (!string.IsNullOrWhiteSpace(vm.Password)
+            && (await HttpContext.RequestServices.GetRequiredService<SettingsStore>().GetAsync<SecuritySettings>(SecuritySettings.Key)).Validate(vm.Password, vm.Username) is { } pwdErr)
+            ModelState.AddModelError(nameof(vm.Password), pwdErr);
         if (!await _db.Branches.AnyAsync(b => b.Id == vm.BranchId))
             ModelState.AddModelError(nameof(vm.BranchId), I18n.T("Vui lòng chọn đơn vị"));
         if (vm.Id == User.GetUserId() && (!vm.IsActive || vm.Role != AppRoles.Admin))
@@ -91,13 +94,39 @@ public class UsersController : Controller
         user.IsActive = vm.IsActive;
         var oldBranch = user.BranchId;
         user.BranchId = vm.BranchId;
-        if (!string.IsNullOrWhiteSpace(vm.Password)) user.PasswordHash = _hasher.HashPassword(user, vm.Password);
+        if (!string.IsNullOrWhiteSpace(vm.Password)) { user.PasswordHash = _hasher.HashPassword(user, vm.Password); user.PasswordChangedAt = null; user.FailedLoginCount = 0; user.LockoutUntil = null; }   // quản trị đặt mật khẩu → coi như mật khẩu tạm
         await _db.SaveChangesAsync();
         var moved = vm.Id != 0 && oldBranch != vm.BranchId && vm.MoveData ? await BranchOps.MoveUserDataAsync(_db, user.Id, vm.BranchId) : 0;
         _branches.Invalidate();
         TempData["Success"] = moved > 0
             ? I18n.T("Đã lưu tài khoản {0} và chuyển {1} bản ghi sang đơn vị mới.", user.Username, moved)
             : I18n.T("Đã lưu tài khoản {0}.", user.Username);
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Mở khóa tài khoản đang bị khóa tạm do đăng nhập sai</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Unlock(int id)
+    {
+        var u = await _db.Users.FindAsync(id);
+        if (u == null) return NotFound();
+        u.LockoutUntil = null; u.FailedLoginCount = 0;
+        AuditTrail.Write(_db, "Security", u.Id, "Unlock", I18n.T("Mở khóa tài khoản: {0}", u.Username));
+        await _db.SaveChangesAsync();
+        TempData["Success"] = I18n.T("Đã mở khóa tài khoản {0}.", u.Username);
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Đặt lại xác thực 2 lớp (người dùng mất điện thoại) – lần đăng nhập sau thiết lập lại</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetTwoFactor(int id)
+    {
+        var u = await _db.Users.FindAsync(id);
+        if (u == null) return NotFound();
+        u.TwoFactorEnabled = false; u.TwoFactorSecret = null;
+        AuditTrail.Write(_db, "Security", u.Id, "Reset", I18n.T("Đặt lại xác thực 2 lớp: {0}", u.Username));
+        await _db.SaveChangesAsync();
+        TempData["Success"] = I18n.T("Đã tắt xác thực 2 lớp của {0}. Người dùng có thể thiết lập lại sau khi đăng nhập.", u.Username);
         return RedirectToAction(nameof(Index));
     }
 

@@ -27,6 +27,9 @@
             <h5 class="mb-0">@Model.FullName</h5>
             <div class="text-muted mb-2">@Model.JobTitle @(Model.Company != null ? "· " + Model.Company : "")</div>
             <partial name="_Badge" model="Model.Status" /> <partial name="_Badge" model="Model.Rating" />
+            @{ var sb = (List<LeadScoring.Breakdown>)ViewBag.ScoreBreakdown; var sc = LeadScoring.Score(sb); }
+            <span class="badge @LeadScoring.Css(sc)" title="@T("Điểm lead 0–100: mức độ, nguồn, thông tin, giá trị dự kiến, tương tác")">@T("Điểm {0}/100", sc)</span>
+            @if (sb.Any()) { <div class="small text-muted mt-1">@string.Join(" · ", sb.Select(x => x.Label + " +" + x.Points))</div> }
             <hr />
             <dl class="row small mb-0 info">
                 <dt class="col-5">@T("Điện thoại")</dt><dd class="col-7">@Model.Phone</dd>
@@ -42,6 +45,8 @@
                 <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@Model.CreatedAt.ToDate()</dd>
             </dl>
             @if (!string.IsNullOrEmpty(Model.Description)) { <hr /><div class="small pre">@Model.Description</div> }
+            <hr /><div class="mb-2">@await Component.InvokeAsync("Tags", new { type = "Lead", id = Model.Id })</div>
+            @await Component.InvokeAsync("CustomFields", new { type = "Lead", id = Model.Id })
         </div></div>
     </div>
     <div class="col-lg-8">
@@ -52,3 +57,5 @@
 </div>
 
 <div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Lead, id = Model.Id, hint = T("Yêu cầu, tài liệu khách gửi, danh thiếp…") })</div>
+<div class="mt-3" style="max-width:640px">@await Component.InvokeAsync("Shares", new { type = "Lead", id = Model.Id })</div>
+<div class="mt-3">@await Component.InvokeAsync("AuditTrail", new { type = "Lead", id = Model.Id })</div>

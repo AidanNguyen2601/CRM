@@ -30,6 +30,14 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         o.AccessDeniedPath = "/Account/AccessDenied";
         o.ExpireTimeSpan = TimeSpan.FromHours(8);
         o.SlidingExpiration = true;
+    })
+    // Cổng khách hàng: cookie riêng cho người liên hệ của khách hàng (không dùng chung với nhân viên)
+    .AddCookie(CRM.Web.Controllers.PortalController.Scheme, o =>
+    {
+        o.LoginPath = "/Portal/Login";
+        o.Cookie.Name = "crm.portal";
+        o.ExpireTimeSpan = TimeSpan.FromHours(8);
+        o.SlidingExpiration = true;
     });
 
 // Mặc định mọi trang đều yêu cầu đăng nhập (trừ [AllowAnonymous])
@@ -37,6 +45,9 @@ builder.Services.AddControllersWithViews(o =>
 {
     var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     o.Filters.Add(new AuthorizeFilter(policy));
+    o.Filters.Add(new SecurityRequirementFilter());   // buộc thiết lập 2 lớp / đổi mật khẩu hết hạn
+    o.Filters.Add<PermissionFilter>();   // phân quyền chi tiết theo chức năng
+    o.Filters.Add<AutomationFilter>();    // chạy quy tắc tự động sau khi lưu dữ liệu
 })
 .AddDataAnnotationsLocalization(); // Display / ErrorMessage dịch qua I18nStringLocalizer
 
@@ -72,6 +83,7 @@ builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<BranchDirectory>();
+builder.Services.AddSingleton<PermissionService>();
 builder.Services.AddScoped<BranchScope>();
 builder.Services.AddScoped<UiSettingsService>();
 builder.Services.AddScoped<NotificationService>();
@@ -80,6 +92,19 @@ builder.Services.AddSingleton<CatalogService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<KpiService>();
 builder.Services.AddScoped<SalesPlanService>();
+builder.Services.AddScoped<SettingsStore>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<EmailComposer>();
+builder.Services.AddScoped<ImportService>();
+builder.Services.AddScoped<MergeService>();
+builder.Services.AddScoped<AutomationService>();
+builder.Services.AddScoped<LeadAssignService>();
+builder.Services.AddScoped<RenewalService>();
+builder.Services.AddScoped<PricingService>();
+builder.Services.AddScoped<InboundService>();
+builder.Services.AddHostedService<InboundWorker>();
+builder.Services.AddHostedService<AutomationWorker>();
+builder.Services.AddHostedService<EmailWorker>();
 builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.CustomReportService>();
 builder.Services.AddScoped<CampaignService>();
 builder.Services.AddScoped<Customer360Service>();

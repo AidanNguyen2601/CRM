@@ -8,6 +8,7 @@
     <div><label class="form-label small mb-1">@T("Đơn vị")</label>
         <select name="branchId" class="form-select" asp-items="ViewBag.BranchOptions" onchange="this.form.submit()"><option value="">@T("-- Toàn chuỗi --")</option></select></div>
     <a class="btn btn-outline-secondary" asp-controller="Branches" asp-action="Index">@Icon("branch") @T("Công ty & chi nhánh")</a>
+    <a class="btn btn-outline-secondary" asp-controller="Security" asp-action="Index">@Icon("key") @T("Bảo mật & phân quyền")</a>
     <a class="btn btn-primary ms-auto" asp-action="Create" asp-route-branchId="@ViewBag.BranchId">@T("+ Thêm người dùng")</a>
 </form>
 <div class="card"><div class="card-body p-0">
@@ -22,9 +23,14 @@
             <td><span class="badge bg-primary">@AppRoles.DisplayName(u.Role)</span></td>
             <td class="small" title="@snap.PathOf(u.BranchId)">@snap.NameOf(u.BranchId)</td>
             <td class="text-center">@s.Leads</td><td class="text-center">@s.Opps</td><td class="text-center">@s.Customers</td>
-            <td>@(u.IsActive ? Html.Raw($"<span class='badge bg-success'>{T("Hoạt động")}</span>") : Html.Raw($"<span class='badge bg-secondary'>{T("Đã khóa")}</span>"))</td>
+            <td>@(u.IsActive ? Html.Raw($"<span class='badge bg-success'>{T("Hoạt động")}</span>") : Html.Raw($"<span class='badge bg-secondary'>{T("Đã khóa")}</span>"))
+                @if (u.LockoutUntil > DateTime.Now) { <span class="badge bg-danger" title="@u.LockoutUntil?.ToString("HH:mm dd/MM")">@T("Khóa tạm")</span> }
+                @if (u.TwoFactorEnabled) { <span class="badge bg-light text-success border" title="@T("Xác thực 2 lớp")">2FA</span> }</td>
             <td>@u.LastLoginAt?.ToString("dd/MM/yyyy HH:mm")</td>
-            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@u.Id">@T("Sửa")</a></td>
+            <td class="text-end"><div class="d-inline-flex gap-1">
+                @if (u.LockoutUntil > DateTime.Now) { <form asp-action="Unlock" asp-route-id="@u.Id" method="post"><button class="btn btn-sm btn-outline-success">@T("Mở khóa")</button></form> }
+                @if (u.TwoFactorEnabled) { <form asp-action="ResetTwoFactor" asp-route-id="@u.Id" method="post" data-confirm="@T("Tắt xác thực 2 lớp của {0} (khi người dùng mất điện thoại)?", u.Username)"><button class="btn btn-sm btn-outline-warning">@T("Đặt lại 2FA")</button></form> }
+                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@u.Id">@T("Sửa")</a></div></td>
         </tr>
     }
     </tbody>

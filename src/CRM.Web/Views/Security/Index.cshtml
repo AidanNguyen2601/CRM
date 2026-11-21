@@ -1,0 +1,113 @@
+@model SecuritySettings
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Bảo mật & phân quyền");
+    var tab = (string)ViewBag.Tab;
+    var locked = (List<string>)ViewBag.Locked;
+    string Chk(bool b) => b ? "checked" : "";
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(tab == "policy" ? "active" : "")" asp-route-tab="policy">@Icon("key") @T("Chính sách đăng nhập")</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "perms" ? "active" : "")" asp-route-tab="perms">@Icon("users") @T("Phân quyền theo vai trò")</a></li>
+    <li class="nav-item ms-auto"><a class="nav-link" asp-controller="Audit" asp-action="Logins">@Icon("clock") @T("Lịch sử đăng nhập")</a></li>
+</ul>
+
+@if (tab == "policy")
+{
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <form asp-action="SavePolicy" method="post">
+                <div class="card mb-3"><div class="card-header">@T("Mật khẩu")</div><div class="card-body row g-3">
+                    <div class="col-md-4"><label class="form-label">@T("Độ dài tối thiểu")</label><input asp-for="MinLength" type="number" min="6" max="64" class="form-control" /></div>
+                    <div class="col-md-8"><label class="form-label">@T("Hết hạn sau (ngày, 0 = không bắt buộc đổi)")</label><input asp-for="PasswordExpiryDays" type="number" min="0" class="form-control" style="max-width:160px" /></div>
+                    <div class="col-12">
+                        <div class="form-check"><input class="form-check-input" type="checkbox" asp-for="RequireLetterAndDigit" /><label class="form-check-label" asp-for="RequireLetterAndDigit">@T("Có cả chữ và số")</label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" asp-for="RequireUpperLower" /><label class="form-check-label" asp-for="RequireUpperLower">@T("Có chữ hoa và chữ thường")</label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" asp-for="RequireSpecial" /><label class="form-check-label" asp-for="RequireSpecial">@T("Có ký tự đặc biệt")</label></div>
+                        <div class="form-text">@T("Áp dụng khi tạo / đổi / đặt lại mật khẩu. Mật khẩu hiện có không bị ảnh hưởng (dùng \"hết hạn\" để buộc đổi).")</div>
+                    </div>
+                </div></div>
+                <div class="card mb-3"><div class="card-header">@T("Khóa tài khoản khi đăng nhập sai")</div><div class="card-body row g-3">
+                    <div class="col-md-6"><label class="form-label">@T("Số lần sai liên tiếp (0 = không khóa)")</label><input asp-for="MaxFailedAttempts" type="number" min="0" class="form-control" /></div>
+                    <div class="col-md-6"><label class="form-label">@T("Thời gian khóa (phút)")</label><input asp-for="LockoutMinutes" type="number" min="1" class="form-control" /></div>
+                    <div class="col-12 form-text">@T("Khi một tài khoản bị khóa, quản trị nhận thông báo; có thể mở khóa sớm ở trang Người dùng.")</div>
+                </div></div>
+                <div class="card mb-3"><div class="card-header">@T("Bắt buộc xác thực 2 lớp")</div><div class="card-body">
+                    @foreach (var r in AppRoles.All)
+                    {
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="twoFactorRoles" value="@r" id="tf-@r" @Chk(Model.RequireTwoFactorRoles.Contains(r)) />
+                            <label class="form-check-label" for="tf-@r">@AppRoles.DisplayName(r)</label></div>
+                    }
+                    <div class="form-text">@T("Người dùng thuộc vai trò được chọn phải thiết lập ứng dụng Authenticator ở lần đăng nhập tiếp theo trước khi dùng hệ thống.")</div>
+                </div></div>
+                <button class="btn btn-primary">@T("Lưu chính sách")</button>
+            </form>
+        </div>
+        <div class="col-lg-4">
+            <div class="card"><div class="card-body small">
+                <div class="mb-2">@T("Xác thực 2 lớp đang bật:") <b>@ViewBag.TwoFactorCount / @ViewBag.UserCount</b> @T("người dùng")</div>
+                <div class="mb-2">@T("Đang bị khóa tạm:") <b>@locked.Count</b> @if (locked.Any()) { <span class="text-danger">(@string.Join(", ", locked))</span> }</div>
+                <a asp-controller="Users" asp-action="Index">@T("Quản lý người dùng")</a>
+            </div></div>
+        </div>
+    </div>
+}
+else
+{
+    <form asp-action="SavePermissions" method="post">
+        <div class="card"><div class="card-body p-0 table-responsive">
+            <table class="table table-sm table-hover mb-0 perm-matrix" data-no-grid>
+                <thead>
+                    <tr><th rowspan="2">@T("Chức năng")</th><th rowspan="2">@T("Thao tác")</th>
+                        <th class="text-center text-muted" title="@T("Quản trị hệ thống luôn có đủ quyền")">@AppRoles.DisplayName(AppRoles.Admin)</th>
+                        @foreach (var r in PermissionService.Roles) { <th class="text-center">@AppRoles.DisplayName(r)<div><button type="button" class="btn btn-link btn-sm p-0 perm-col" data-role="@r">@T("Bật / tắt cả cột")</button></div></th> }</tr>
+                </thead>
+                <tbody>
+                @foreach (var m in PermissionService.Modules)
+                {
+                    var first = true;
+                    foreach (var op in m.Ops)
+                    {
+                        var key = m.Key + "." + op;
+                        <tr class="@(first ? "perm-first" : "")">
+                            @if (first) { <td rowspan="@m.Ops.Length" class="fw-semibold">@T(m.Label)</td> }
+                            <td>@PermissionService.OpLabel(op)</td>
+                            <td class="text-center text-muted">✓</td>
+                            @foreach (var r in PermissionService.Roles)
+                            {
+                                <td class="text-center"><input class="form-check-input" type="checkbox" name="allow" value="@r|@key" data-role="@r" data-op="@op" data-module="@m.Key" @Chk(Perms.RoleCan(r, key)) aria-label="@r @key" /></td>
+                            }
+                        </tr>
+                        first = false;
+                    }
+                }
+                @foreach (var (key, label) in PermissionService.Fields)
+                {
+                    <tr class="perm-first"><td class="fw-semibold">@T("Dữ liệu nhạy cảm")</td><td>@T(label)</td><td class="text-center text-muted">✓</td>
+                        @foreach (var r in PermissionService.Roles) { <td class="text-center"><input class="form-check-input" type="checkbox" name="allow" value="@r|@key" data-role="@r" @Chk(Perms.RoleCan(r, key)) /></td> }</tr>
+                }
+                </tbody>
+            </table>
+        </div></div>
+        <div class="d-flex gap-2 mt-3 align-items-center flex-wrap">
+            <button class="btn btn-primary">@T("Lưu phân quyền")</button>
+            <button class="btn btn-outline-secondary" formaction="@Url.Action("ResetPermissions")" data-confirm-click="@T("Khôi phục mặc định: bật lại tất cả quyền cho mọi vai trò?")">@T("Khôi phục mặc định")</button>
+            <span class="small text-muted">@T("Bỏ chọn \"Xem\" sẽ ẩn chức năng khỏi menu. Phân quyền này áp dụng thêm trên giới hạn sẵn có: nhân viên chỉ thấy bản ghi mình phụ trách hoặc được chia sẻ, trong phạm vi đơn vị.")</span>
+        </div>
+    </form>
+}
+@section Scripts {
+<script>
+    // Bỏ "Xem" của một chức năng → bỏ luôn các thao tác khác; bật thao tác → tự bật "Xem"
+    document.querySelectorAll('.perm-matrix input[data-module]').forEach(cb => cb.addEventListener('change', () => {
+        const sel = '.perm-matrix input[data-role="' + cb.dataset.role + '"][data-module="' + cb.dataset.module + '"]';
+        if (cb.dataset.op === 'View' && !cb.checked) document.querySelectorAll(sel).forEach(x => x.checked = false);
+        if (cb.dataset.op !== 'View' && cb.checked) { const v = document.querySelector(sel + '[data-op="View"]'); if (v) v.checked = true; }
+    }));
+    document.querySelectorAll('.perm-col').forEach(b => b.addEventListener('click', () => {
+        const boxes = [...document.querySelectorAll('.perm-matrix input[data-role="' + b.dataset.role + '"]')];
+        const on = !boxes.every(x => x.checked);
+        boxes.forEach(x => x.checked = on);
+    }));
+</script>
+}

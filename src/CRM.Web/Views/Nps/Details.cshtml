@@ -1,0 +1,45 @@
+@model NpsSurvey
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = Model.Name;
+    var st = (NpsStats)ViewBag.Stats;
+    var dist = Enumerable.Range(0, 11).Select(i => Model.Responses.Count(r => r.Score == i)).ToArray();
+    var max = Math.Max(1, dist.Max());
+    var answered = Model.Responses.Where(r => r.Score.HasValue).OrderBy(r => r.Score).ThenByDescending(r => r.RespondedAt).ToList();
+}
+<div class="toolbar">
+    <a class="btn btn-light" asp-action="Index">← @T("Khảo sát NPS")</a>
+    <form asp-action="Close" asp-route-id="@Model.Id" method="post" class="ms-auto"><button class="btn btn-outline-secondary">@(Model.Status == NpsStatus.Closed ? T("Mở lại") : T("Đóng khảo sát"))</button></form>
+</div>
+<div class="small text-muted mb-2">@Model.Question</div>
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg"><div class="card stat h-100"><div class="label">NPS</div><div class="value"><span class="badge @NpsStats.Css(st.Score) fs-4">@st.Score</span></div></div></div>
+    <div class="col-6 col-lg"><div class="card stat h-100"><div class="label">@T("Tỷ lệ trả lời")</div><div class="value">@st.ResponseRate%</div><div class="small text-muted">@st.Responded / @st.Sent</div></div></div>
+    <div class="col-4 col-lg"><div class="card stat h-100"><div class="label">@T("Ủng hộ")</div><div class="value text-success">@st.Promoters</div></div></div>
+    <div class="col-4 col-lg"><div class="card stat h-100"><div class="label">@T("Trung lập")</div><div class="value text-warning">@st.Passives</div></div></div>
+    <div class="col-4 col-lg"><div class="card stat h-100"><div class="label">@T("Phản đối")</div><div class="value text-danger">@st.Detractors</div></div></div>
+</div>
+<div class="card mb-3"><div class="card-header">@T("Phân bố điểm")</div><div class="card-body">
+    <div class="kpi-chart">
+        @for (var i = 0; i <= 10; i++)
+        {
+            <div class="kpi-col"><div class="kpi-val">@(dist[i] > 0 ? dist[i] : "")</div>
+                <div class="kpi-bars"><div class="kpi-b" style="width:26px;height:@(dist[i] * 150 / max)px;background:@(i <= 6 ? "#ef4444" : i <= 8 ? "#f59e0b" : "#16a34a")"></div></div>
+                <div class="small text-muted mt-1">@i</div></div>
+        }
+    </div>
+</div></div>
+<div class="card"><div class="card-header">@T("Câu trả lời")</div><div class="card-body p-0 table-responsive">
+    <table class="table table-sm mb-0">
+        <thead><tr><th class="text-center">@T("Điểm")</th><th>@T("Khách hàng")</th><th>@T("Người liên hệ")</th><th>@T("Góp ý")</th><th>@T("Thời gian")</th></tr></thead>
+        <tbody>
+        @foreach (var r in answered)
+        {
+            <tr><td class="text-center"><span class="badge @(r.Score <= 6 ? "bg-danger" : r.Score <= 8 ? "bg-warning text-dark" : "bg-success")">@r.Score</span></td>
+                <td>@if (r.CustomerId.HasValue) { <a asp-controller="Customers" asp-action="Details" asp-route-id="@r.CustomerId">@r.Customer?.Name</a> }</td>
+                <td class="small">@r.Contact?.FullName</td><td class="small">@r.Comment</td><td class="small text-nowrap">@r.RespondedAt?.ToDateTime()</td></tr>
+        }
+        @if (!answered.Any()) { <tr><td colspan="5" class="text-center text-muted p-4">@T("Chưa có câu trả lời.")</td></tr> }
+        </tbody>
+    </table>
+</div></div>

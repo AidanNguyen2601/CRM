@@ -1,0 +1,30 @@
+@model CustomFieldDef
+@{ ViewData["Title"] = Model.Id == 0 ? T("Thêm trường tùy biến") : T("Sửa trường: {0}", Model.Label); }
+<form asp-action="Field" method="post" style="max-width:720px">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="All" class="text-danger small"></div>
+    <div class="card"><div class="card-body row g-3">
+        <div class="col-md-5"><label asp-for="EntityType" class="form-label"></label>
+            @if (Model.Id == 0)
+            {
+                <select asp-for="EntityType" class="form-select">@foreach (var t in CustomData.Types) { <option value="@t">@AuditTrail.TypeLabel(t)</option> }</select>
+            }
+            else { <input type="hidden" asp-for="EntityType" /><input class="form-control" value="@AuditTrail.TypeLabel(Model.EntityType)" readonly /> }</div>
+        <div class="col-md-7"><label asp-for="Label" class="form-label"></label><input asp-for="Label" class="form-control" placeholder="@T("Vd. Quy mô doanh thu, Phần mềm đang dùng, Ngày thành lập")" /></div>
+        <div class="col-md-5"><label asp-for="Type" class="form-label"></label><select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<CustomFieldType>()" id="ftype"></select></div>
+        <div class="col-md-3"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" type="number" class="form-control" /></div>
+        <div class="col-12" id="opts"><label asp-for="Options" class="form-label"></label><textarea asp-for="Options" rows="5" class="form-control" placeholder="@T("Mỗi dòng một lựa chọn")"></textarea></div>
+        <div class="col-12">
+            <div class="form-check"><input asp-for="Required" class="form-check-input" /><label asp-for="Required" class="form-check-label"></label></div>
+            <div class="form-check"><input asp-for="ShowInList" class="form-check-input" /><label asp-for="ShowInList" class="form-check-label"></label></div>
+            <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+        </div>
+    </div></div>
+    <div class="d-flex gap-2 mt-3"><button class="btn btn-primary">@T("Lưu")</button><a class="btn btn-light" asp-action="Index" asp-route-tab="fields">@T("Hủy")</a></div>
+</form>
+@section Scripts {
+<script>
+    const ft = document.getElementById('ftype'), op = document.getElementById('opts');
+    const upd = () => op.classList.toggle('d-none', ft.value !== '4'); ft.addEventListener('change', upd); upd();
+</script>
+}

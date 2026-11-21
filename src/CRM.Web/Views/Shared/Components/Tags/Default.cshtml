@@ -1,0 +1,24 @@
+@model CRM.Web.ViewComponents.TagsModel
+@{ var listId = $"tags-{Model.Type}-{Model.Id}"; }
+<div class="tag-box d-flex flex-wrap align-items-center gap-1 no-print">
+    @foreach (var t in Model.Items)
+    {
+        <span class="tag-chip" style="--tag:@t.Color">@t.Name
+            @if (Model.CanEdit)
+            {
+                <form asp-controller="Tags" asp-action="Remove" method="post" class="d-inline">
+                    <input type="hidden" name="type" value="@Model.Type" /><input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="tagId" value="@t.Id" />
+                    <button class="tag-x" title="@T("Gỡ nhãn")" aria-label="@T("Gỡ nhãn")">×</button>
+                </form>
+            }
+        </span>
+    }
+    @if (Model.CanEdit)
+    {
+        <form asp-controller="Tags" asp-action="Add" method="post" class="d-inline-flex">
+            <input type="hidden" name="type" value="@Model.Type" /><input type="hidden" name="id" value="@Model.Id" />
+            <input name="name" list="@listId" maxlength="50" class="form-control form-control-sm tag-input" placeholder="@T("+ Nhãn")" aria-label="@T("Thêm nhãn")" />
+            <datalist id="@listId">@foreach (var n in Model.AllNames.Except(Model.Items.Select(i => i.Name))) { <option value="@n"></option> }</datalist>
+        </form>
+    }
+</div>

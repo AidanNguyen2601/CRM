@@ -1,0 +1,32 @@
+@model List<KbArticle>
+@{
+    ViewData["Title"] = T("Kho kiến thức");
+    var cats = (List<string>)ViewBag.Categories;
+    var canEdit = (bool)ViewBag.CanEdit;
+    string Snip(string s) { var t = s.Replace("\r", "").Replace("\n", " "); return t.Length > 180 ? t[..180] + "…" : t; }
+}
+<form method="get" class="toolbar">
+    <div class="flex-grow-1" style="max-width:420px"><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="q" value="@ViewBag.Q" class="form-control" placeholder="@T("Mô tả sự cố, câu hỏi của khách…")" /></div>
+    <div><label class="form-label small mb-1">@T("Nhóm")</label><select name="category" class="form-select"><option value="">@T("-- Tất cả --")</option>@foreach (var c in cats) { <option value="@c" selected="@(c == (string?)ViewBag.Category)">@Catalogs.Text(CatalogGroup.TicketCategory, c)</option> }</select></div>
+    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="templates" value="true" id="tpl" @((bool)ViewBag.Templates ? "checked" : "") /><label class="form-check-label" for="tpl">@T("Chỉ mẫu trả lời")</label></div>
+    <button class="btn btn-outline-primary">@T("Tìm")</button>
+    @if (canEdit) { <a class="btn btn-primary ms-auto" asp-action="Edit">@Icon("plus") @T("Thêm bài viết")</a> }
+</form>
+<div class="row g-3">
+    @foreach (var a in Model)
+    {
+        <div class="col-lg-6"><div class="card h-100 @(a.IsActive ? "" : "opacity-50")"><div class="card-body">
+            <div class="d-flex justify-content-between gap-2">
+                <a asp-action="Details" asp-route-id="@a.Id" class="fw-semibold">@a.Title</a>
+                <span class="text-nowrap">
+                    @if (a.IsTemplate) { <span class="badge bg-info text-dark">@T("Mẫu trả lời")</span> }
+                    @if (a.IsPublic) { <span class="badge bg-success">@T("Công khai")</span> }
+                    @if (!a.IsActive) { <span class="badge bg-secondary">@T("Tắt")</span> }
+                </span>
+            </div>
+            <div class="small text-muted mb-1">@Catalogs.Text(CatalogGroup.TicketCategory, a.Category) · @T("{0} lượt xem", a.Views) · 👍 @a.Helpful</div>
+            <div class="small">@Snip(a.Body)</div>
+        </div></div></div>
+    }
+    @if (!Model.Any()) { <div class="col-12"><div class="card"><div class="card-body text-center text-muted p-4">@(string.IsNullOrEmpty((string?)ViewBag.Q) ? T("Chưa có bài viết.") : T("Không tìm thấy bài viết phù hợp."))</div></div></div> }
+</div>

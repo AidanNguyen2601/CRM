@@ -1,0 +1,31 @@
+@model NpsSurvey
+@{
+    ViewData["Title"] = T("Tạo đợt khảo sát NPS");
+    var tags = (List<Tag>)ViewBag.Tags;
+    var type = (CustomerType?)ViewBag.Type;
+}
+@if (!(bool)ViewBag.Ready) { <div class="alert alert-warning">@T("Máy chủ gửi thư chưa được cấu hình – email sẽ nằm trong hàng đợi cho đến khi quản trị cấu hình xong.")</div> }
+<div class="row g-3">
+    <div class="col-lg-5">
+        <form method="get" class="card"><div class="card-header">@T("1. Chọn người nhận")</div><div class="card-body">
+            <label class="form-label small">@T("Loại khách hàng")</label>
+            <select name="type" class="form-select mb-2"><option value="">@T("-- Tất cả --")</option>
+                @foreach (var x in Enum.GetValues<CustomerType>()) { <option value="@((int)x)" selected="@(type == x)">@x.GetDisplayName()</option> }</select>
+            <label class="form-label small">@T("Nhãn khách hàng")</label>
+            <select name="tagId" class="form-select mb-2"><option value="">@T("-- Tất cả --")</option>
+                @foreach (var t in tags) { <option value="@t.Id" selected="@(t.Id == (int?)ViewBag.TagId)">@t.Name</option> }</select>
+            <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="primaryOnly" value="true" id="po" @((bool)ViewBag.PrimaryOnly ? "checked" : "") /><label class="form-check-label" for="po">@T("Chỉ người liên hệ chính")</label></div>
+            <button class="btn btn-outline-primary btn-sm">@T("Cập nhật danh sách")</button>
+            <div class="mt-3">@T("Số người nhận (có email):") <b>@ViewBag.Count</b></div>
+        </div></form>
+    </div>
+    <div class="col-lg-7">
+        <form asp-action="Create" method="post" class="card"><div class="card-header">@T("2. Nội dung khảo sát")</div><div class="card-body">
+            <input type="hidden" name="type" value="@((int?)type)" /><input type="hidden" name="tagId" value="@ViewBag.TagId" /><input type="hidden" name="primaryOnly" value="@(((bool)ViewBag.PrimaryOnly).ToString().ToLower())" />
+            <div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /></div>
+            <div class="mb-3"><label asp-for="Question" class="form-label"></label><input asp-for="Question" class="form-control" /></div>
+            <div class="small text-muted mb-3">@T("Email có thang điểm 0–10 bấm được ngay; mỗi người nhận có liên kết riêng, không cần đăng nhập.")</div>
+            <button class="btn btn-primary" @((int)ViewBag.Count == 0 ? "disabled" : "") data-confirm-click="@T("Gửi khảo sát tới {0} người liên hệ?", ViewBag.Count)">@Icon("send") @T("Gửi khảo sát")</button>
+        </div></form>
+    </div>
+</div>

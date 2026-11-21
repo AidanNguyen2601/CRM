@@ -1,0 +1,15 @@
+@model List<Ticket>
+@{ ViewData["Title"] = T("Yêu cầu hỗ trợ"); }
+<div class="d-flex justify-content-between align-items-center mb-3"><h4 class="mb-0">@T("Yêu cầu hỗ trợ")</h4><a class="btn btn-primary" asp-action="NewTicket">@T("+ Gửi yêu cầu mới")</a></div>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0" data-no-grid>
+    <thead><tr><th>@T("Mã")</th><th>@T("Tiêu đề")</th><th>@T("Ngày gửi")</th><th>@T("Trạng thái")</th></tr></thead>
+    <tbody>
+    @foreach (var t in Model)
+    {
+        <tr><td><a asp-action="Ticket" asp-route-id="@t.Id">@t.Number</a></td><td>@t.Subject</td><td>@t.CreatedAt.ToDateTime()</td><td><partial name="_Badge" model="t.Status" /></td></tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="4" class="text-center text-muted p-4">@T("Chưa có yêu cầu nào.")</td></tr> }
+    </tbody>
+</table>
+</div></div>

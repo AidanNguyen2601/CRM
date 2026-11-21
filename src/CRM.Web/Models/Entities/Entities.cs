@@ -46,6 +46,21 @@ public class AppUser
 
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    // ---- Bảo mật đăng nhập ----
+    /// <summary>Số lần đăng nhập sai liên tiếp</summary>
+    public int FailedLoginCount { get; set; }
+    /// <summary>Bị khóa tạm đến thời điểm này (đăng nhập sai quá số lần cho phép)</summary>
+    public DateTime? LockoutUntil { get; set; }
+    /// <summary>Xác thực 2 lớp bằng ứng dụng Authenticator (TOTP)</summary>
+    public bool TwoFactorEnabled { get; set; }
+    /// <summary>Khóa bí mật TOTP (Base32, đã mã hóa bằng Data Protection)</summary>
+    [StringLength(500)]
+    public string? TwoFactorSecret { get; set; }
+    public DateTime? PasswordChangedAt { get; set; }
+    /// <summary>Nhận thông báo qua email (ngoài chuông thông báo trong ứng dụng)</summary>
+    [Display(Name = "Nhận thông báo qua email")]
+    public bool EmailNotifications { get; set; }
 }
 
 public static class AppRoles
@@ -133,6 +148,11 @@ public class Customer : IOwned, IBranchScoped
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Bảng giá áp dụng khi lập báo giá cho khách hàng (trống = giá bán chuẩn)</summary>
+    [Display(Name = "Bảng giá")]
+    public int? PriceListId { get; set; }
+    public PriceList? PriceList { get; set; }
+
     public ICollection<Contact> Contacts { get; set; } = new List<Contact>();
 }
 
@@ -181,6 +201,11 @@ public class Contact : IOwned, IBranchScoped
     public string? Notes { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    // ---- Cổng khách hàng ----
+    [Display(Name = "Được dùng cổng khách hàng")] public bool PortalEnabled { get; set; }
+    [StringLength(500)] public string? PortalPasswordHash { get; set; }
+    public DateTime? PortalLastLoginAt { get; set; }
 }
 
 /// <summary>Khách hàng tiềm năng chưa xác thực</summary>
@@ -242,6 +267,10 @@ public class Lead : IOwned, IBranchScoped
     public Customer? ConvertedCustomer { get; set; }
     public int? ConvertedOpportunityId { get; set; }
     public DateTime? ConvertedAt { get; set; }
+
+    /// <summary>Điểm lead 0–100 (tự tính: mức độ, nguồn, thông tin, giá trị, tương tác) – để ưu tiên chăm sóc</summary>
+    [Display(Name = "Điểm lead")]
+    public int Score { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
@@ -506,6 +535,18 @@ public class Quote : IOwned, IBranchScoped
     public string? Terms { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    // ---- Duyệt chiết khấu vượt hạn mức ----
+    [Display(Name = "Duyệt chiết khấu")]
+    public QuoteApproval ApprovalStatus { get; set; } = QuoteApproval.None;
+    /// <summary>Tỷ lệ chiết khấu thực tế so với giá bán (%) – tính khi lưu</summary>
+    [Column(TypeName = "decimal(5,2)")]
+    [Display(Name = "Chiết khấu thực tế (%)")]
+    public decimal EffectiveDiscount { get; set; }
+    public int? DiscountApprovedById { get; set; }
+    public AppUser? DiscountApprovedBy { get; set; }
+    public DateTime? DiscountApprovedAt { get; set; }
+    [StringLength(500)] public string? ApprovalNote { get; set; }
 
     public ICollection<QuoteLine> Lines { get; set; } = new List<QuoteLine>();
 

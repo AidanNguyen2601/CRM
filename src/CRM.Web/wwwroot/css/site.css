@@ -407,3 +407,35 @@ html[data-theme="dark"] .task-card { background: var(--surface); }
 .crm-dialog-title { font-size: 1.05rem; font-weight: 600; }
 .crm-dialog-msg { white-space: pre-line; overflow-wrap: anywhere; color: inherit; opacity: .85; }
 .min-w-0 { min-width: 0; }
+
+/* ---------- Nhật ký thay đổi ---------- */
+.audit-old { color: #b91c1c; text-decoration: line-through; text-decoration-color: rgba(185, 28, 28, .45); overflow-wrap: anywhere; }
+.audit-new { color: #15803d; overflow-wrap: anywhere; }
+.audit-changes td { padding: 1px 8px 1px 0; }
+.audit-trail .chev { width: 14px; height: 14px; transition: transform .2s; }
+.audit-trail [aria-expanded="true"] .chev { transform: rotate(180deg); }
+html[data-theme="dark"] .audit-old { color: #fca5a5; } html[data-theme="dark"] .audit-new { color: #86efac; }
+.email-frame { width: 100%; min-height: 420px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; }
+.auth-alert { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 10; max-width: 460px; width: calc(100% - 32px); }
+.otp-input { font-size: 1.6rem; letter-spacing: .5em; text-align: center; font-family: ui-monospace, Consolas, monospace; }
+.totp-key { font-family: ui-monospace, Consolas, monospace; font-size: 1.15rem; letter-spacing: .08em; background: #f1f5f9; border-radius: 6px; padding: 8px 12px; display: inline-block; user-select: all; }
+html[data-theme="dark"] .totp-key { background: #1e293b; }
+.perm-matrix .perm-first td { border-top: 2px solid #e2e8f0; }
+.perm-matrix td, .perm-matrix th { vertical-align: middle; }
+
+/* ---------- Nhãn (tag) ---------- */
+.tag-chip { display: inline-flex; align-items: center; gap: 2px; font-size: .75rem; font-weight: 600; line-height: 1; padding: 4px 8px; border-radius: 999px;
+    color: var(--tag, #64748b); background: color-mix(in srgb, var(--tag, #64748b) 14%, transparent); border: 1px solid color-mix(in srgb, var(--tag, #64748b) 35%, transparent); }
+.tag-chip .tag-x { border: 0; background: none; color: inherit; padding: 0 0 0 4px; font-size: .9rem; line-height: 1; opacity: .6; }
+.tag-chip .tag-x:hover { opacity: 1; }
+.tag-input { width: 110px; height: 26px; padding: 2px 8px; font-size: .8rem; border-radius: 999px; }
+.kb-body { white-space: pre-line; line-height: 1.65; }
+.kb-suggest li a { font-weight: 500; }
+.tc.tc-customer { border-left: 3px solid #16a34a; background: #f0fdf4; }
+html[data-theme="dark"] .tc.tc-customer { background: rgba(22, 163, 74, .12); }
+
+/* ---------- Cổng khách hàng ---------- */
+.portal-body { background: #f1f5f9; min-height: 100vh; }
+.portal-nav { background: var(--accent, #0f9d8a); }
+.portal-link { color: rgba(255,255,255,.85); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
+.portal-link:hover, .portal-link.active { color: #fff; background: rgba(255,255,255,.15); }

@@ -64,6 +64,15 @@ public sealed class BranchSnapshot
         return ById.GetValueOrDefault(id);
     }
 
+    /// <summary>Đơn vị và các đơn vị cấp trên (người dùng thuộc các đơn vị này xem được dữ liệu của đơn vị id)</summary>
+    public List<int> Ancestors(int id)
+    {
+        var result = new List<int>();
+        for (var b = ById.GetValueOrDefault(id); b != null && !result.Contains(b.Id); b = b.ParentId.HasValue ? ById.GetValueOrDefault(b.ParentId.Value) : null)
+            result.Add(b.Id);
+        return result;
+    }
+
     /// <summary>Đường dẫn đầy đủ: Công ty mẹ › Công ty con › Chi nhánh</summary>
     public string PathOf(int id)
     {
@@ -133,6 +142,18 @@ public class BranchScope
     /// <summary>Đơn vị mặc định cho bản ghi mới không có người phụ trách</summary>
     public int? WorkingBranchId => Selected ?? UserBranchId;
     public BranchSnapshot Snapshot => _dir.Get();
+
+    /// <summary>Người đang thao tác (ghi nhật ký thay đổi): null ngoài request (tác vụ nền / lệnh nạp dữ liệu)</summary>
+    public (int? Id, string? Name, string? Ip) Actor
+    {
+        get
+        {
+            var ctx = _http.HttpContext;
+            var u = ctx?.User;
+            if (u?.Identity?.IsAuthenticated != true) return (null, null, ctx?.Connection.RemoteIpAddress?.ToString());
+            return (u.GetUserId(), u.GetFullName(), ctx!.Connection.RemoteIpAddress?.ToString());
+        }
+    }
 
     /// <summary>Tắt giới hạn đơn vị trong request hiện tại (thao tác quản trị trên toàn chuỗi: nạp dữ liệu mẫu...)</summary>
     public void Bypass() { Init(); _active = false; }

@@ -1,0 +1,38 @@
+@model NpsResponse?
+@{
+    ViewData["Title"] = T("Khảo sát");
+    Layout = "_AuthLayout";
+    var preset = ViewBag.Preset as int?;
+}
+<div class="auth-card" style="max-width:560px">
+    @if (Model == null)
+    {
+        <h4>@T("Liên kết không hợp lệ")</h4>
+        <p class="text-muted mb-0">@T("Liên kết khảo sát không đúng hoặc khảo sát đã đóng.")</p>
+    }
+    else if (ViewBag.Thanks == true)
+    {
+        <h4>@T("Cảm ơn Quý khách!")</h4>
+        <p class="text-muted mb-0">@T("Ý kiến của Quý khách giúp chúng tôi phục vụ tốt hơn.")</p>
+    }
+    else
+    {
+        <h5 class="mb-1">@Model.Survey!.Name</h5>
+        <p class="text-muted small">@Model.Customer?.Name</p>
+        <form asp-action="Answer" method="post">
+            <input type="hidden" name="t" value="@Model.Token" />
+            <div class="fw-semibold mb-2">@Model.Survey.Question</div>
+            <div class="d-flex flex-wrap gap-1 mb-1">
+                @for (var i = 0; i <= 10; i++)
+                {
+                    <input type="radio" class="btn-check" name="score" id="n@(i)" value="@i" required @(preset == i ? "checked" : "") />
+                    <label class="btn btn-sm @(i <= 6 ? "btn-outline-danger" : i <= 8 ? "btn-outline-warning" : "btn-outline-success")" style="width:40px" for="n@(i)">@i</label>
+                }
+            </div>
+            <div class="d-flex justify-content-between small text-muted mb-3"><span>@T("Hoàn toàn không")</span><span>@T("Chắc chắn sẽ giới thiệu")</span></div>
+            <label class="form-label small">@T("Điều gì khiến Quý khách chọn mức điểm này? (không bắt buộc)")</label>
+            <textarea name="comment" rows="3" maxlength="2000" class="form-control mb-3">@Model.Comment</textarea>
+            <button class="btn btn-primary w-100">@T("Gửi đánh giá")</button>
+        </form>
+    }
+</div>

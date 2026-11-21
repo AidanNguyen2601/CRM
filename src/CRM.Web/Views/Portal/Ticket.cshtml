@@ -1,0 +1,48 @@
+@model Ticket
+@{ ViewData["Title"] = Model.Number; }
+<a asp-action="Tickets" class="small">← @T("Yêu cầu hỗ trợ")</a>
+<div class="d-flex flex-wrap justify-content-between gap-2 mt-2 mb-3"><h4 class="mb-0">@Model.Number – @Model.Subject</h4><partial name="_Badge" model="Model.Status" /></div>
+<div class="card mb-3"><div class="card-body">
+    <div class="small text-muted mb-2">@T("Gửi lúc {0}", Model.CreatedAt.ToDateTime())</div>
+    <div class="kb-body">@Model.Description</div>
+    @if (!string.IsNullOrEmpty(Model.Resolution)) { <hr /><div class="small text-muted">@T("Kết quả xử lý")</div><div class="kb-body">@Model.Resolution</div> }
+</div></div>
+<div class="card mb-3"><div class="card-header">@T("Trao đổi")</div><div class="card-body">
+    <div class="ticket-thread">
+        @foreach (var c in Model.Comments)
+        {
+            <div class="tc @(c.FromCustomer ? "tc-customer" : "tc-public")">
+                <div class="tc-head"><b>@(c.FromCustomer ? c.AuthorName : c.Author?.FullName ?? T("Bộ phận hỗ trợ"))</b><span class="text-muted small ms-auto">@c.CreatedAt.ToDateTime()</span></div>
+                <div class="tc-body">@c.Body</div>
+            </div>
+        }
+        @if (!Model.Comments.Any()) { <div class="text-muted small">@T("Chưa có trao đổi.")</div> }
+    </div>
+    @if (Model.Status != TicketStatus.Closed)
+    {
+        <form asp-action="Reply" asp-route-id="@Model.Id" method="post" class="mt-3">
+            <textarea name="body" rows="3" class="form-control" maxlength="4000" required placeholder="@T("Bổ sung thông tin hoặc trả lời bộ phận hỗ trợ…")"></textarea>
+            <button class="btn btn-primary btn-sm mt-2">@T("Gửi")</button>
+        </form>
+    }
+</div></div>
+@if (Model.Status == TicketStatus.Resolved)
+{
+    <form asp-action="Rate" asp-route-id="@Model.Id" method="post" class="card"><div class="card-body">
+        <div class="fw-semibold mb-2">@T("Yêu cầu đã được giải quyết. Quý khách hài lòng ở mức nào?")</div>
+        <div class="d-flex gap-2 mb-2">
+            @for (var i = 1; i <= 5; i++)
+            {
+                <input type="radio" class="btn-check" name="score" id="s@(i)" value="@i" required />
+                <label class="btn btn-outline-warning" for="s@(i)">@i ★</label>
+            }
+        </div>
+        <textarea name="comment" rows="2" class="form-control mb-2" placeholder="@T("Góp ý (không bắt buộc)")"></textarea>
+        <button class="btn btn-success btn-sm">@T("Đánh giá và đóng yêu cầu")</button>
+        <span class="small text-muted ms-2">@T("Chưa được giải quyết? Hãy trả lời ở phần trao đổi phía trên.")</span>
+    </div></form>
+}
+else if (Model.SatisfactionScore.HasValue)
+{
+    <div class="alert alert-light border">@T("Quý khách đã đánh giá {0}/5. Cảm ơn Quý khách!", Model.SatisfactionScore)</div>
+}

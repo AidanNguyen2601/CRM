@@ -70,6 +70,8 @@ public class ListFilter
 {
     public string? Keyword { get; set; }
     public int? OwnerId { get; set; }
+    /// <summary>Lọc theo nhãn</summary>
+    public int? TagId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 15;
 }
@@ -375,6 +377,12 @@ public class ContractFormViewModel
     [DataType(DataType.Date)][Display(Name = "Ngày hiệu lực")] public DateTime? StartDate { get; set; } = DateTime.Today;
     [DataType(DataType.Date)][Display(Name = "Ngày kết thúc")] public DateTime? EndDate { get; set; } = DateTime.Today.AddMonths(12);
 
+    // Định kỳ / gia hạn
+    [Display(Name = "Chu kỳ thanh toán")] public BillingCycle BillingCycle { get; set; } = BillingCycle.None;
+    [Range(0, 1_000_000_000_000)][Display(Name = "Số tiền mỗi kỳ (trước VAT)")] public decimal RecurringAmount { get; set; }
+    [DataType(DataType.Date)][Display(Name = "Kỳ lập hoá đơn tiếp theo")] public DateTime? NextBillingDate { get; set; }
+    [Range(0, 365)][Display(Name = "Nhắc gia hạn trước (ngày)")] public int RenewalNoticeDays { get; set; } = 60;
+
     [Range(0, 100)]
     [Display(Name = "Thuế GTGT (%)")]
     public decimal VatPercent { get; set; } = 10;
@@ -536,6 +544,8 @@ public class CampaignSegmentViewModel
     public LeadSource? LeadSource { get; set; }
 
     public int? OwnerId { get; set; }
+    /// <summary>Lọc theo nhãn</summary>
+    public int? TagId { get; set; }
     public string? Keyword { get; set; }
     /// <summary>Bỏ qua đối tượng thiếu thông tin liên lạc theo kênh (email cho Email, SĐT cho SMS/Zalo/Telesales)</summary>
     public bool RequireChannelInfo { get; set; } = true;
@@ -598,6 +608,8 @@ public class TaskFormViewModel
     [Required(ErrorMessage = "Vui lòng chọn người thực hiện")]
     [Display(Name = "Người thực hiện")]
     public int? OwnerId { get; set; }
+    /// <summary>Lọc theo nhãn</summary>
+    public int? TagId { get; set; }
 
     [Display(Name = "Thời hạn")]
     public DateTime DueDate { get; set; } = DateTime.Today.AddDays(1).AddHours(17);

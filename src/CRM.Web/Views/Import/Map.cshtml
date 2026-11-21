@@ -1,0 +1,52 @@
+@model CRM.Web.Controllers.ImportSession
+@{
+    var def = (ImportDefinition)ViewBag.Def;
+    ViewData["Title"] = T("Nhập {0} – khớp cột", T(def.Label));
+    var headers = Model.Data[0];
+    var sample = Model.Data.Skip(1).Take(3).ToList();
+}
+<form asp-action="Map" method="post">
+    <input type="hidden" name="key" value="@Model.Key" />
+    <div class="card mb-3"><div class="card-body">
+        <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-2">
+            <div>@Icon("file") <b>@Model.FileName</b> · @T("{0} dòng dữ liệu", Model.Data.Count - 1)</div>
+            <a asp-action="Index" asp-route-type="@Model.Type">@T("Chọn file khác")</a>
+        </div>
+        <div class="small text-muted">@T("Chọn trường tương ứng cho từng cột của file. Cột không cần nhập để \"Bỏ qua\". Trường có dấu * là bắt buộc.")</div>
+    </div>
+    <div class="card-body p-0 table-responsive border-top">
+        <table class="table table-sm mb-0 align-middle" data-no-grid>
+            <thead><tr><th>@T("Cột trong file")</th><th style="min-width:230px">@T("Trường trong CRM")</th><th>@T("Dữ liệu mẫu")</th></tr></thead>
+            <tbody>
+            @for (var i = 0; i < headers.Length; i++)
+            {
+                <tr>
+                    <td class="fw-semibold">@(string.IsNullOrWhiteSpace(headers[i]) ? T("(cột {0})", i + 1) : headers[i])</td>
+                    <td><select name="mapping" class="form-select form-select-sm @(Model.Mapping.ElementAtOrDefault(i) != null ? "border-success" : "")">
+                        <option value="">@T("-- Bỏ qua --")</option>
+                        @foreach (var f in def.Fields) { <option value="@f.Key" selected="@(Model.Mapping.ElementAtOrDefault(i) == f.Key)">@T(f.Label)@(f.Required ? " *" : "")</option> }
+                    </select></td>
+                    <td class="small text-muted text-truncate" style="max-width:360px">@string.Join(" | ", sample.Select(r => i < r.Length ? r[i] : "").Where(x => !string.IsNullOrEmpty(x)))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div></div>
+    <div class="card mb-3"><div class="card-body">
+        <div class="fw-semibold mb-2">@T("Khi trùng với dữ liệu đã có") <span class="small text-muted fw-normal">(@T("so trùng theo: {0}", T(def.DuplicateHint)))</span></div>
+        @foreach (var (v, label, hint) in new[] {
+            ("skip", T("Bỏ qua dòng trùng"), T("An toàn – không thay đổi dữ liệu đang có")),
+            ("update", T("Cập nhật bản ghi đang có"), T("Ghi đè các trường có giá trị trong file (ô trống giữ nguyên)")),
+            ("create", T("Vẫn tạo mới"), T("Tạo bản ghi mới kể cả khi trùng (không áp dụng cho hàng hoá trùng mã)")) })
+        {
+            <div class="form-check"><input class="form-check-input" type="radio" name="mode" id="m-@v" value="@v" @(Model.Mode == v ? "checked" : "") />
+                <label class="form-check-label" for="m-@v">@label <span class="small text-muted">– @hint</span></label></div>
+        }
+    </div></div>
+    <button class="btn btn-primary">@T("Kiểm tra dữ liệu (chạy thử)")</button>
+</form>
+@section Scripts {
+<script>
+    document.querySelectorAll('select[name="mapping"]').forEach(s => s.addEventListener('change', () => s.classList.toggle('border-success', !!s.value)));
+</script>
+}

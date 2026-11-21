@@ -9,6 +9,8 @@
 </head>
 <body class="auth-body">
     <div class="auth-lang"><partial name="_LanguageSwitcher" /></div>
+    @if (TempData["Error"] is string authErr) { <div class="auth-alert alert alert-danger">@authErr</div> }
+    @if (TempData["Success"] is string authOk) { <div class="auth-alert alert alert-success">@authOk</div> }
     @RenderBody()
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

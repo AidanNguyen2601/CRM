@@ -15,8 +15,9 @@
         <div class="col-md-3"><label asp-for="Status" class="form-label"></label><select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<LeadStatus>().Where(i => i.Value != ((int)LeadStatus.Converted).ToString())"></select></div>
         <div class="col-md-3"><label asp-for="EstimatedValue" class="form-label"></label><input asp-for="EstimatedValue" class="form-control" /><span asp-validation-for="EstimatedValue" class="text-danger small"></span></div>
         <div class="col-md-5"><label asp-for="CampaignId" class="form-label"></label><select asp-for="CampaignId" class="form-select" asp-items="ViewBag.Campaigns"><option value="">@T("-- Không thuộc chiến dịch --")</option></select></div>
-        @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
+        @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners">@if (Model.Id == 0) { <option value="-1">@T("-- Tự phân bổ theo cấu hình --")</option> }</select></div> }
         <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="4"></textarea></div>
+        @await Component.InvokeAsync("CustomFields", new { type = "Lead", id = Model.Id, edit = true })
     </div>
     <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>

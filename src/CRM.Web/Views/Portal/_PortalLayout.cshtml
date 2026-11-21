@@ -1,0 +1,39 @@
+@{
+    var pc = ViewBag.PortalContact as Contact;
+    string Act(string a) => ViewContext.RouteData.Values["action"]?.ToString() == a ? "active" : "";
+}
+<!DOCTYPE html>
+<html lang="@Lang">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – @T("Cổng khách hàng")</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="portal-body">
+    <nav class="portal-nav">
+        <div class="container d-flex flex-wrap align-items-center gap-3 py-2">
+            <a class="fw-bold text-white text-decoration-none me-3" asp-action="Index">@T("Cổng khách hàng")</a>
+            @if (pc != null)
+            {
+                <a class="portal-link @Act("Index")" asp-action="Index">@T("Tổng quan")</a>
+                <a class="portal-link @Act("Tickets")@Act("Ticket")@Act("NewTicket")" asp-action="Tickets">@T("Yêu cầu hỗ trợ")</a>
+                <a class="portal-link @Act("Invoices")" asp-action="Invoices">@T("Hoá đơn & hợp đồng")</a>
+                <a class="portal-link @Act("Kb")" asp-action="Kb">@T("Hướng dẫn")</a>
+                <span class="ms-auto small text-white-50">@pc.FullName · @pc.Customer?.Name</span>
+                <form asp-action="Logout" method="post"><button class="btn btn-sm btn-outline-light">@T("Đăng xuất")</button></form>
+            }
+            <span class="@(pc == null ? "ms-auto" : "")"><partial name="_LanguageSwitcher" /></span>
+        </div>
+    </nav>
+    <main class="container py-4">
+        @if (TempData["Success"] is string ok) { <div class="alert alert-success">@ok</div> }
+        @if (TempData["Error"] is string err) { <div class="alert alert-danger">@err</div> }
+        @RenderBody()
+    </main>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -50,7 +50,7 @@ public class ProductsController : CrmControllerBase
             if (p == null) return NotFound();
             p.Code = model.Code; p.Name = model.Name; p.Category = model.Category; p.Unit = model.Unit;
             p.UnitPrice = model.UnitPrice; p.IsActive = model.IsActive; p.Description = model.Description;
-            p.Type = model.Type; p.CostPrice = model.CostPrice; p.VatPercent = model.VatPercent; p.Brand = model.Brand;
+            p.Type = model.Type; if (CanSeeCost) p.CostPrice = model.CostPrice; p.VatPercent = model.VatPercent; p.Brand = model.Brand;
             p.Origin = model.Origin; p.WarrantyMonths = model.WarrantyMonths; p.Specification = model.Specification;
         }
         await Db.SaveChangesAsync();
@@ -61,6 +61,12 @@ public class ProductsController : CrmControllerBase
     /// <summary>API cho form báo giá</summary>
     [HttpGet]
     public async Task<IActionResult> Lookup()
-        => Json(await Db.Products.Where(p => p.IsActive).OrderBy(p => p.Code)
-            .Select(p => new { id = p.Id, code = p.Code, name = p.Name, unit = p.Unit, price = p.UnitPrice, cost = p.CostPrice, vat = p.VatPercent }).ToListAsync());
+    {
+        var canCost = CanSeeCost;
+        return Json(await Db.Products.Where(p => p.IsActive).OrderBy(p => p.Code)
+            .Select(p => new { id = p.Id, code = p.Code, name = p.Name, unit = p.Unit, price = p.UnitPrice, cost = canCost ? p.CostPrice : 0, vat = p.VatPercent }).ToListAsync());
+    }
+
+    /// <summary>Quyền xem giá vốn (phân quyền theo trường)</summary>
+    private bool CanSeeCost => HttpContext.RequestServices.GetRequiredService<PermissionService>().Can(User, "Field.Cost");
 }

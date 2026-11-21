@@ -1,0 +1,30 @@
+@model List<NpsSurvey>
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Khảo sát NPS");
+    var o = (NpsStats)ViewBag.Overall;
+}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@T("NPS 12 tháng")</div><div class="value"><span class="badge @NpsStats.Css(o.Score) fs-4">@o.Score</span></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@T("Ủng hộ (9–10)")</div><div class="value text-success">@o.Promoters</div></div></div>
+    <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@T("Trung lập (7–8)")</div><div class="value text-warning">@o.Passives</div></div></div>
+    <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@T("Phản đối (0–6)")</div><div class="value text-danger">@o.Detractors</div></div></div>
+</div>
+<div class="toolbar"><span class="small text-muted">@T("NPS = % khách ủng hộ − % khách phản đối (−100 đến 100). Trên 0 là tốt, trên 50 là rất tốt.")</span>
+    <a class="btn btn-primary ms-auto" asp-action="Create">@Icon("send") @T("Tạo đợt khảo sát")</a></div>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Đợt khảo sát")</th><th>@T("Ngày gửi")</th><th class="text-center">@T("Đã gửi")</th><th class="text-center">@T("Trả lời")</th><th class="text-center">NPS</th><th>@T("Trạng thái")</th></tr></thead>
+    <tbody>
+    @foreach (var s in Model)
+    {
+        var st = NpsStats.Of(s.Responses);
+        <tr><td><a asp-action="Details" asp-route-id="@s.Id" class="fw-semibold">@s.Name</a><div class="small text-muted">@s.CreatedBy?.FullName</div></td>
+            <td>@s.SentAt?.ToDate()</td><td class="text-center">@st.Sent</td><td class="text-center">@st.Responded (@st.ResponseRate%)</td>
+            <td class="text-center">@if (st.Responded > 0) { <span class="badge @NpsStats.Css(st.Score)">@st.Score</span> } else { <span class="text-muted">–</span> }</td>
+            <td>@s.Status.GetDisplayName()</td></tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="6" class="text-center text-muted p-4">@T("Chưa có đợt khảo sát.")</td></tr> }
+    </tbody>
+</table>
+</div></div>

@@ -1,0 +1,11 @@
+@{ ViewData["Title"] = T("Gửi yêu cầu hỗ trợ"); }
+<h4 class="mb-3">@T("Gửi yêu cầu hỗ trợ")</h4>
+<form asp-action="NewTicket" method="post" class="card" style="max-width:760px"><div class="card-body">
+    <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+    <div class="mb-3"><label class="form-label">@T("Loại yêu cầu")</label>
+        <select name="category" class="form-select" asp-items="Catalogs.Options(CatalogGroup.TicketCategory, null)"><option value="">@T("-- Chọn --")</option></select></div>
+    <div class="mb-3"><label class="form-label">@T("Tiêu đề")</label><input name="subject" maxlength="200" class="form-control" required /></div>
+    <div class="mb-3"><label class="form-label">@T("Mô tả chi tiết")</label><textarea name="description" rows="7" maxlength="4000" class="form-control" required placeholder="@T("Mô tả vấn đề, thời điểm xảy ra, các bước đã thử…")"></textarea></div>
+    <button class="btn btn-primary">@T("Gửi yêu cầu")</button>
+    <a class="btn btn-light" asp-action="Kb">@T("Tìm trong hướng dẫn trước")</a>
+</div></form>

@@ -1,0 +1,20 @@
+@model KbArticle
+@{ ViewData["Title"] = Model.Id == 0 ? T("Thêm bài viết") : T("Sửa bài viết"); }
+<form asp-action="Edit" method="post" style="max-width:960px">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+    <div class="card"><div class="card-body row g-3">
+        <div class="col-md-8"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger small"></span></div>
+        <div class="col-md-4"><label asp-for="Category" class="form-label"></label>
+            <select asp-for="Category" class="form-select" asp-items="Catalogs.Options(CatalogGroup.TicketCategory, Model.Category)"><option value="">@T("-- Không --")</option></select></div>
+        <div class="col-12"><label asp-for="Body" class="form-label"></label><textarea asp-for="Body" rows="14" class="form-control"></textarea><span asp-validation-for="Body" class="text-danger small"></span>
+            <div class="form-text">@T("Viết như văn bản thường; xuống dòng được giữ nguyên. Với mẫu trả lời, có thể dùng {{KhachHang}}, {{NguoiLienHe}}, {{SoPhieu}}.")</div></div>
+        <div class="col-12"><label asp-for="Keywords" class="form-label"></label><input asp-for="Keywords" class="form-control" placeholder="@T("Các từ khóa cách nhau bằng dấu phẩy – giúp gợi ý bài viết đúng phiếu hỗ trợ")" /></div>
+        <div class="col-12 d-flex flex-wrap gap-4">
+            <div class="form-check"><input asp-for="IsTemplate" class="form-check-input" /><label asp-for="IsTemplate" class="form-check-label"></label></div>
+            <div class="form-check"><input asp-for="IsPublic" class="form-check-input" /><label asp-for="IsPublic" class="form-check-label"></label></div>
+            <div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+        </div>
+    </div></div>
+    <div class="d-flex gap-2 mt-3"><button class="btn btn-primary">@T("Lưu")</button><a class="btn btn-light" asp-action="Index">@T("Hủy")</a></div>
+</form>

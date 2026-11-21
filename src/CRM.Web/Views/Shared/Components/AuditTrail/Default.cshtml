@@ -1,0 +1,55 @@
+@model CRM.Web.ViewComponents.AuditTrailModel
+@{ var cid = $"audit-{Model.Type}-{Model.Id}"; }
+<div class="card mb-3 no-print audit-trail" id="history">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-link p-0 text-reset text-decoration-none fw-semibold" data-bs-toggle="collapse" data-bs-target="#@cid" aria-expanded="false">
+            @Icon("clock") @T("Lịch sử thay đổi") <span class="badge bg-secondary">@Model.Total</span> @Icon("chevron", "chev")
+        </button>
+        @if (User.SeesAll()) { <a class="small" asp-controller="Audit" asp-action="Index" asp-route-type="@Model.Type" asp-route-entityId="@Model.Id">@T("Xem tất cả")</a> }
+    </div>
+    <div class="collapse" id="@cid">
+        @if (!Model.Items.Any())
+        {
+            <div class="card-body small text-muted">@T("Chưa có thay đổi nào được ghi nhận.")</div>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var a in Model.Items)
+                {
+                    var changes = AuditTrail.Parse(a.Changes);
+                    <li class="list-group-item small">
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <span class="badge @AuditTrail.ActionCss(a.Action)">@AuditTrail.ActionLabel(a.Action)</span>
+                            <b>@(a.UserName ?? T("Hệ thống"))</b>
+                            <span class="text-muted">@a.At.ToDateTime()</span>
+                        </div>
+                        @if (changes.Any())
+                        {
+                            <table class="table table-sm table-borderless mb-0 mt-1 audit-changes">
+                                @foreach (var c in changes)
+                                {
+                                    <tr>
+                                        <td class="text-muted text-nowrap" style="width:1%">@AuditTrail.FieldLabel(Model.Type, c.f)</td>
+                                        @if (a.Action == "Update" || a.Action == "Merge")
+                                        {
+                                            <td><span class="audit-old">@Model.Value(c.f, c.o)</span> → <span class="audit-new">@Model.Value(c.f, c.n)</span></td>
+                                        }
+                                        else
+                                        {
+                                            <td>@Model.Value(c.f, c.n)</td>
+                                        }
+                                    </tr>
+                                }
+                            </table>
+                        }
+                    </li>
+                }
+            </ul>
+            @if (Model.Total > Model.Items.Count)
+            {
+                <div class="card-footer bg-white small text-muted">@T("Hiển thị {0} / {1} thay đổi gần nhất.", Model.Items.Count, Model.Total)</div>
+            }
+        }
+    </div>
+</div>

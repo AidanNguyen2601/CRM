@@ -16,7 +16,9 @@
     <h6 class="text-muted mt-4 mb-3">@T("Giá & thuế")</h6>
     <div class="row g-3">
         <div class="col-md-3"><label asp-for="Unit" class="form-label"></label><select asp-for="Unit" class="form-select" asp-items="Catalogs.Options(CatalogGroup.Unit, Model.Unit)"></select><span asp-validation-for="Unit" class="text-danger small"></span></div>
+        @if (Perms.Can(User, "Field.Cost")) {
         <div class="col-md-3"><label asp-for="CostPrice" class="form-label"></label><input asp-for="CostPrice" class="form-control price-calc" /><span asp-validation-for="CostPrice" class="text-danger small"></span></div>
+        }
         <div class="col-md-3"><label asp-for="UnitPrice" class="form-label"></label><input asp-for="UnitPrice" class="form-control price-calc" /><span asp-validation-for="UnitPrice" class="text-danger small"></span></div>
         <div class="col-md-3"><label asp-for="VatPercent" class="form-label"></label>
             <select asp-for="VatPercent" class="form-select">
@@ -38,6 +40,7 @@
 @if (Model.Id != 0)
 {
     <div class="mt-3" style="max-width:980px">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Product, id = Model.Id, hint = T("Catalogue, datasheet, hình ảnh sản phẩm…") })</div>
+    <div class="mt-3">@await Component.InvokeAsync("AuditTrail", new { type = "Product", id = Model.Id })</div>
 }
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

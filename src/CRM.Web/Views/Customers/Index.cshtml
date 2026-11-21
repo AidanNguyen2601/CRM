@@ -10,6 +10,7 @@
     <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên, mã, MST, SĐT, email")" /></div>
     <div><label class="form-label small mb-1">@T("Phân loại")</label><select name="Type" class="form-select" asp-items="typeItems"><option value="">@T("-- Tất cả --")</option></select></div>
     @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <partial name="_TagFilter" />
     <button class="btn btn-outline-primary">@T("Lọc")</button>
     <a class="btn btn-primary ms-auto" asp-action="Create">@T("+ Thêm khách hàng")</a>
 </form>
@@ -21,7 +22,7 @@
     {
         <tr>
             <td>@c.Code</td>
-            <td><a asp-action="Details" asp-route-id="@c.Id" class="fw-semibold">@c.Name</a></td>
+            <td><a asp-action="Details" asp-route-id="@c.Id" class="fw-semibold">@c.Name</a><partial name="_RowExtras" model="c.Id" /></td>
             <td>@Catalogs.Text(CatalogGroup.Industry, c.Industry)</td>
             <td>@Catalogs.Text(CatalogGroup.City, c.City)</td>
             <td class="small">@c.Phone<br />@c.Email</td>

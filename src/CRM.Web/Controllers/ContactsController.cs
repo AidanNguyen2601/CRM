@@ -13,7 +13,7 @@ public class ContactsController : CrmControllerBase
 
     public async Task<IActionResult> Index([FromQuery] ListFilter f, int? customerId)
     {
-        var q = Db.Contacts.VisibleTo(User).Include(c => c.Customer).Include(c => c.Owner).AsNoTracking();
+        var q = Db.Contacts.VisibleTo(User, Db).Include(c => c.Customer).Include(c => c.Owner).AsNoTracking();
         if (!string.IsNullOrWhiteSpace(f.Keyword))
         {
             var k = f.Keyword.Trim();
@@ -24,10 +24,12 @@ public class ContactsController : CrmControllerBase
         if (f.OwnerId.HasValue) q = q.Where(c => c.OwnerId == f.OwnerId);
 
         f.Page = Math.Max(1, f.Page);
+        q = q.WithTag(Db, f.TagId);
         var total = await q.CountAsync();
         var items = await q.OrderBy(c => c.FullName).Skip((f.Page - 1) * f.PageSize).Take(f.PageSize).ToListAsync();
         await LoadOwnersAsync(f.OwnerId);
         ViewBag.Filter = f;
+        await LoadRowExtrasAsync("Contact", items.Select(x => x.Id));
         ViewBag.CustomerId = customerId;
         return View(new PagedList<Contact>(items, total, f.Page, f.PageSize));
     }
@@ -48,7 +50,7 @@ public class ContactsController : CrmControllerBase
     {
         var c = await Db.Contacts.FindAsync(id);
         if (c == null) return NotFound();
-        if (!User.CanAccess(c)) return NotAllowed();
+        if (!await CanAccessAsync(c)) return NotAllowed();
         await LoadLookups(c);
         return View("Form", c);
     }
@@ -56,6 +58,8 @@ public class ContactsController : CrmControllerBase
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(Contact model, string? returnTo)
     {
+        var (cfValues, cfErrors) = await CustomData.ReadAsync(Db, "Contact", Request.Form);
+        foreach (var cfErr in cfErrors) ModelState.AddModelError(string.Empty, cfErr);
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);
@@ -74,10 +78,10 @@ public class ContactsController : CrmControllerBase
         {
             var c = await Db.Contacts.FindAsync(model.Id);
             if (c == null) return NotFound();
-            if (!User.CanAccess(c)) return NotAllowed();
+            if (!await CanAccessAsync(c)) return NotAllowed();
             c.FullName = model.FullName; c.JobTitle = model.JobTitle; c.CustomerId = model.CustomerId; c.Email = model.Email;
             c.Phone = model.Phone; c.BirthDate = model.BirthDate; c.IsPrimary = model.IsPrimary; c.Notes = model.Notes;
-            c.OwnerId = ResolveOwner(model.OwnerId);
+            c.OwnerId = KeepOwner(c.OwnerId, model.OwnerId);
             entity = c;
         }
 
@@ -88,6 +92,7 @@ public class ContactsController : CrmControllerBase
             others.ForEach(x => x.IsPrimary = false);
         }
         await Db.SaveChangesAsync();
+        await CustomData.SaveAsync(Db, model.Id, cfValues);
         TempData["Success"] = I18n.T("Đã lưu người liên hệ.");
         return entity.CustomerId.HasValue && returnTo == "customer"
             ? RedirectToAction("Details", "Customers", new { id = entity.CustomerId })
@@ -116,7 +121,7 @@ public class ContactsController : CrmControllerBase
     /// <summary>API cho dropdown phụ thuộc: liên hệ theo khách hàng</summary>
     [HttpGet]
     public async Task<IActionResult> ByCustomer(int customerId)
-        => Json(await Db.Contacts.VisibleTo(User).Where(c => c.CustomerId == customerId)
+        => Json(await Db.Contacts.VisibleTo(User, Db).Where(c => c.CustomerId == customerId)
             .OrderByDescending(c => c.IsPrimary).ThenBy(c => c.FullName)
             .Select(c => new { id = c.Id, name = c.FullName }).ToListAsync());
 

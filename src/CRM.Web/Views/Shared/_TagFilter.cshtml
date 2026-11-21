@@ -1,0 +1,11 @@
+@* Ô lọc theo nhãn trên thanh công cụ danh sách (dữ liệu: ViewBag.TagOptions, ViewBag.Filter.TagId) *@
+@{
+    var opts = ((IEnumerable<dynamic>?)ViewBag.TagOptions)?.ToList() ?? new List<dynamic>();
+    int? cur = ((CRM.Web.ViewModels.ListFilter?)ViewBag.Filter)?.TagId;
+}
+@if (opts.Any())
+{
+    <div><label class="form-label small mb-1">@T("Nhãn")</label>
+        <select name="TagId" class="form-select"><option value="">@T("-- Tất cả --")</option>
+            @foreach (var t in opts) { <option value="@t.Id" selected="@(cur == (int)t.Id)">@t.Name</option> }</select></div>
+}

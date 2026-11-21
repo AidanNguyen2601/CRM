@@ -41,6 +41,7 @@
     {
         <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#reopenPanel">@Icon("undo") @T("Mở lại")</button>
     }
+    <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Compose" asp-route-type="Ticket" asp-route-id="@t.Id">@Icon("email") @T("Gửi email")</a>
     <a class="btn btn-outline-primary ms-auto" asp-action="Edit" asp-route-id="@t.Id">@T("Sửa")</a>
     @if (User.SeesAll())
     {
@@ -133,9 +134,10 @@
                         }
                         else
                         {
-                            <div class="tc @(c.IsInternal ? "tc-internal" : "tc-public")">
-                                <div class="tc-head"><b>@c.Author?.FullName</b>
-                                    <span class="badge @(c.IsInternal ? "bg-warning text-dark" : "bg-primary")">@(c.IsInternal ? T("Ghi chú nội bộ") : T("Phản hồi khách"))</span>
+                            <div class="tc @(c.FromCustomer ? "tc-customer" : c.IsInternal ? "tc-internal" : "tc-public")">
+                                <div class="tc-head"><b>@(c.FromCustomer ? c.AuthorName : c.Author?.FullName)</b>
+                                    @if (c.FromCustomer) { <span class="badge bg-success">@T("Khách hàng gửi")</span> }
+                                    else { <span class="badge @(c.IsInternal ? "bg-warning text-dark" : "bg-primary")">@(c.IsInternal ? T("Ghi chú nội bộ") : T("Phản hồi khách"))</span> }
                                     <span class="text-muted small ms-auto">@c.CreatedAt.ToDateTime()</span></div>
                                 <div class="tc-body">@c.Body</div>
                             </div>
@@ -145,7 +147,20 @@
                 </div>
 
                 <form asp-action="Comment" asp-route-id="@t.Id" method="post" class="mt-3 no-print">
-                    <textarea name="body" rows="3" class="form-control" maxlength="4000" required placeholder="@T("Nội dung trả lời khách hoặc ghi chú nội bộ…")"></textarea>
+                    @{ var kbTemplates = ((IEnumerable<dynamic>)ViewBag.KbTemplates).ToList(); var custEmail = (string?)ViewBag.CustomerEmail; }
+                    @if (kbTemplates.Any())
+                    {
+                        <select class="form-select form-select-sm mb-2" id="kbTemplate" style="max-width:360px" aria-label="@T("Chèn mẫu trả lời")">
+                            <option value="">@T("-- Chèn mẫu trả lời --")</option>
+                            @foreach (var k in kbTemplates) { <option value="@k.Id" data-body="@k.Body">@k.Title</option> }
+                        </select>
+                    }
+                    <textarea name="body" id="commentBody" rows="3" class="form-control" maxlength="4000" required placeholder="@T("Nội dung trả lời khách hoặc ghi chú nội bộ…")"></textarea>
+                    @if (!string.IsNullOrEmpty(custEmail))
+                    {
+                        <div class="form-check small mt-1" id="sendEmailBox"><input class="form-check-input" type="checkbox" name="sendEmail" value="true" id="sendEmail" checked />
+                            <label class="form-check-label" for="sendEmail">@T("Gửi phản hồi qua email tới {0}", custEmail)</label></div>
+                    }
                     <div class="d-flex gap-2 align-items-center flex-wrap mt-2">
                         <div class="btn-group btn-group-sm" role="group">
                             <input type="radio" class="btn-check" name="isInternal" id="kindPublic" value="false" checked />
@@ -171,9 +186,16 @@
             </div>
         </div>
 
+        @{ var kbs = (List<KbArticle>)ViewBag.KbSuggest; }
+        @if (kbs.Any())
+        {
+            <div class="card mb-3 no-print kb-suggest"><div class="card-header">@Icon("catalog") @T("Bài viết gợi ý từ kho kiến thức")</div>
+                <ul class="list-group list-group-flush">@foreach (var k in kbs) { <li class="list-group-item small"><a asp-controller="Kb" asp-action="Details" asp-route-id="@k.Id" target="_blank">@k.Title</a></li> }</ul></div>
+        }
         <partial name="_TicketTasks" model="t" />
 
         @await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Ticket, id = t.Id, hint = T("Ảnh chụp lỗi, log, biên bản bảo hành / sửa chữa…") })
+        @await Component.InvokeAsync("AuditTrail", new { type = "Ticket", id = t.Id })
     </div>
 
     <div class="col-lg-4">
@@ -201,6 +223,8 @@
         </div></div>
 
         <div class="card mb-3"><div class="card-header">@Icon("customer") @T("Khách hàng")</div><div class="card-body small">
+            @if (t.Customer?.Code == InboundService.UnknownCode) { <div class="alert alert-warning py-1 px-2 small mb-1">@T("Chưa xác định khách hàng – bấm Sửa để gán.")</div> }
+            @if (!string.IsNullOrEmpty(t.ReporterEmail)) { <div class="small">@T("Email người yêu cầu:") <a href="mailto:@t.ReporterEmail">@t.ReporterEmail</a></div> }
             <div class="fw-semibold"><a asp-controller="Customers" asp-action="Details" asp-route-id="@t.CustomerId">@t.Customer?.Name</a></div>
             <div class="text-muted">@t.Customer?.Code · @t.Customer?.Phone</div>
             @if (t.Contact != null)
@@ -227,6 +251,13 @@
 </div>
 @section Scripts {
 <script>
+    // Chèn mẫu trả lời; ghi chú nội bộ thì không gửi email cho khách
+    (function () {
+        const sel = document.getElementById("kbTemplate"), body = document.getElementById("commentBody");
+        if (sel) sel.addEventListener("change", () => { const o = sel.selectedOptions[0]; if (o.dataset.body) { body.value = (body.value ? body.value + "\n\n" : "") + o.dataset.body; body.focus(); } sel.value = ""; });
+        const box = document.getElementById("sendEmailBox");
+        document.querySelectorAll("input[name=isInternal]").forEach(r => r.addEventListener("change", () => { if (box) { const internal = document.getElementById("kindInternal").checked; box.classList.toggle("d-none", internal); box.querySelector("input").disabled = internal; } }));
+    })();
     // Ẩn / hiện các dòng ghi nhận hệ thống (đổi trạng thái, phân công…)
     (function () {
         const sw = document.getElementById('showSystem');

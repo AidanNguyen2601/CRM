@@ -1,0 +1,68 @@
+@model List<DupGroup>
+@{
+    ViewData["Title"] = T("Kiểm tra trùng");
+    var type = (string)ViewBag.Type;
+    var total = (int)ViewBag.Total;
+    var gi = 0;
+}
+<ul class="nav nav-pills mb-3">
+    @foreach (var t in MergeService.Types)
+    {
+        <li class="nav-item"><a class="nav-link @(t == type ? "active" : "")" asp-route-type="@t">@AuditTrail.TypeLabel(t)</a></li>
+    }
+</ul>
+<p class="text-muted small">
+    @T("Tìm thấy {0} nhóm nghi trùng.", total) @if (total > Model.Count) { <span>@T("Hiển thị {0} nhóm đầu.", Model.Count)</span> }
+    @T("Chọn bản ghi chính (giữ lại) và các bản ghi trùng cần gộp: toàn bộ cơ hội, báo giá, hợp đồng, hoạt động, file... của bản ghi trùng chuyển sang bản ghi chính; trường còn trống của bản ghi chính được bổ sung; bản ghi trùng bị xóa.")
+</p>
+@if (!Model.Any())
+{
+    <div class="card"><div class="card-body text-center text-muted p-4">@Icon("check") @T("Không phát hiện dữ liệu trùng.")</div></div>
+}
+@foreach (var g in Model)
+{
+    gi++;
+    var master = g.Items.OrderByDescending(i => i.Related).ThenBy(i => i.CreatedAt).First().Id;
+    <form asp-action="Merge" method="post" class="card mb-3" data-confirm="@T("Gộp các bản ghi đã chọn vào bản ghi chính? Thao tác không hoàn tác được.")">
+        <input type="hidden" name="type" value="@type" />
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><span class="badge bg-warning text-dark">@g.Reason</span> <span class="small text-muted">@g.Value</span></span>
+            <button class="btn btn-sm btn-outline-danger">@T("Gộp vào bản ghi chính")</button>
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-sm mb-0 align-middle" data-no-grid>
+                <thead><tr><th class="text-center" style="width:70px">@T("Giữ lại")</th><th class="text-center" style="width:70px">@T("Gộp")</th>
+                    <th>@T("Tên")</th>@if (type == nameof(Customer)) { <th>@T("Mã")</th><th>@T("MST")</th> }<th>Email</th><th>@T("Điện thoại")</th>
+                    <th>@(type == nameof(Customer) ? T("Tỉnh / Thành phố") : type == nameof(Contact) ? T("Khách hàng") : T("Công ty"))</th><th>@T("Phụ trách")</th><th class="text-center">@T("Dữ liệu liên quan")</th><th>@T("Ngày tạo")</th></tr></thead>
+                <tbody>
+                @foreach (var i in g.Items)
+                {
+                    <tr>
+                        <td class="text-center"><input class="form-check-input dup-master" type="radio" name="masterId" value="@i.Id" @(i.Id == master ? "checked" : "") aria-label="@T("Giữ lại")" /></td>
+                        <td class="text-center"><input class="form-check-input dup-merge" type="checkbox" name="ids" value="@i.Id" @(i.Id != master ? "checked" : "disabled") aria-label="@T("Gộp")" /></td>
+                        <td class="fw-semibold">
+                            @if (type == nameof(Customer)) { <a asp-controller="Customers" asp-action="Details" asp-route-id="@i.Id" target="_blank">@i.Title</a> }
+                            else if (type == nameof(Lead)) { <a asp-controller="Leads" asp-action="Details" asp-route-id="@i.Id" target="_blank">@i.Title</a> }
+                            else { <a asp-controller="Contacts" asp-action="Edit" asp-route-id="@i.Id" target="_blank">@i.Title</a> }
+                        </td>
+                        @if (type == nameof(Customer)) { <td>@i.Code</td><td>@i.TaxCode</td> }
+                        <td class="small">@i.Email</td><td class="small">@i.Phone</td><td class="small">@i.Extra</td><td class="small">@i.Owner</td>
+                        <td class="text-center">@i.Related</td><td class="small">@i.CreatedAt.ToDate()</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </form>
+}
+@section Scripts {
+<script>
+    // Bản ghi được chọn giữ lại thì không thể đồng thời bị gộp
+    document.querySelectorAll('.dup-master').forEach(r => r.addEventListener('change', () => {
+        r.closest('form').querySelectorAll('tbody tr').forEach(tr => {
+            const isMaster = tr.querySelector('.dup-master').checked, cb = tr.querySelector('.dup-merge');
+            cb.disabled = isMaster; if (isMaster) cb.checked = false; else if (!cb.checked) cb.checked = true;
+        });
+    }));
+</script>
+}

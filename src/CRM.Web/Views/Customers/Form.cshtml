@@ -3,6 +3,7 @@
 <div class="card" style="max-width:960px"><div class="card-body">
 <form asp-action="Save" method="post">
     <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" />
+    <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
     <div class="row g-3">
         <div class="col-md-2"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" /><span asp-validation-for="Code" class="text-danger small"></span></div>
         <div class="col-md-6"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger small"></span></div>
@@ -15,8 +16,10 @@
         <div class="col-md-5"><label asp-for="Address" class="form-label"></label><input asp-for="Address" class="form-control" /></div>
         <div class="col-md-3"><label asp-for="City" class="form-label"></label><select asp-for="City" class="form-select" asp-items="Catalogs.Options(CatalogGroup.City, Model.City)"><option value="">--</option></select></div>
         <div class="col-md-3"><label asp-for="EmployeeCount" class="form-label"></label><input asp-for="EmployeeCount" class="form-control" /></div>
+        @if (User.SeesAll()) { <div class="col-md-3"><label asp-for="PriceListId" class="form-label"></label><select asp-for="PriceListId" class="form-select" asp-items="ViewBag.PriceLists"><option value="">@T("-- Giá bán chuẩn --")</option></select></div> }
         @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
         <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
+        @await Component.InvokeAsync("CustomFields", new { type = "Customer", id = Model.Id, edit = true })
     </div>
     <div class="mt-4"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>

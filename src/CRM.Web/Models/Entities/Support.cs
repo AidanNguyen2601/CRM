@@ -110,6 +110,8 @@ public class Ticket : IOwned, IBranchScoped
 
     [Display(Name = "Ngày tiếp nhận")]
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    /// <summary>Email người yêu cầu (phiếu tạo từ email, chưa xác định được người liên hệ)</summary>
+    [StringLength(150)][Display(Name = "Email người yêu cầu")] public string? ReporterEmail { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
     [Display(Name = "Hạn phản hồi")] public DateTime ResponseDueAt { get; set; }
@@ -185,4 +187,8 @@ public class TicketComment
     public int? AuthorId { get; set; }
     public AppUser? Author { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    /// <summary>Do khách hàng gửi (cổng khách hàng / email trả lời)</summary>
+    public bool FromCustomer { get; set; }
+    /// <summary>Tên / email người gửi khi là khách hàng</summary>
+    [StringLength(150)] public string? AuthorName { get; set; }
 }

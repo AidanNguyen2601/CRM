@@ -1,0 +1,17 @@
+@model bool
+@{
+    ViewData["Title"] = T("Từ chối nhận tin");
+    Layout = "_AuthLayout";
+}
+<div class="auth-card text-center">
+    @if (Model)
+    {
+        <h4 class="mb-2">@T("Đã hủy đăng ký nhận tin")</h4>
+        <p class="text-muted mb-0">@T("Bạn sẽ không nhận thêm email từ chiến dịch này. Cảm ơn bạn đã phản hồi.")</p>
+    }
+    else
+    {
+        <h4 class="mb-2">@T("Liên kết không hợp lệ")</h4>
+        <p class="text-muted mb-0">@T("Liên kết đã hết hạn hoặc không đúng.")</p>
+    }
+</div>

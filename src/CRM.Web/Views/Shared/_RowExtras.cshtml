@@ -1,0 +1,16 @@
+@* Nhãn + trường tùy biến "hiện ở danh sách" của một dòng (dữ liệu: ViewBag.RowTags / RowFields / RowValues) *@
+@model int
+@{
+    var tags = ((Dictionary<int, List<Tag>>?)ViewBag.RowTags)?.GetValueOrDefault(Model);
+    var fields = (List<CustomFieldDef>?)ViewBag.RowFields ?? new();
+    var values = ((Dictionary<int, Dictionary<int, string?>>?)ViewBag.RowValues)?.GetValueOrDefault(Model);
+}
+@if (tags != null && tags.Count > 0)
+{
+    <div class="d-flex flex-wrap gap-1 mt-1">@foreach (var t in tags) { <span class="tag-chip" style="--tag:@t.Color">@t.Name</span> }</div>
+}
+@if (values != null && fields.Count > 0)
+{
+    var shown = fields.Where(f => !string.IsNullOrEmpty(values.GetValueOrDefault(f.Id))).ToList();
+    if (shown.Any()) { <div class="small text-muted">@string.Join(" · ", shown.Select(f => f.Label + ": " + CustomData.Display(f, values[f.Id])))</div> }
+}

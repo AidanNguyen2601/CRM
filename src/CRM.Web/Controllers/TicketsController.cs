@@ -105,6 +105,12 @@ public class TicketsController : CrmControllerBase
             && (x.Status == TicketStatus.New || x.Status == TicketStatus.InProgress || x.Status == TicketStatus.WaitingCustomer));
         ViewBag.Tasks = await Db.Activities.Include(a => a.Owner).AsNoTracking().Where(a => a.TicketId == id)
             .OrderBy(a => a.Status == ActivityStatus.Planned ? 0 : 1).ThenByDescending(a => a.IsTicketMain).ThenBy(a => a.DueDate).ToListAsync();
+        // Kho kiến thức: bài gợi ý theo tiêu đề / mô tả phiếu và mẫu trả lời (đã trộn tên khách hàng, số phiếu)
+        var articles = await Db.KbArticles.AsNoTracking().Where(a => a.IsActive).ToListAsync();
+        ViewBag.KbSuggest = KbSearch.Rank(articles.Where(a => !a.IsTemplate), t.Subject + " " + t.Description, t.Category).Take(5).ToList();
+        var vars = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { ["KhachHang"] = t.Customer?.Name, ["NguoiLienHe"] = t.Contact?.FullName ?? t.Customer?.Name, ["SoPhieu"] = t.Number };
+        ViewBag.KbTemplates = articles.Where(a => a.IsTemplate).OrderBy(a => a.Title).Select(a => new { a.Id, a.Title, Body = EmailService.Merge(a.Body, vars) }).ToList();
+        ViewBag.CustomerEmail = t.Contact?.Email ?? t.ReporterEmail ?? t.Customer?.Email;
         await LoadAgentsAsync(t.OwnerId);
         return View(t);
     }
@@ -362,7 +368,7 @@ public class TicketsController : CrmControllerBase
 
     /// <summary>Trao đổi: phản hồi khách (tính là lần phản hồi đầu tiên nếu chưa có) hoặc ghi chú nội bộ</summary>
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Comment(int id, string? body, bool isInternal, TicketStatus? then)
+    public async Task<IActionResult> Comment(int id, string? body, bool isInternal, TicketStatus? then, bool sendEmail = false)
     {
         var t = await LoadAsync(id);
         if (t == null) return NotFound();
@@ -388,6 +394,20 @@ public class TicketsController : CrmControllerBase
             t.Status = then.Value;
         }
         await SaveAsync(t);
+        // Phản hồi khách qua email: tiêu đề có số phiếu để khách trả lời lại được ghép vào đúng phiếu
+        if (sendEmail && !isInternal)
+        {
+            var contactEmail = t.ContactId.HasValue ? await Db.Contacts.Where(c => c.Id == t.ContactId).Select(c => c.Email).FirstOrDefaultAsync() : null;
+            var to = string.IsNullOrWhiteSpace(contactEmail) ? t.ReporterEmail ?? t.Customer?.Email : contactEmail;
+            if (!string.IsNullOrWhiteSpace(to) && EmailService.IsValidList(to))
+            {
+                var mail = HttpContext.RequestServices.GetRequiredService<EmailService>();
+                mail.Queue(to, $"[{t.Number}] {t.Subject}", EmailService.ToHtml(body + "\n\n" + I18n.T("Trân trọng,") + "\n" + User.GetFullName())
+                    + $"<p style=\"color:#6b7280;font-size:12px\">{I18n.T("Vui lòng trả lời email này (giữ nguyên tiêu đề) để bổ sung thông tin cho yêu cầu {0}.", t.Number)}</p>",
+                    nameof(Ticket), t.Id, t.CustomerId, CurrentUserId);
+                await Db.SaveChangesAsync();
+            }
+        }
         return RedirectToAction(nameof(Details), null, new { id }, "comments");
     }
 

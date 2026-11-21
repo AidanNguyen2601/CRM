@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = T("Hàng hoá / dịch vụ");
     var canEdit = User.SeesAll();
+    var canCost = canEdit && Perms.Can(User, "Field.Cost");
     var type = ViewBag.Type as ProductType?;
     var typeItems = Html.GetEnumSelectList<ProductType>().ToList();
     foreach (var i in typeItems) i.Selected = type.HasValue && i.Value == ((int)type.Value).ToString();
@@ -18,9 +19,9 @@
 <table class="table table-hover mb-0">
     <thead><tr>
         <th>@T("Mã")</th><th>@T("Tên hàng hoá / dịch vụ")</th><th>@T("Loại")</th><th>@T("Nhóm")</th><th>@T("Hãng / xuất xứ")</th><th>@T("ĐVT")</th>
-        @if (canEdit) { <th class="money">@T("Giá vốn")</th> }
+        @if (canCost) { <th class="money">@T("Giá vốn")</th> }
         <th class="money">@T("Giá bán")</th>
-        @if (canEdit) { <th class="text-center">@T("Biên LN")</th> }
+        @if (canCost) { <th class="text-center">@T("Biên LN")</th> }
         <th class="text-center">VAT</th><th>@T("Trạng thái")</th>@if (canEdit) { <th></th> }
     </tr></thead>
     <tbody>
@@ -36,9 +37,9 @@
             <td>@Catalogs.Text(CatalogGroup.ProductCategory, p.Category)</td>
             <td class="small">@Catalogs.Text(CatalogGroup.Brand, p.Brand)@(p.Brand != null && p.Origin != null ? " · " : "")@Catalogs.Text(CatalogGroup.Origin, p.Origin)</td>
             <td>@Catalogs.Text(CatalogGroup.Unit, p.Unit)</td>
-            @if (canEdit) { <td class="money">@(p.CostPrice > 0 ? p.CostPrice.ToMoney() : "–")</td> }
+            @if (canCost) { <td class="money">@(p.CostPrice > 0 ? p.CostPrice.ToMoney() : "–")</td> }
             <td class="money">@p.UnitPrice.ToMoney()</td>
-            @if (canEdit) { <td class="text-center">@if (p.GrossMargin > 0) { <span class="badge @BusinessPlan.MarginCss(p.GrossMargin)">@p.GrossMargin.ToString("0.#")%</span> } else { <text>–</text> }</td> }
+            @if (canCost) { <td class="text-center">@if (p.GrossMargin > 0) { <span class="badge @BusinessPlan.MarginCss(p.GrossMargin)">@p.GrossMargin.ToString("0.#")%</span> } else { <text>–</text> }</td> }
             <td class="text-center">@p.VatPercent.ToString("0.##")%</td>
             <td>@(p.IsActive ? Html.Raw($"<span class='badge bg-success'>{T("Đang bán")}</span>") : Html.Raw($"<span class='badge bg-secondary'>{T("Ngừng")}</span>"))</td>
             @if (canEdit) { <td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@p.Id">@T("Sửa")</a></td> }

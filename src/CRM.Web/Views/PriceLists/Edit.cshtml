@@ -1,0 +1,63 @@
+@model PriceList
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Thêm bảng giá") : T("Bảng giá: {0}", Model.Name);
+    var products = (List<Product>)ViewBag.Products;
+    var prices = Model.Items.ToDictionary(i => i.ProductId, i => i.Price);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="All" class="text-danger small"></div>
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-md-5"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="@T("Vd. Đại lý cấp 1, Khách hàng dự án")" /></div>
+        <div class="col-md-2"><label asp-for="ValidFrom" class="form-label"></label><input asp-for="ValidFrom" type="date" class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="ValidTo" class="form-label"></label><input asp-for="ValidTo" type="date" class="form-control" /></div>
+        <div class="col-md-3 d-flex align-items-end"><div class="form-check mb-2"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div></div>
+        <div class="col-12"><label asp-for="Description" class="form-label"></label><input asp-for="Description" class="form-control" /></div>
+    </div></div>
+    <div class="card mb-3">
+        <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+            <span>@T("Giá theo sản phẩm")</span>
+            <span class="ms-auto small">@T("Áp nhanh: giá bán chuẩn giảm")</span>
+            <input type="number" id="pct" value="10" min="0" max="100" step="0.5" class="form-control form-control-sm" style="width:80px" /> %
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="applyPct">@T("Áp cho tất cả")</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAll">@T("Xóa hết")</button>
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-sm mb-0 align-middle" data-no-grid>
+                <thead><tr><th>@T("Mã")</th><th>@T("Sản phẩm / dịch vụ")</th><th>@T("Nhóm")</th><th class="money">@T("Giá bán chuẩn")</th><th style="width:170px">@T("Giá theo bảng")</th><th class="money" style="width:90px">@T("Giảm")</th></tr></thead>
+                <tbody>
+                @foreach (var p in products)
+                {
+                    <tr data-std="@p.UnitPrice.ToString(inv)">
+                        <td class="small">@p.Code</td><td>@p.Name</td><td class="small">@Catalogs.Text(CatalogGroup.ProductCategory, p.Category)</td>
+                        <td class="money">@p.UnitPrice.ToMoney()</td>
+                        <td><input type="number" min="0" step="1000" name="price_@p.Id" value="@(prices.TryGetValue(p.Id, out var v) ? v.ToString(inv) : "")" class="form-control form-control-sm text-end pl-price" placeholder="@T("giá chuẩn")" /></td>
+                        <td class="money small pl-off"></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white small text-muted">@T("Để trống = sản phẩm không thuộc bảng giá, báo giá dùng giá bán chuẩn.")</div>
+    </div>
+    <div class="d-flex gap-2"><button class="btn btn-primary">@T("Lưu bảng giá")</button><a class="btn btn-light" asp-action="Index">@T("Hủy")</a></div>
+</form>
+@section Scripts {
+<script>
+    (function () {
+        const rows = [...document.querySelectorAll('tr[data-std]')];
+        function upd(tr) {
+            const std = +tr.dataset.std, v = parseFloat(tr.querySelector('.pl-price').value);
+            tr.querySelector('.pl-off').textContent = isNaN(v) || !std ? '' : (Math.round((1 - v / std) * 1000) / 10) + '%';
+        }
+        rows.forEach(upd);
+        document.addEventListener('input', e => { if (e.target.classList.contains('pl-price')) upd(e.target.closest('tr')); });
+        document.getElementById('applyPct').addEventListener('click', () => {
+            const pct = parseFloat(document.getElementById('pct').value) || 0;
+            rows.forEach(tr => { tr.querySelector('.pl-price').value = Math.round(+tr.dataset.std * (1 - pct / 100) / 1000) * 1000; upd(tr); });
+        });
+        document.getElementById('clearAll').addEventListener('click', () => rows.forEach(tr => { tr.querySelector('.pl-price').value = ''; upd(tr); }));
+    })();
+</script>
+}

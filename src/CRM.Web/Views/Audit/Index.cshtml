@@ -1,0 +1,62 @@
+@model PagedList<AuditLog>
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Nhật ký hệ thống");
+    var f = (AuditFilter)ViewBag.Filter;
+    var lookups = (Dictionary<string, Dictionary<string, string>>)ViewBag.Lookups;
+    var vm = new CRM.Web.ViewComponents.AuditTrailModel { Lookups = lookups };
+    string D(DateTime? d) => d?.ToString("yyyy-MM-dd") ?? "";
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" asp-action="Index">@Icon("clock") @T("Thay đổi dữ liệu")</a></li>
+    <li class="nav-item"><a class="nav-link" asp-action="Logins">@Icon("key") @T("Lịch sử đăng nhập")</a></li>
+</ul>
+<form method="get" class="toolbar">
+    <div><label class="form-label small mb-1">@T("Loại dữ liệu")</label>
+        <select name="Type" class="form-select"><option value="">@T("-- Tất cả --")</option>
+            @foreach (var (k, v) in AuditTrail.Types) { <option value="@k" selected="@(k == f.Type)">@T(v)</option> }</select></div>
+    <div><label class="form-label small mb-1">@T("Thao tác")</label>
+        <select name="Act" class="form-select"><option value="">@T("-- Tất cả --")</option>
+            @foreach (var a in new[] { "Create", "Update", "Delete", "Merge", "Import", "Unlock", "Reset" }) { <option value="@a" selected="@(a == f.Act)">@AuditTrail.ActionLabel(a)</option> }</select></div>
+    <div><label class="form-label small mb-1">@T("Người thực hiện")</label>
+        <select name="UserId" class="form-select" asp-items="ViewBag.Users"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Từ ngày")</label><input type="date" name="From" value="@D(f.From)" class="form-control" /></div>
+    <div><label class="form-label small mb-1">@T("Đến ngày")</label><input type="date" name="To" value="@D(f.To)" class="form-control" /></div>
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên bản ghi, giá trị")" /></div>
+    @if (f.EntityId.HasValue) { <input type="hidden" name="EntityId" value="@f.EntityId" /> }
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    @if (f.EntityId.HasValue) { <a class="btn btn-link" asp-action="Index">@T("Bỏ lọc bản ghi")</a> }
+</form>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0 align-top" data-no-grid>
+    <thead><tr><th style="width:140px">@T("Thời gian")</th><th>@T("Người thực hiện")</th><th>@T("Thao tác")</th><th>@T("Bản ghi")</th><th>@T("Nội dung thay đổi")</th></tr></thead>
+    <tbody>
+    @foreach (var a in Model.Items)
+    {
+        var link = AuditController.LinkOf(Url, a.EntityType, a.EntityId);
+        var changes = AuditTrail.Parse(a.Changes);
+        <tr>
+            <td class="small text-nowrap">@a.At.ToDateTime()<div class="text-muted">@a.Ip</div></td>
+            <td class="text-nowrap">@(a.UserName ?? T("Hệ thống"))</td>
+            <td><span class="badge @AuditTrail.ActionCss(a.Action)">@AuditTrail.ActionLabel(a.Action)</span></td>
+            <td><div class="small text-muted">@AuditTrail.TypeLabel(a.EntityType)</div>
+                @if (link != null && a.Action != "Delete") { <a href="@link">@(a.Title ?? "#" + a.EntityId)</a> } else { <span>@(a.Title ?? "#" + a.EntityId)</span> }</td>
+            <td class="small">
+                @foreach (var c in changes.Take(8))
+                {
+                    <div><span class="text-muted">@AuditTrail.FieldLabel(a.EntityType, c.f):</span>
+                        @if (a.Action == "Update" || a.Action == "Merge") { <span class="audit-old">@vm.Value(c.f, c.o)</span> <text>→</text> }
+                        <span class="audit-new">@vm.Value(c.f, c.n)</span></div>
+                }
+                @if (changes.Count > 8) { <div class="text-muted">@T("… và {0} trường khác", changes.Count - 8)</div> }
+            </td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="5" class="text-center text-muted p-4">@T("Không có dữ liệu.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-muted">@T("{0} dòng nhật ký", Model.TotalCount)</span>
+    <partial name="_Pager" model="Model" />
+</div></div>

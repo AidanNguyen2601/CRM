@@ -27,6 +27,8 @@
     {
         <form asp-action="SetStatus" asp-route-id="@c.Id" method="post" data-confirm="@(Model.Receivable > 0 ? T("Hợp đồng còn {0} chưa thu. Vẫn thanh lý?", Model.Receivable.ToMoney()) : T("Thanh lý hợp đồng?"))"><input type="hidden" name="status" value="@((int)ContractStatus.Liquidated)" /><button class="btn btn-outline-secondary">@T("Thanh lý")</button></form>
     }
+    <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Compose" asp-route-type="Contract" asp-route-id="@c.Id">@Icon("email") @T("Gửi email")</a>
+    @if (c.IsSigned) { <form asp-controller="Renewals" asp-action="Renew" asp-route-id="@c.Id" method="post" data-confirm="@T("Tạo hợp đồng gia hạn (bản nháp) nối tiếp hợp đồng {0}?", c.Number)"><button class="btn btn-outline-success">@Icon("undo") @T("Gia hạn")</button></form> }
     <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
     @if (c.Status is ContractStatus.Draft or ContractStatus.Active)
     {
@@ -59,6 +61,9 @@
         </div>
         <div class="text-end"><partial name="_Badge" model="c.Status" />
             <div class="small mt-1">@T("Hiệu lực: {0} – {1}", c.StartDate.ToDate(), c.EndDate.ToDate())</div></div>
+            @if (c.BillingCycle != BillingCycle.None) { <div class="small">@T("Định kỳ: {0} · {1} đ/kỳ · kỳ tới {2}", c.BillingCycle.GetDisplayName(), c.RecurringAmount.ToMoney(), c.NextBillingDate.ToDate())</div> }
+            @if (c.RenewalOpportunityId.HasValue) { <div class="small"><a asp-controller="Opportunities" asp-action="Details" asp-route-id="@c.RenewalOpportunityId">@T("Cơ hội gia hạn")</a></div> }
+            @if (c.RenewedFromId.HasValue) { <div class="small"><a asp-action="Details" asp-route-id="@c.RenewedFromId">@T("Gia hạn từ hợp đồng trước")</a></div> }
     </div>
     <partial name="_SellerInfo" model="c.BranchId" view-data='new ViewDataDictionary(ViewData) { ["SellerLabel"] = T("Bên bán") }' />
     <div class="row small mb-3">
@@ -157,3 +162,4 @@
 </div>
 
 <div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Contract, id = c.Id, hint = T("Bản scan hợp đồng đã ký, phụ lục, biên bản nghiệm thu / thanh lý…") })</div>
+<div class="mt-3">@await Component.InvokeAsync("AuditTrail", new { type = "Contract", id = c.Id })</div>

@@ -1,0 +1,35 @@
+@model CRM.Web.ViewComponents.SharesModel
+<div class="card mb-3 no-print" id="shares">
+    <div class="card-header">@Icon("users") @T("Chia sẻ") <span class="badge bg-secondary">@Model.Items.Count</span></div>
+    @if (Model.Items.Any())
+    {
+        <ul class="list-group list-group-flush">
+            @foreach (var s in Model.Items)
+            {
+                <li class="list-group-item d-flex align-items-center gap-2">
+                    <span class="flex-grow-1">@s.User?.FullName</span>
+                    <span class="badge @(s.CanEdit ? "bg-primary" : "bg-light text-dark border")">@(s.CanEdit ? T("Xem và sửa") : T("Chỉ xem"))</span>
+                    @if (Model.CanManage)
+                    {
+                        <form asp-controller="Shares" asp-action="Remove" asp-route-shareId="@s.Id" method="post"><button class="btn btn-sm btn-outline-danger" title="@T("Bỏ chia sẻ")">✕</button></form>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    @if (Model.CanManage)
+    {
+        <div class="card-body">
+            <form asp-controller="Shares" asp-action="Add" method="post" class="d-flex flex-wrap gap-2 align-items-center">
+                <input type="hidden" name="type" value="@Model.Type" /><input type="hidden" name="id" value="@Model.Id" />
+                <select name="userId" class="form-select form-select-sm" style="max-width:240px" required>
+                    <option value="">@T("-- Chọn đồng nghiệp --")</option>
+                    @foreach (var u in Model.Candidates) { <option value="@u.Id">@u.FullName</option> }
+                </select>
+                <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="canEdit" value="true" id="shareEdit-@Model.Id" /><label class="form-check-label small" for="shareEdit-@Model.Id">@T("Cho phép sửa")</label></div>
+                <button class="btn btn-sm btn-outline-primary">@T("Chia sẻ")</button>
+            </form>
+            <div class="form-text">@T("Người được chia sẻ thấy bản ghi này dù không phụ trách.")</div>
+        </div>
+    }
+</div>

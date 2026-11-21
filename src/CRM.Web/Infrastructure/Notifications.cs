@@ -38,6 +38,13 @@ public class NotificationService
         "overdue" => "alert",
         "ticket" or "sla" => "support",
         "plan" => "target",
+        "security" => "key",
+        "share" => "users",
+        "automation" => "kanban",
+        "lead" => "lead",
+        "renewal" => "contract",
+        "approval" => "check",
+        "nps" => "star",
         _ => "bell"
     };
 }

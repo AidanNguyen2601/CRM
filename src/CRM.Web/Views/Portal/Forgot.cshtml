@@ -1,0 +1,9 @@
+@{ ViewData["Title"] = T("Quên mật khẩu"); }
+<div class="card mx-auto" style="max-width:420px"><div class="card-body p-4">
+    <h4 class="mb-3">@T("Quên mật khẩu")</h4>
+    <form asp-action="Forgot" method="post">
+        <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required autofocus /></div>
+        <button class="btn btn-primary w-100">@T("Gửi liên kết đặt lại")</button>
+    </form>
+    <div class="mt-3 small"><a asp-action="Login">← @T("Quay lại đăng nhập")</a></div>
+</div></div>

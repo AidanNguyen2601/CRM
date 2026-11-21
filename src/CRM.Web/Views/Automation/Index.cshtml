@@ -1,0 +1,56 @@
+@model List<AutomationRule>
+@{
+    ViewData["Title"] = T("Tự động hoá");
+    var logs = (List<AutomationLog>)ViewBag.Logs;
+    var names = (Dictionary<int, string>)ViewBag.RuleNames;
+}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link active" asp-action="Index">@Icon("kanban") @T("Quy tắc tự động")</a></li>
+    <li class="nav-item"><a class="nav-link" asp-action="LeadAssign">@Icon("lead") @T("Tự phân bổ lead")</a></li>
+</ul>
+<div class="toolbar">
+    <span class="text-muted small">@T("Quy tắc \"khi … thì …\": tự tạo công việc, gửi thông báo hoặc email khi có sự kiện. Sự kiện theo thời gian được quét mỗi giờ.")</span>
+    <form asp-action="RunNow" method="post" class="ms-auto"><button class="btn btn-outline-secondary">@Icon("clock") @T("Chạy quét ngay")</button></form>
+    <a class="btn btn-primary" asp-action="Edit">@Icon("plus") @T("Thêm quy tắc")</a>
+</div>
+<div class="card mb-3"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0 align-middle">
+    <thead><tr><th>@T("Quy tắc")</th><th>@T("Khi")</th><th>@T("Thì")</th><th class="text-center">@T("Số lần chạy")</th><th>@T("Lần chạy gần nhất")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var r in Model)
+    {
+        <tr class="@(r.IsActive ? "" : "text-muted")">
+            <td><a asp-action="Edit" asp-route-id="@r.Id" class="fw-semibold">@r.Name</a></td>
+            <td class="small">@r.Trigger.GetDisplayName().Replace("N ngày", T("{0} ngày", r.Days ?? 0))</td>
+            <td class="small">@r.Action.GetDisplayName() → @(r.Assignee == AutomationAssignee.User ? r.AssigneeUser?.FullName : r.Assignee.GetDisplayName())</td>
+            <td class="text-center">@r.RunCount</td>
+            <td class="small">@r.LastRunAt?.ToDateTime()</td>
+            <td>@if (r.IsActive) { <span class="badge bg-success">@T("Đang bật")</span> } else { <span class="badge bg-secondary">@T("Tắt")</span> }</td>
+            <td class="text-end text-nowrap">
+                <form asp-action="Toggle" asp-route-id="@r.Id" method="post" class="d-inline"><button class="btn btn-sm btn-outline-secondary">@(r.IsActive ? T("Tắt") : T("Bật"))</button></form>
+                <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline" data-confirm="@T("Xóa quy tắc \"{0}\"?", r.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form>
+            </td>
+        </tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="7" class="text-center text-muted p-4">@T("Chưa có quy tắc nào.")</td></tr> }
+    </tbody>
+</table>
+</div></div>
+<div class="card"><div class="card-header">@Icon("clock") @T("Lượt chạy gần đây")</div>
+    <div class="card-body p-0 table-responsive">
+    <table class="table table-sm mb-0">
+        <thead><tr><th>@T("Thời gian")</th><th>@T("Quy tắc")</th><th>@T("Bản ghi")</th><th>@T("Kết quả")</th></tr></thead>
+        <tbody>
+        @foreach (var l in logs)
+        {
+            var link = AuditController.LinkOf(Url, l.EntityType, l.EntityId);
+            <tr><td class="small text-nowrap">@l.At.ToDateTime()</td><td class="small">@names.GetValueOrDefault(l.RuleId)</td>
+                <td class="small">@AuditTrail.TypeLabel(l.EntityType) @if (link != null) { <a href="@link">#@l.EntityId</a> } else { <span>#@l.EntityId</span> }</td>
+                <td class="small">@l.Result</td></tr>
+        }
+        @if (!logs.Any()) { <tr><td colspan="4" class="text-center text-muted p-3">@T("Chưa có lượt chạy.")</td></tr> }
+        </tbody>
+    </table>
+    </div>
+</div>
+@using CRM.Web.Controllers

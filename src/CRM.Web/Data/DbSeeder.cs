@@ -18,6 +18,7 @@ public static class DbSeeder
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        db.SuppressAudit = true;   // dữ liệu khởi tạo không cần nhật ký thay đổi
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
 
         await db.Database.EnsureCreatedAsync();

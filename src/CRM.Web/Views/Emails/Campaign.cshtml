@@ -1,0 +1,45 @@
+@model CRM.Web.Controllers.CampaignEmailViewModel
+@{
+    var c = (Campaign)ViewBag.Campaign;
+    var templates = (List<EmailTemplate>)ViewBag.Templates;
+    ViewData["Title"] = T("Gửi email chiến dịch – {0}", c.Name);
+}
+@if (!(bool)ViewBag.Ready)
+{
+    <div class="alert alert-warning">@Icon("alert") @T("Máy chủ gửi thư chưa được cấu hình – email sẽ nằm trong hàng đợi cho đến khi quản trị cấu hình xong.")</div>
+}
+<form asp-action="Campaign" method="post">
+    <input type="hidden" asp-for="CampaignId" />
+    <div class="row g-3">
+        <div class="col-lg-8"><div class="card"><div class="card-body">
+            <div asp-validation-summary="All" class="text-danger small"></div>
+            <div class="mb-2"><label class="form-label">@T("Mẫu email")</label>
+                <select asp-for="TemplateId" id="tpl" class="form-select"><option value="">@T("-- Dùng nội dung thông điệp của chiến dịch --")</option>
+                    @foreach (var t in templates) { <option value="@t.Id" data-subject="@t.Subject" data-body="@t.Body">@t.Name</option> }</select></div>
+            <div class="mb-2"><label class="form-label">@T("Tiêu đề")</label><input asp-for="Subject" class="form-control" /></div>
+            <div class="mb-2"><label class="form-label">@T("Nội dung")</label><textarea asp-for="Body" rows="14" class="form-control"></textarea>
+                <div class="form-text">@T("Biến trộn cho từng người nhận: {{Ten}}, {{KhachHang}}, {{NhanVien}}, {{LinkHuyDangKy}}. Cuối email luôn có liên kết từ chối nhận tin.")</div></div>
+            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" asp-for="IncludeContacted" /><label class="form-check-label" asp-for="IncludeContacted">@T("Gửi cả đối tượng đã tiếp cận trước đó")</label></div>
+            <button class="btn btn-primary" data-confirm-click="@T("Gửi email tới các đối tượng của chiến dịch?")">@Icon("send") @T("Gửi email")</button>
+            <a class="btn btn-light" asp-controller="Campaigns" asp-action="Details" asp-route-id="@c.Id">@T("Hủy")</a>
+        </div></div></div>
+        <div class="col-lg-4"><div class="card"><div class="card-body small">
+            <div class="fw-semibold mb-2">@T("Người nhận")</div>
+            <div>@T("Chưa tiếp cận, có email:") <b>@ViewBag.PendingCount</b></div>
+            <div>@T("Tất cả có email (trừ từ chối):") <b>@ViewBag.AllCount</b></div>
+            <div class="text-muted">@T("Không có email (bỏ qua):") @ViewBag.NoEmail</div>
+            <hr />
+            <div class="text-muted">@T("Email gửi thành công → đối tượng chuyển \"Đã tiếp cận\"; gửi lỗi sau 3 lần thử → \"Không liên lạc được\". Người nhận bấm từ chối nhận tin → \"Từ chối nhận tin\".")</div>
+        </div></div></div>
+    </div>
+</form>
+@section Scripts {
+<script>
+    document.getElementById('tpl').addEventListener('change', e => {
+        const o = e.target.selectedOptions[0];
+        if (!o.dataset.subject) return;
+        document.getElementById('Subject').value = o.dataset.subject;
+        document.getElementById('Body').value = o.dataset.body;
+    });
+</script>
+}

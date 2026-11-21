@@ -1,0 +1,56 @@
+@model InboundSettings
+@{
+    ViewData["Title"] = T("Email → phiếu hỗ trợ");
+    var recent = (List<InboundMessage>)ViewBag.Recent;
+    var hasPassword = (bool)ViewBag.HasPassword;
+}
+<div class="row g-3">
+    <div class="col-lg-7">
+        <form asp-action="Index" method="post">
+            <div class="card mb-3"><div class="card-header">@Icon("email") @T("Hộp thư hỗ trợ (POP3)")</div><div class="card-body row g-3">
+                <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" asp-for="Pop3Enabled" /><label class="form-check-label fw-semibold" asp-for="Pop3Enabled">@T("Đọc hộp thư mỗi 3 phút")</label></div></div>
+                <div class="col-md-6"><label class="form-label">@T("Máy chủ POP3")</label><input asp-for="Host" class="form-control" placeholder="pop.gmail.com" /></div>
+                <div class="col-md-2"><label class="form-label">@T("Cổng")</label><input asp-for="Port" type="number" class="form-control" /></div>
+                <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" asp-for="UseSsl" /><label class="form-check-label" asp-for="UseSsl">SSL/TLS</label></div></div>
+                <div class="col-md-6"><label class="form-label">@T("Tài khoản")</label><input asp-for="Username" class="form-control" autocomplete="off" placeholder="hotro@congty.vn" /></div>
+                <div class="col-md-6"><label class="form-label">@T("Mật khẩu")</label><input type="password" name="password" class="form-control" autocomplete="new-password" placeholder="@(hasPassword ? T("(đã lưu – để trống nếu không đổi)") : "")" />
+                    @if (hasPassword) { <div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="clearPassword" value="true" id="clr" /><label class="form-check-label small" for="clr">@T("Xóa mật khẩu đã lưu")</label></div> }</div>
+                <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" asp-for="DeleteAfterRead" /><label class="form-check-label" asp-for="DeleteAfterRead">@T("Xóa email khỏi hộp thư sau khi tạo phiếu")</label></div></div>
+            </div></div>
+            <div class="card mb-3"><div class="card-header">@T("Xử lý")</div><div class="card-body row g-3">
+                <div class="col-md-6"><label class="form-label">@T("Độ ưu tiên mặc định")</label><select asp-for="DefaultPriority" class="form-select" asp-items="Html.GetEnumSelectList<TicketPriority>()"></select></div>
+                <div class="col-md-6 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" asp-for="AutoReply" /><label class="form-check-label" asp-for="AutoReply">@T("Tự trả lời xác nhận kèm số phiếu")</label></div></div>
+                <div class="col-12 small text-muted">@T("Tiêu đề email có số phiếu (vd. [YC-2026-0001]) → ghép vào phiếu đó như phản hồi của khách; ngược lại tạo phiếu mới. Khách hàng nhận diện theo email người liên hệ, email khách hàng hoặc tên miền công ty.")</div>
+            </div></div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary">@T("Lưu cấu hình")</button>
+                <button class="btn btn-outline-secondary" name="checkNow" value="true">@T("Lưu và đọc hộp thư ngay")</button>
+            </div>
+            @if (Model.LastCheckAt.HasValue) { <div class="small text-muted mt-2">@T("Lần đọc gần nhất: {0} – {1}", Model.LastCheckAt.Value.ToDateTime(), Model.LastResult ?? "")</div> }
+        </form>
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header">@T("Webhook nhận email")</div><div class="card-body small">
+            <p>@T("Dùng khi chuyển tiếp email qua dịch vụ (SendGrid Inbound Parse, Mailgun, Postmark…). Gửi POST tới địa chỉ:")</p>
+            <input class="form-control form-control-sm font-monospace mb-2" value="@ViewBag.WebhookUrl" readonly onclick="this.select()" aria-label="Webhook" />
+            <p class="mb-2">@T("Nhận form (from, subject, text, html) hoặc JSON {from, subject, text, messageId}.")</p>
+            <form asp-action="Index" method="post" data-confirm="@T("Đổi mã webhook? Địa chỉ cũ sẽ ngừng hoạt động.")">
+                <input type="hidden" name="Pop3Enabled" value="@Model.Pop3Enabled.ToString().ToLower()" /><input type="hidden" name="Host" value="@Model.Host" /><input type="hidden" name="Port" value="@Model.Port" />
+                <input type="hidden" name="UseSsl" value="@Model.UseSsl.ToString().ToLower()" /><input type="hidden" name="Username" value="@Model.Username" /><input type="hidden" name="DeleteAfterRead" value="@Model.DeleteAfterRead.ToString().ToLower()" />
+                <input type="hidden" name="AutoReply" value="@Model.AutoReply.ToString().ToLower()" /><input type="hidden" name="DefaultPriority" value="@((int)Model.DefaultPriority)" />
+                <button class="btn btn-sm btn-outline-danger" name="regenerate" value="true">@T("Đổi mã webhook")</button>
+            </form>
+        </div></div>
+        <div class="card"><div class="card-header">@T("Email nhận gần đây")</div>
+            <ul class="list-group list-group-flush small">
+                @foreach (var m in recent)
+                {
+                    <li class="list-group-item"><div class="d-flex justify-content-between gap-2"><span class="text-truncate">@m.Subject</span>
+                        <span class="badge @(m.Result == "created" ? "bg-success" : m.Result == "replied" ? "bg-primary" : "bg-secondary")">@(m.Result == "created" ? T("Phiếu mới") : m.Result == "replied" ? T("Trả lời") : T("Bỏ qua"))</span></div>
+                        <div class="text-muted">@m.From · @m.ReceivedAt.ToDateTime() @if (m.TicketId.HasValue) { <a asp-controller="Tickets" asp-action="Details" asp-route-id="@m.TicketId">→ @T("phiếu")</a> }</div></li>
+                }
+                @if (!recent.Any()) { <li class="list-group-item text-muted">@T("Chưa nhận email nào.")</li> }
+            </ul>
+        </div>
+    </div>
+</div>

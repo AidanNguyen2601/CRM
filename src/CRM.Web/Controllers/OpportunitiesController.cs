@@ -14,7 +14,7 @@ public class OpportunitiesController : CrmControllerBase
     /// <summary>Danh sách cơ hội dạng bảng</summary>
     public async Task<IActionResult> Index([FromQuery] OpportunityFilter f)
     {
-        var q = Db.Opportunities.VisibleTo(User).Include(o => o.Customer).Include(o => o.Owner).AsNoTracking();
+        var q = Db.Opportunities.VisibleTo(User, Db).Include(o => o.Customer).Include(o => o.Owner).AsNoTracking();
         if (!string.IsNullOrWhiteSpace(f.Keyword))
         {
             var k = f.Keyword.Trim();
@@ -31,18 +31,20 @@ public class OpportunitiesController : CrmControllerBase
         if (f.OwnerId.HasValue) q = q.Where(o => o.OwnerId == f.OwnerId);
 
         f.Page = Math.Max(1, f.Page);
+        q = q.WithTag(Db, f.TagId);
         var total = await q.CountAsync();
         ViewBag.TotalAmount = await q.SumAsync(o => o.Amount);
         var items = await q.OrderBy(o => o.ExpectedCloseDate).Skip((f.Page - 1) * f.PageSize).Take(f.PageSize).ToListAsync();
         await LoadOwnersAsync(f.OwnerId);
         ViewBag.Filter = f;
+        await LoadRowExtrasAsync("Opportunity", items.Select(x => x.Id));
         return View(new PagedList<Opportunity>(items, total, f.Page, f.PageSize));
     }
 
     /// <summary>Pipeline dạng Kanban theo giai đoạn</summary>
     public async Task<IActionResult> Pipeline(int? ownerId)
     {
-        var q = Db.Opportunities.VisibleTo(User).Include(o => o.Customer).Include(o => o.Owner)
+        var q = Db.Opportunities.VisibleTo(User, Db).Include(o => o.Customer).Include(o => o.Owner)
             .Where(o => o.Stage != OpportunityStage.ClosedWon && o.Stage != OpportunityStage.ClosedLost);
         if (ownerId.HasValue) q = q.Where(o => o.OwnerId == ownerId);
         await LoadOwnersAsync(ownerId);
@@ -55,7 +57,7 @@ public class OpportunitiesController : CrmControllerBase
         var o = await Db.Opportunities.Include(x => x.Customer).Include(x => x.Contact).Include(x => x.Owner).Include(x => x.Campaign)
             .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (o == null) return NotFound();
-        if (!User.CanAccess(o)) return NotAllowed();
+        if (!await CanAccessAsync(o, edit: false)) return NotAllowed();
         return View(new OpportunityDetailViewModel
         {
             Opportunity = o,
@@ -86,7 +88,7 @@ public class OpportunitiesController : CrmControllerBase
     {
         var o = await Db.Opportunities.FindAsync(id);
         if (o == null) return NotFound();
-        if (!User.CanAccess(o)) return NotAllowed();
+        if (!await CanAccessAsync(o)) return NotAllowed();
         await LoadLookups(o);
         return View("Form", o);
     }
@@ -96,6 +98,8 @@ public class OpportunitiesController : CrmControllerBase
     {
         if (model.Stage == OpportunityStage.ClosedLost && string.IsNullOrWhiteSpace(model.LostReason))
             ModelState.AddModelError(nameof(model.LostReason), I18n.T("Vui lòng nhập lý do thua"));
+        var (cfValues, cfErrors) = await CustomData.ReadAsync(Db, "Opportunity", Request.Form);
+        foreach (var cfErr in cfErrors) ModelState.AddModelError(string.Empty, cfErr);
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);
@@ -121,15 +125,16 @@ public class OpportunitiesController : CrmControllerBase
         {
             var o = await Db.Opportunities.FindAsync(model.Id);
             if (o == null) return NotFound();
-            if (!User.CanAccess(o)) return NotAllowed();
+            if (!await CanAccessAsync(o)) return NotAllowed();
             o.Name = model.Name; o.CustomerId = model.CustomerId; o.ContactId = model.ContactId; o.Stage = model.Stage;
             o.Amount = model.Amount; o.Probability = model.Probability; o.ExpectedCloseDate = model.ExpectedCloseDate;
             o.Source = model.Source; o.CampaignId = model.CampaignId; o.LostReason = model.LostReason; o.Description = model.Description;
-            o.OwnerId = ResolveOwner(model.OwnerId);
+            o.OwnerId = KeepOwner(o.OwnerId, model.OwnerId);
             entity = o;
         }
         ApplyStageRules(entity);
         await Db.SaveChangesAsync();
+        await CustomData.SaveAsync(Db, model.Id, cfValues);
         TempData["Success"] = I18n.T("Đã lưu cơ hội.");
         return RedirectToAction(nameof(Details), new { id = entity.Id });
     }
@@ -140,7 +145,7 @@ public class OpportunitiesController : CrmControllerBase
     {
         var o = await Db.Opportunities.Include(x => x.Customer).FirstOrDefaultAsync(x => x.Id == id);
         if (o == null) return NotFound();
-        if (!User.CanAccess(o)) return NotAllowed();
+        if (!await CanAccessAsync(o)) return NotAllowed();
 
         if (stage == OpportunityStage.ClosedLost && string.IsNullOrWhiteSpace(lostReason))
         {

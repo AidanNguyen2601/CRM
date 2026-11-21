@@ -7,6 +7,7 @@
 <form method="get" class="toolbar">
     <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên, email, SĐT, khách hàng")" /></div>
     @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <partial name="_TagFilter" />
     <button class="btn btn-outline-primary">@T("Lọc")</button>
     <a class="btn btn-primary ms-auto" asp-action="Create">@T("+ Thêm liên hệ")</a>
 </form>
@@ -17,7 +18,7 @@
     @foreach (var c in Model.Items)
     {
         <tr>
-            <td class="fw-semibold">@c.FullName @if (c.IsPrimary) { <span class="badge bg-success">@T("Chính")</span> }</td>
+            <td class="fw-semibold">@c.FullName @if (c.IsPrimary) { <span class="badge bg-success">@T("Chính")</span> }<partial name="_RowExtras" model="c.Id" /></td>
             <td>@c.JobTitle</td>
             <td>@if (c.Customer != null) { <a asp-controller="Customers" asp-action="Details" asp-route-id="@c.CustomerId">@c.Customer.Name</a> }</td>
             <td>@c.Phone</td>

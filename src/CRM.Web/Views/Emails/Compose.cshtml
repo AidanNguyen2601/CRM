@@ -1,0 +1,94 @@
+@model CRM.Web.Controllers.ComposeEmailViewModel
+@{
+    var ctx = (EmailContext)ViewBag.Context;
+    var templates = (List<EmailTemplate>)ViewBag.Templates;
+    var atts = (List<Attachment>)ViewBag.Attachments;
+    ViewData["Title"] = T("Gửi email – {0}", ctx.Title);
+}
+@if (!(bool)ViewBag.Ready)
+{
+    <div class="alert alert-warning">@Icon("alert") @T("Máy chủ gửi thư chưa được cấu hình – email sẽ nằm trong hàng đợi cho đến khi quản trị cấu hình xong.")</div>
+}
+<form asp-action="Compose" method="post" id="composeForm">
+    <input type="hidden" asp-for="Type" /><input type="hidden" asp-for="Id" />
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card"><div class="card-body">
+                <div asp-validation-summary="All" class="text-danger small"></div>
+                <div class="mb-2">
+                    <label class="form-label">@T("Đến")</label>
+                    <input asp-for="To" class="form-control" list="emailSuggest" placeholder="@T("email@congty.vn, email2@congty.vn")" />
+                    <datalist id="emailSuggest">@foreach (var (n, e) in ctx.Suggestions) { <option value="@e">@n</option> }</datalist>
+                    @if (ctx.Suggestions.Count > 1)
+                    {
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            @foreach (var (n, e) in ctx.Suggestions)
+                            {
+                                <button type="button" class="btn btn-sm btn-light border email-pick" data-email="@e" title="@e">+ @n</button>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="mb-2"><label class="form-label">CC</label><input asp-for="Cc" class="form-control" /></div>
+                <div class="mb-2"><label class="form-label">@T("Tiêu đề")</label><input asp-for="Subject" class="form-control" /></div>
+                <div class="mb-2"><label class="form-label">@T("Nội dung")</label><textarea asp-for="Body" rows="14" class="form-control"></textarea>
+                    <div class="form-text">@T("Viết như văn bản thường: xuống dòng được giữ nguyên, liên kết tự nhận dạng.")</div></div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-primary">@Icon("send") @T("Gửi email")</button>
+                    <a class="btn btn-light" href="@(ctx.BackUrl ?? "/")">@T("Hủy")</a>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-3"><div class="card-body">
+                <label class="form-label">@T("Mẫu email")</label>
+                <select asp-for="TemplateId" id="templateId" class="form-select">
+                    <option value="">@T("-- Không dùng mẫu --")</option>
+                    @foreach (var t in templates) { <option value="@t.Id">@t.Name</option> }
+                </select>
+                <div class="form-text">@T("Đổi mẫu sẽ thay tiêu đề và nội dung đang soạn.")</div>
+                @if (ctx.DocumentHtml != null)
+                {
+                    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" asp-for="IncludeDocument" /><label class="form-check-label" asp-for="IncludeDocument">@T("Chèn bảng chi tiết {0} vào cuối email", ctx.Title)</label></div>
+                }
+            </div></div>
+            <div class="card"><div class="card-header">@Icon("paperclip") @T("Đính kèm file của bản ghi")</div>
+                @if (!atts.Any())
+                {
+                    <div class="card-body small text-muted">@T("Bản ghi chưa có file đính kèm. Tải file (vd. báo giá PDF đã ký) lên trang chi tiết để gửi kèm.")</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var a in atts)
+                        {
+                            <li class="list-group-item"><div class="form-check"><input class="form-check-input" type="checkbox" name="AttachmentIds" value="@a.Id" id="att@(a.Id)" @(Model.AttachmentIds.Contains(a.Id) ? "checked" : "") />
+                                <label class="form-check-label text-break" for="att@(a.Id)">@a.FileName <span class="small text-muted">(@AttachmentService.FormatSize(a.Size))</span></label></div></li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+</form>
+@section Scripts {
+<script>
+    (function () {
+        const to = document.getElementById('To');
+        document.querySelectorAll('.email-pick').forEach(b => b.addEventListener('click', () => {
+            const list = to.value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
+            if (!list.includes(b.dataset.email)) list.push(b.dataset.email);
+            to.value = list.join(', ');
+        }));
+        const sel = document.getElementById('templateId');
+        sel.addEventListener('change', async () => {
+            if (!sel.value) return;
+            const r = await fetch('@Url.Action("Render")?' + new URLSearchParams({ type: '@Model.Type', id: '@Model.Id', templateId: sel.value }));
+            if (!r.ok) return;
+            const d = await r.json();
+            document.getElementById('Subject').value = d.subject;
+            document.getElementById('Body').value = d.body;
+        });
+    })();
+</script>
+}

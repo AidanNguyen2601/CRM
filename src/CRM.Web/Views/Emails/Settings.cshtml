@@ -1,0 +1,29 @@
+@model SmtpSettings
+@{
+    ViewData["Title"] = T("Cấu hình máy chủ gửi thư");
+    var hasPassword = (bool)ViewBag.HasPassword;
+}
+<form asp-action="Settings" method="post" style="max-width:860px">
+    <div class="card mb-3"><div class="card-body row g-3">
+        <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" asp-for="Enabled" /><label class="form-check-label fw-semibold" asp-for="Enabled">@T("Bật gửi email")</label></div></div>
+        <div class="col-md-6"><label class="form-label">@T("Máy chủ SMTP")</label><input asp-for="Host" class="form-control" placeholder="smtp.gmail.com" /></div>
+        <div class="col-md-2"><label class="form-label">@T("Cổng")</label><input asp-for="Port" type="number" class="form-control" /></div>
+        <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" asp-for="EnableSsl" /><label class="form-check-label" asp-for="EnableSsl">@T("Mã hóa TLS/SSL")</label></div></div>
+        <div class="col-md-6"><label class="form-label">@T("Tên đăng nhập SMTP")</label><input asp-for="Username" class="form-control" autocomplete="off" /></div>
+        <div class="col-md-6"><label class="form-label">@T("Mật khẩu SMTP")</label>
+            <input type="password" name="password" class="form-control" autocomplete="new-password" placeholder="@(hasPassword ? T("(đã lưu – để trống nếu không đổi)") : "")" />
+            @if (hasPassword) { <div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="clearPassword" value="true" id="clearPw" /><label class="form-check-label small" for="clearPw">@T("Xóa mật khẩu đã lưu")</label></div> }</div>
+        <div class="col-md-6"><label class="form-label">@T("Email người gửi")</label><input asp-for="FromEmail" class="form-control" placeholder="crm@congty.vn" /></div>
+        <div class="col-md-6"><label class="form-label">@T("Tên người gửi")</label><input asp-for="FromName" class="form-control" placeholder="@T("Phòng kinh doanh")" /></div>
+        <div class="col-12"><label class="form-label">@T("Địa chỉ trang web CRM")</label><input asp-for="SiteUrl" class="form-control" placeholder="https://crm.congty.vn" />
+            <div class="form-text">@T("Dùng để tạo liên kết trong email (đặt lại mật khẩu, thông báo, từ chối nhận tin).")</div></div>
+        <div class="col-12"><label class="form-label">@T("Chân email (chữ ký chung)")</label><textarea asp-for="Footer" rows="3" class="form-control"></textarea></div>
+    </div></div>
+    <div class="card mb-3"><div class="card-body">
+        <label class="form-label">@T("Gửi thư thử tới (tùy chọn)")</label>
+        <div class="d-flex gap-2"><input type="email" name="testTo" class="form-control" style="max-width:360px" placeholder="you@congty.vn" />
+            <span class="form-text align-self-center">@T("Lưu cấu hình và gửi ngay một thư thử để kiểm tra.")</span></div>
+    </div></div>
+    <div class="d-flex gap-2"><button class="btn btn-primary">@T("Lưu cấu hình")</button><a class="btn btn-light" asp-action="Index">@T("Quay lại")</a></div>
+    <div class="form-text mt-3">@T("Gmail / Google Workspace: smtp.gmail.com, cổng 587, bật TLS, mật khẩu là \"Mật khẩu ứng dụng\". Microsoft 365: smtp.office365.com, cổng 587.")</div>
+</form>

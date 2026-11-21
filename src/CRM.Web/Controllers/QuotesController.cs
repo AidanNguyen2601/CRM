@@ -30,6 +30,10 @@ public class QuotesController : CrmControllerBase
         if (q == null) return NotFound();
         if (!User.CanAccess(q)) return NotAllowed();
         q.Lines = q.Lines.OrderBy(l => l.SortOrder).ToList();
+        var policy = await HttpContext.RequestServices.GetRequiredService<PricingService>().PolicyAsync();
+        ViewBag.CanApproveDiscount = q.ApprovalStatus == QuoteApproval.Pending && PricingService.CanApprove(User, policy, q.EffectiveDiscount)
+            && (q.OwnerId != CurrentUserId || User.IsInRole(AppRoles.Admin));
+        ViewBag.ApprovedBy = q.DiscountApprovedById.HasValue ? await Db.Users.Where(u => u.Id == q.DiscountApprovedById).Select(u => u.FullName).FirstOrDefaultAsync() : null;
         return View(q);
     }
 
@@ -116,9 +120,67 @@ public class QuotesController : CrmControllerBase
             });
         }
         q.Recalculate();
+
+        // Chiết khấu vượt hạn mức của vai trò người lập → chờ duyệt (mọi lần sửa đều xét lại)
+        var pricing = HttpContext.RequestServices.GetRequiredService<PricingService>();
+        var policy = await pricing.PolicyAsync();
+        q.EffectiveDiscount = await pricing.EffectiveDiscountAsync(q);
+        var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? AppRoles.Sales;
+        var needApproval = policy.Enabled && q.EffectiveDiscount > policy.LimitFor(role);
+        q.ApprovalStatus = needApproval ? QuoteApproval.Pending : QuoteApproval.None;
+        q.DiscountApprovedById = null; q.DiscountApprovedAt = null;
         await Db.SaveChangesAsync();
-        TempData["Success"] = I18n.T("Đã lưu báo giá {0}.", q.Number);
+        if (needApproval)
+        {
+            await NotifyApproversAsync(q, policy);
+            await Db.SaveChangesAsync();
+            TempData["Success"] = I18n.T("Đã lưu báo giá {0}. Chiết khấu {1}% vượt hạn mức {2}% – báo giá đang chờ duyệt.", q.Number, q.EffectiveDiscount.ToString("0.##"), policy.LimitFor(role).ToString("0.##"));
+        }
+        else TempData["Success"] = I18n.T("Đã lưu báo giá {0}.", q.Number);
         return RedirectToAction(nameof(Details), new { id = q.Id });
+    }
+
+    /// <summary>Báo người duyệt: quản lý (cùng đơn vị hoặc cấp trên) có hạn mức đủ, nếu không có thì quản trị</summary>
+    private async Task NotifyApproversAsync(Quote q, DiscountPolicy policy)
+    {
+        var chain = HttpContext.RequestServices.GetRequiredService<BranchDirectory>().Get().Ancestors(q.BranchId);
+        var users = await Db.Users.Where(u => u.IsActive && (u.Role == AppRoles.Admin || u.Role == AppRoles.Manager && chain.Contains(u.BranchId)))
+            .Select(u => new { u.Id, u.Role }).ToListAsync();
+        var approvers = policy.ManagerLimit >= q.EffectiveDiscount ? users.Where(u => u.Role == AppRoles.Manager).ToList() : new();
+        if (approvers.Count == 0) approvers = users.Where(u => u.Role == AppRoles.Admin).ToList();
+        var notify = HttpContext.RequestServices.GetRequiredService<NotificationService>();
+        foreach (var u in approvers)
+            notify.Add(u.Id, "approval", I18n.T("{0} đề nghị duyệt chiết khấu {1}% cho báo giá {2}", User.GetFullName(), q.EffectiveDiscount.ToString("0.##"), q.Number),
+                Url.Action(nameof(Details), new { id = q.Id }), CurrentUserId, I18n.T("Tổng thanh toán {0} đ", q.Total.ToMoney()));
+    }
+
+    /// <summary>Duyệt / từ chối chiết khấu vượt hạn mức</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DecideDiscount(int id, bool approve, string? note)
+    {
+        var q = await Db.Quotes.FindAsync(id);
+        if (q == null) return NotFound();
+        if (q.ApprovalStatus != QuoteApproval.Pending) return BadRequest();
+        var policy = await HttpContext.RequestServices.GetRequiredService<PricingService>().PolicyAsync();
+        if (!PricingService.CanApprove(User, policy, q.EffectiveDiscount) || q.OwnerId == CurrentUserId && !User.IsInRole(AppRoles.Admin))
+        {
+            TempData["Error"] = I18n.T("Bạn không đủ hạn mức để duyệt chiết khấu {0}% (hoặc không thể tự duyệt báo giá của mình).", q.EffectiveDiscount.ToString("0.##"));
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        if (!approve && string.IsNullOrWhiteSpace(note))
+        {
+            TempData["Error"] = I18n.T("Vui lòng nhập lý do từ chối.");
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        q.ApprovalStatus = approve ? QuoteApproval.Approved : QuoteApproval.Rejected;
+        q.DiscountApprovedById = CurrentUserId; q.DiscountApprovedAt = DateTime.Now;
+        q.ApprovalNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        HttpContext.RequestServices.GetRequiredService<NotificationService>().Add(q.OwnerId, "approval",
+            approve ? I18n.T("{0} đã duyệt chiết khấu báo giá {1}", User.GetFullName(), q.Number) : I18n.T("{0} từ chối chiết khấu báo giá {1}", User.GetFullName(), q.Number),
+            Url.Action(nameof(Details), new { id }), CurrentUserId, q.ApprovalNote);
+        await Db.SaveChangesAsync();
+        TempData["Success"] = approve ? I18n.T("Đã duyệt chiết khấu báo giá {0}.", q.Number) : I18n.T("Đã từ chối chiết khấu báo giá {0}.", q.Number);
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     /// <summary>Chuyển trạng thái báo giá; khách chấp nhận → cơ hội chuyển "Đàm phán" và cập nhật giá trị.</summary>
@@ -128,6 +190,11 @@ public class QuotesController : CrmControllerBase
         var q = await Db.Quotes.FindAsync(id);
         if (q == null) return NotFound();
         if (!User.CanAccess(q)) return NotAllowed();
+        if (status is QuoteStatus.Sent or QuoteStatus.Accepted && q.ApprovalStatus is QuoteApproval.Pending or QuoteApproval.Rejected)
+        {
+            TempData["Error"] = I18n.T("Báo giá có chiết khấu vượt hạn mức chưa được duyệt – chưa thể gửi / chốt với khách hàng.");
+            return RedirectToAction(nameof(Details), new { id });
+        }
         q.Status = status;
         if (status == QuoteStatus.Accepted && q.OpportunityId.HasValue)
         {
@@ -154,6 +221,7 @@ public class QuotesController : CrmControllerBase
         {
             Number = await NextNumberAsync(), CustomerId = src.CustomerId, ContactId = src.ContactId, OpportunityId = src.OpportunityId,
             OwnerId = src.OwnerId, DiscountPercent = src.DiscountPercent, VatPercent = src.VatPercent, Terms = src.Terms,
+            EffectiveDiscount = src.EffectiveDiscount, ApprovalStatus = src.ApprovalStatus == QuoteApproval.None ? QuoteApproval.None : QuoteApproval.Pending,
             Lines = src.Lines.Select(l => new QuoteLine
             {
                 ProductId = l.ProductId, Description = l.Description, Unit = l.Unit, Quantity = l.Quantity,

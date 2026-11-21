@@ -1,0 +1,55 @@
+@model PagedList<EmailMessage>
+@using CRM.Web.Controllers
+@{
+    ViewData["Title"] = T("Email đã gửi");
+    var f = (EmailFilter)ViewBag.Filter;
+    var counts = (Dictionary<EmailStatus, int>)ViewBag.Counts;
+    int Count(EmailStatus s) => counts.TryGetValue(s, out var n) ? n : 0;
+}
+@if (!(bool)ViewBag.Ready)
+{
+    <div class="alert alert-warning">@Icon("alert") @T("Máy chủ gửi thư chưa được cấu hình hoặc đang tắt – email sẽ nằm trong hàng đợi cho đến khi cấu hình xong.")
+        @if (User.IsInRole(AppRoles.Admin)) { <a asp-action="Settings" class="alert-link">@T("Cấu hình ngay")</a> }</div>
+}
+<ul class="nav nav-pills mb-3 flex-wrap">
+    <li class="nav-item"><a class="nav-link @(f.Status == null ? "active" : "")" asp-route-Keyword="@f.Keyword">@T("Tất cả") <span class="badge bg-secondary">@counts.Values.Sum()</span></a></li>
+    @foreach (var s in Enum.GetValues<EmailStatus>())
+    {
+        <li class="nav-item"><a class="nav-link @(f.Status == s ? "active" : "")" asp-route-Status="@s" asp-route-Keyword="@f.Keyword">@s.GetDisplayName()
+            <span class="badge @(s == EmailStatus.Failed && Count(s) > 0 ? "bg-danger" : "bg-secondary")">@Count(s)</span></a></li>
+    }
+</ul>
+<form method="get" class="toolbar">
+    <input type="hidden" name="Status" value="@f.Status" />
+    <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Người nhận, tiêu đề")" /></div>
+    <button class="btn btn-outline-primary">@T("Lọc")</button>
+    @if (User.SeesAll())
+    {
+        <a class="btn btn-outline-secondary ms-auto" asp-action="Templates">@Icon("file") @T("Mẫu email")</a>
+        @if (User.IsInRole(AppRoles.Admin)) { <a class="btn btn-outline-secondary" asp-action="Settings">@Icon("email") @T("Cấu hình gửi thư")</a> }
+    }
+</form>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Thời gian")</th><th>@T("Người nhận")</th><th>@T("Tiêu đề")</th><th>@T("Trạng thái")</th><th>@T("Người gửi")</th></tr></thead>
+    <tbody>
+    @foreach (var m in Model.Items)
+    {
+        <tr>
+            <td class="text-nowrap small">@m.CreatedAt.ToDateTime()</td>
+            <td class="text-break">@m.To</td>
+            <td><a asp-action="Show" asp-route-id="@m.Id">@m.Subject</a>
+                @if (!string.IsNullOrEmpty(m.AttachmentIds)) { <span title="@T("Có file đính kèm")">@Icon("paperclip")</span> }</td>
+            <td class="text-nowrap"><span class="badge @(m.Status == EmailStatus.Sent ? "bg-success" : m.Status == EmailStatus.Failed ? "bg-danger" : "bg-warning text-dark")">@m.Status.GetDisplayName()</span>
+                @if (m.Status == EmailStatus.Failed) { <div class="small text-danger text-truncate" style="max-width:220px" title="@m.Error">@m.Error</div> }</td>
+            <td class="text-nowrap">@(m.CreatedBy?.FullName ?? T("Hệ thống"))</td>
+        </tr>
+    }
+    @if (!Model.Items.Any()) { <tr><td colspan="5" class="text-center text-muted p-4">@T("Chưa có email nào.")</td></tr> }
+    </tbody>
+</table>
+</div>
+<div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-muted">@T("{0} email", Model.TotalCount)</span>
+    <partial name="_Pager" model="Model" />
+</div></div>

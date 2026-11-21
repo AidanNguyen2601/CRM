@@ -125,6 +125,7 @@ public class ContractsController : CrmControllerBase
         {
             Id = c.Id, Number = c.Number, Title = c.Title, CustomerId = c.CustomerId, ContactId = c.ContactId, OpportunityId = c.OpportunityId,
             QuoteId = c.QuoteId, BusinessPlanId = c.BusinessPlanId, StartDate = c.StartDate, EndDate = c.EndDate,
+            BillingCycle = c.BillingCycle, RecurringAmount = c.RecurringAmount, NextBillingDate = c.NextBillingDate, RenewalNoticeDays = c.RenewalNoticeDays,
             VatPercent = Math.Round(c.VatPercent, 0), PaymentTerms = c.PaymentTerms, Notes = c.Notes,
             Lines = c.Lines.OrderBy(l => l.SortOrder).Select(l => new SalesLineInput
             {
@@ -185,6 +186,8 @@ public class ContractsController : CrmControllerBase
 
         c.Title = vm.Title.Trim(); c.CustomerId = vm.CustomerId; c.ContactId = vm.ContactId; c.OpportunityId = vm.OpportunityId;
         c.QuoteId = vm.QuoteId; c.BusinessPlanId = vm.BusinessPlanId; c.StartDate = vm.StartDate; c.EndDate = vm.EndDate;
+        c.BillingCycle = vm.BillingCycle; c.RecurringAmount = vm.BillingCycle == BillingCycle.None ? 0 : vm.RecurringAmount; c.RenewalNoticeDays = vm.RenewalNoticeDays;
+        c.NextBillingDate = vm.BillingCycle == BillingCycle.None ? null : vm.NextBillingDate ?? vm.StartDate;
         c.VatPercent = vm.VatPercent; c.PaymentTerms = vm.PaymentTerms; c.Notes = vm.Notes;
         var sort = 1;
         foreach (var l in vm.Lines)

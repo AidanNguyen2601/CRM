@@ -1,0 +1,40 @@
+@model CRM.Web.ViewComponents.CustomFieldsModel
+@if (Model.Edit)
+{
+    <div class="col-12"><h6 class="text-muted mt-2 mb-0">@T("Thông tin bổ sung")</h6></div>
+    @foreach (var f in Model.Fields)
+    {
+        var name = CustomData.InputName(f);
+        var v = Model.Values.GetValueOrDefault(f.Id) ?? "";
+        <div class="@(f.Type == CustomFieldType.Text && f.Label.Length > 30 ? "col-md-8" : "col-md-4")">
+            @if (f.Type == CustomFieldType.Checkbox)
+            {
+                <div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="@name" id="@name" value="true" @(v == "true" ? "checked" : "") />
+                    <label class="form-check-label" for="@name">@f.Label</label></div>
+            }
+            else
+            {
+                <label class="form-label" for="@name">@f.Label@(f.Required ? " *" : "")</label>
+                @switch (f.Type)
+                {
+                    case CustomFieldType.Number: <input type="number" step="any" name="@name" id="@name" value="@v" class="form-control" required="@f.Required" /> break;
+                    case CustomFieldType.Date: <input type="date" name="@name" id="@name" value="@v" class="form-control" required="@f.Required" /> break;
+                    case CustomFieldType.Select:
+                        <select name="@name" id="@name" class="form-select" required="@f.Required"><option value="">@T("-- Chọn --")</option>
+                            @foreach (var o in f.OptionList) { <option value="@o" selected="@(o == v)">@o</option> }</select>
+                        break;
+                    default: <input name="@name" id="@name" value="@v" maxlength="1000" class="form-control" required="@f.Required" /> break;
+                }
+            }
+        </div>
+    }
+}
+else
+{
+    <dl class="row small mb-0 custom-fields">
+        @foreach (var f in Model.Fields.Where(f => !string.IsNullOrEmpty(Model.Values.GetValueOrDefault(f.Id))))
+        {
+            <dt class="col-5 text-muted fw-normal">@f.Label</dt><dd class="col-7 mb-1">@CustomData.Display(f, Model.Values[f.Id])</dd>
+        }
+    </dl>
+}

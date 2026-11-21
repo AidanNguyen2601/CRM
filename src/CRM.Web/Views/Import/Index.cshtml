@@ -1,0 +1,48 @@
+@{
+    ViewData["Title"] = T("Nhập dữ liệu từ Excel");
+    var types = (List<ImportDefinition>)ViewBag.Types;
+    var selected = (string?)ViewBag.Type ?? types.FirstOrDefault()?.Type;
+}
+@if (!types.Any())
+{
+    <div class="alert alert-warning">@T("Bạn không có quyền nhập dữ liệu.")</div>
+    return;
+}
+<div class="row g-3">
+    <div class="col-lg-7">
+        <form asp-action="Upload" method="post" enctype="multipart/form-data" class="card"><div class="card-body">
+            <h6 class="mb-3">@T("1. Chọn loại dữ liệu")</h6>
+            <div class="ui-choice import-types mb-4">
+                @foreach (var d in types)
+                {
+                    <div><input type="radio" name="type" id="t-@d.Type" value="@d.Type" @(d.Type == selected ? "checked" : "") />
+                        <label for="t-@d.Type">@Icon(d.Icon) <span class="ms-1">@T(d.Label)</span></label></div>
+                }
+            </div>
+            <h6 class="mb-2">@T("2. Chọn file")</h6>
+            <input type="file" name="file" accept=".xlsx,.csv" class="form-control mb-2" required />
+            <div class="form-text mb-3">@T("File Excel (.xlsx) hoặc CSV (UTF-8), tối đa {0} dòng / 5 MB. Dòng đầu tiên là tiêu đề cột.", ImportService.MaxRows)</div>
+            <button class="btn btn-primary">@Icon("upload") @T("Tải lên và khớp cột")</button>
+        </div></form>
+    </div>
+    <div class="col-lg-5">
+        <div class="card"><div class="card-header">@Icon("download") @T("File mẫu")</div>
+            <ul class="list-group list-group-flush">
+                @foreach (var d in types)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>@T(d.Label)</span><a class="btn btn-sm btn-outline-secondary" asp-action="Template" asp-route-type="@d.Type">@Icon("download") .xlsx</a>
+                    </li>
+                }
+            </ul>
+            <div class="card-body small text-muted">
+                <ul class="mb-0 ps-3">
+                    <li>@T("Tên cột không cần giống hệt mẫu – hệ thống tự khớp theo tên cột (có / không dấu), bạn có thể chỉnh lại ở bước sau.")</li>
+                    <li>@T("Người phụ trách: nhập tên đăng nhập, email hoặc họ tên nhân viên. Để trống = người đang nhập.")</li>
+                    <li>@T("Người liên hệ: cột Khách hàng nhập mã khách hàng, mã số thuế hoặc tên công ty đã có trong CRM.")</li>
+                    <li>@T("Trước khi ghi, hệ thống chạy thử và báo các dòng lỗi / trùng để bạn kiểm tra.")</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

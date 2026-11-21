@@ -1,0 +1,70 @@
+@{
+    ViewData["Title"] = T("Gia hạn & doanh thu định kỳ");
+    var s = (RecurringStats)ViewBag.Stats;
+    var expiring = (List<Contract>)ViewBag.Expiring;
+    var opps = (Dictionary<int, Opportunity>)ViewBag.RenewalOpps;
+    var renewed = (HashSet<int>)ViewBag.Renewed;
+    var recurring = (List<Contract>)ViewBag.Recurring;
+    var days = (int)ViewBag.Days;
+}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg"><div class="card stat h-100"><div class="label">@Icon("receivable", "stat-ico")MRR</div><div class="value">@s.Mrr.ToShortMoney()</div><div class="small text-muted">@T("Doanh thu định kỳ hằng tháng · {0} hợp đồng", s.RecurringContracts)</div></div></div>
+    <div class="col-6 col-lg"><div class="card stat h-100"><div class="label">@Icon("trending", "stat-ico")ARR</div><div class="value">@s.Arr.ToShortMoney()</div><div class="small text-muted">@T("Doanh thu định kỳ hằng năm")</div></div></div>
+    <div class="col-6 col-lg"><div class="card stat h-100"><div class="label">@Icon("clock", "stat-ico")@T("Sắp hết hạn (90 ngày)")</div><div class="value">@s.ExpiringIn90</div><div class="small text-muted">@T("Giá trị {0}", s.ExpiringValue.ToShortMoney())</div></div></div>
+    <div class="col-6 col-lg"><div class="card stat h-100"><div class="label">@Icon("undo", "stat-ico")@T("Tỷ lệ gia hạn (12 tháng)")</div><div class="value">@s.RenewalRate.ToString("0.#")%</div><div class="small text-muted">@T("{0} / {1} hợp đồng hết hạn đã gia hạn", s.RenewedLast12, s.EndedLast12)</div></div></div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+        <span>@Icon("contract") @T("Hợp đồng sắp hết hạn")</span>
+        <form method="get" class="d-flex gap-1 align-items-center ms-auto"><span class="small">@T("Trong")</span>
+            <select name="days" class="form-select form-select-sm" onchange="this.form.submit()">@foreach (var d in new[] { 30, 60, 90, 180, 365 }) { <option value="@d" selected="@(d == days)">@T("{0} ngày", d)</option> }</select></form>
+        @if (User.SeesAll()) { <form asp-action="RunNow" method="post"><button class="btn btn-sm btn-outline-secondary">@T("Chạy ngay")</button></form> }
+    </div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead><tr><th>@T("Hợp đồng")</th><th>@T("Khách hàng")</th><th>@T("Kết thúc")</th><th class="money">@T("Giá trị")</th><th>@T("Phụ trách")</th><th>@T("Gia hạn")</th></tr></thead>
+            <tbody>
+            @foreach (var c in expiring)
+            {
+                var left = (c.EndDate!.Value.Date - DateTime.Today).Days;
+                <tr>
+                    <td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@c.Id" class="fw-semibold">@c.Number</a><div class="small text-muted">@c.Title</div></td>
+                    <td>@c.Customer?.Name</td>
+                    <td class="text-nowrap">@c.EndDate.ToDate() <span class="badge @(left < 0 ? "bg-danger" : left <= 30 ? "bg-warning text-dark" : "bg-light text-dark border")">@(left < 0 ? T("quá {0} ngày", -left) : T("còn {0} ngày", left))</span></td>
+                    <td class="money">@c.SubTotal.ToShortMoney()</td>
+                    <td class="small">@c.Owner?.FullName</td>
+                    <td>
+                        @if (renewed.Contains(c.Id)) { <span class="badge bg-success">@T("Đã gia hạn")</span> }
+                        else if (c.RenewalOpportunityId is int oid && opps.TryGetValue(oid, out var o)) { <a asp-controller="Opportunities" asp-action="Details" asp-route-id="@oid" class="small">@T("Cơ hội:")</a> <partial name="_Badge" model="o.Stage" /> }
+                        else { <form asp-action="Renew" asp-route-id="@c.Id" method="post" data-confirm="@T("Tạo hợp đồng gia hạn (bản nháp) nối tiếp hợp đồng {0}?", c.Number)"><button class="btn btn-sm btn-outline-success">@T("Gia hạn")</button></form> }
+                    </td>
+                </tr>
+            }
+            @if (!expiring.Any()) { <tr><td colspan="6" class="text-center text-muted p-4">@T("Không có hợp đồng sắp hết hạn.")</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">@Icon("receivable") @T("Hợp đồng thanh toán định kỳ")</div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>@T("Hợp đồng")</th><th>@T("Khách hàng")</th><th>@T("Chu kỳ")</th><th class="money">@T("Mỗi kỳ")</th><th class="money">MRR</th><th>@T("Kỳ hoá đơn tiếp theo")</th><th>@T("Kết thúc")</th></tr></thead>
+            <tbody>
+            @foreach (var c in recurring)
+            {
+                <tr>
+                    <td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@c.Id">@c.Number</a></td><td>@c.Customer?.Name</td>
+                    <td>@c.BillingCycle.GetDisplayName()</td><td class="money">@c.RecurringAmount.ToMoney()</td>
+                    <td class="money">@((c.RecurringAmount / (int)c.BillingCycle).ToMoney())</td>
+                    <td class="@(c.NextBillingDate <= DateTime.Today ? "text-danger fw-semibold" : "")">@c.NextBillingDate.ToDate()</td><td>@c.EndDate.ToDate()</td>
+                </tr>
+            }
+            @if (!recurring.Any()) { <tr><td colspan="7" class="text-center text-muted p-4">@T("Chưa có hợp đồng thanh toán định kỳ. Đặt \"Chu kỳ thanh toán\" khi sửa hợp đồng.")</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white small text-muted">@T("Mỗi giờ hệ thống tự lập hoá đơn nháp cho kỳ đến hạn và tạo cơ hội gia hạn trước ngày kết thúc theo số ngày cấu hình của từng hợp đồng.")</div>
+</div>

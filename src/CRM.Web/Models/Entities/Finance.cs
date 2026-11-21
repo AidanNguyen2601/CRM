@@ -96,6 +96,20 @@ public class Contract : IOwned, IBranchScoped
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+    // ---- Định kỳ / gia hạn ----
+    [Display(Name = "Chu kỳ thanh toán")]
+    public BillingCycle BillingCycle { get; set; } = BillingCycle.None;
+    /// <summary>Số tiền mỗi kỳ (trước VAT) – tự lập hoá đơn nháp mỗi kỳ</summary>
+    [Column(TypeName = "decimal(18,0)")]
+    [Display(Name = "Số tiền mỗi kỳ")]
+    public decimal RecurringAmount { get; set; }
+    [DataType(DataType.Date)][Display(Name = "Kỳ lập hoá đơn tiếp theo")] public DateTime? NextBillingDate { get; set; }
+    /// <summary>Tạo cơ hội gia hạn trước ngày kết thúc bao nhiêu ngày (0 = không tự tạo)</summary>
+    [Range(0, 365)][Display(Name = "Nhắc gia hạn trước (ngày)")] public int RenewalNoticeDays { get; set; } = 60;
+    public int? RenewalOpportunityId { get; set; }
+    /// <summary>Hợp đồng gốc (hợp đồng này là bản gia hạn)</summary>
+    public int? RenewedFromId { get; set; }
+
     public ICollection<ContractLine> Lines { get; set; } = new List<ContractLine>();
     public ICollection<ContractMilestone> Milestones { get; set; } = new List<ContractMilestone>();
 

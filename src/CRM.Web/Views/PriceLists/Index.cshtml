@@ -1,0 +1,45 @@
+@model List<PriceList>
+@{
+    ViewData["Title"] = T("Bảng giá & chiết khấu");
+    var policy = (DiscountPolicy)ViewBag.Policy;
+    var counts = (Dictionary<int, int>)ViewBag.CustomerCounts;
+}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="toolbar"><span class="text-muted small">@T("Gắn bảng giá cho khách hàng (trang sửa khách hàng) – báo giá tự lấy giá theo bảng; sản phẩm không có trong bảng dùng giá bán chuẩn.")</span>
+            <a class="btn btn-primary ms-auto" asp-action="Edit">@Icon("plus") @T("Thêm bảng giá")</a></div>
+        <div class="card"><div class="card-body p-0 table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>@T("Tên bảng giá")</th><th>@T("Hiệu lực")</th><th class="text-center">@T("Sản phẩm")</th><th class="text-center">@T("Khách hàng áp dụng")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var p in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Edit" asp-route-id="@p.Id" class="fw-semibold">@p.Name</a>@if (!string.IsNullOrEmpty(p.Description)) { <div class="small text-muted">@p.Description</div> }</td>
+                        <td class="small">@(p.ValidFrom.HasValue || p.ValidTo.HasValue ? $"{p.ValidFrom.ToDate()} – {p.ValidTo.ToDate()}" : T("Không giới hạn"))</td>
+                        <td class="text-center">@p.Items.Count</td>
+                        <td class="text-center">@counts.GetValueOrDefault(p.Id)</td>
+                        <td>@if (p.IsEffective) { <span class="badge bg-success">@T("Đang hiệu lực")</span> } else { <span class="badge bg-secondary">@T("Không hiệu lực")</span> }</td>
+                        <td class="text-end"><form asp-action="Delete" asp-route-id="@p.Id" method="post" class="d-inline" data-confirm="@T("Xóa bảng giá \"{0}\"?", p.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form></td>
+                    </tr>
+                }
+                @if (!Model.Any()) { <tr><td colspan="6" class="text-center text-muted p-4">@T("Chưa có bảng giá.")</td></tr> }
+                </tbody>
+            </table>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <form asp-action="SavePolicy" method="post" class="card"><div class="card-header">@Icon("receivable") @T("Chính sách chiết khấu")</div><div class="card-body">
+            <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="Enabled" value="true" id="pen" @(policy.Enabled ? "checked" : "") @(User.IsInRole(AppRoles.Admin) ? "" : "disabled") />
+                <label class="form-check-label" for="pen">@T("Bật duyệt chiết khấu vượt hạn mức")</label></div>
+            <label class="form-label small">@T("Hạn mức chiết khấu tối đa không cần duyệt (%)")</label>
+            <div class="row g-2 mb-2">
+                <div class="col-7 small align-self-center">@AppRoles.DisplayName(AppRoles.Sales)</div><div class="col-5"><input name="SalesLimit" type="number" step="0.5" min="0" max="100" value="@policy.SalesLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control form-control-sm" /></div>
+                <div class="col-7 small align-self-center">@AppRoles.DisplayName(AppRoles.Support)</div><div class="col-5"><input name="SupportLimit" type="number" step="0.5" min="0" max="100" value="@policy.SupportLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control form-control-sm" /></div>
+                <div class="col-7 small align-self-center">@AppRoles.DisplayName(AppRoles.Manager)</div><div class="col-5"><input name="ManagerLimit" type="number" step="0.5" min="0" max="100" value="@policy.ManagerLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control form-control-sm" /></div>
+            </div>
+            <div class="form-text mb-3">@T("Chiết khấu thực tế tính so với giá theo bảng giá / giá bán chuẩn (hạ đơn giá cũng tính là chiết khấu). Vượt hạn mức → báo giá chờ duyệt, chưa gửi được cho khách. Quản lý duyệt được trong hạn mức của mình, vượt nữa cần quản trị.")</div>
+            @if (User.IsInRole(AppRoles.Admin)) { <button class="btn btn-primary btn-sm">@T("Lưu chính sách")</button> }
+        </div></form>
+    </div>
+</div>

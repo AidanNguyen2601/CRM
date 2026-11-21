@@ -1,0 +1,32 @@
+@model List<EmailTemplate>
+@{
+    ViewData["Title"] = T("Mẫu email");
+    string ScopeLabel(string? s) => s == null ? T("Mọi nơi") : AuditTrail.TypeLabel(s);
+}
+<div class="toolbar">
+    <a class="btn btn-light" asp-action="Index">← @T("Email đã gửi")</a>
+    <a class="btn btn-primary ms-auto" asp-action="Template">@Icon("plus") @T("Thêm mẫu")</a>
+</div>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table table-hover mb-0">
+    <thead><tr><th>@T("Tên mẫu")</th><th>@T("Dùng cho")</th><th>@T("Tiêu đề")</th><th>@T("Trạng thái")</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var t in Model)
+    {
+        <tr>
+            <td><a asp-action="Template" asp-route-id="@t.Id" class="fw-semibold">@t.Name</a>
+                @if (t.Code != null) { <span class="badge bg-light text-dark border">@T("Mẫu hệ thống")</span> }</td>
+            <td>@(t.Code != null ? T("Hệ thống") : ScopeLabel(t.Scope))</td>
+            <td class="small">@t.Subject</td>
+            <td>@if (t.IsActive) { <span class="badge bg-success">@T("Đang dùng")</span> } else { <span class="badge bg-secondary">@T("Tắt")</span> }</td>
+            <td class="text-end">
+                @if (t.Code == null)
+                {
+                    <form asp-action="DeleteTemplate" asp-route-id="@t.Id" method="post" class="d-inline" data-confirm="@T("Xóa mẫu email \"{0}\"?", t.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>

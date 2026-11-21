@@ -16,6 +16,10 @@
         <div class="col-md-4"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">@T("-- Không --")</option></select></div>
         <div class="col-md-3"><label asp-for="StartDate" class="form-label"></label><input asp-for="StartDate" class="form-control" /></div>
         <div class="col-md-3"><label asp-for="EndDate" class="form-label"></label><input asp-for="EndDate" class="form-control" /><span asp-validation-for="EndDate" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="BillingCycle" class="form-label"></label><select asp-for="BillingCycle" class="form-select" asp-items="Html.GetEnumSelectList<BillingCycle>()" id="billingCycle"></select></div>
+        <div class="col-md-3 recurring"><label asp-for="RecurringAmount" class="form-label"></label><input asp-for="RecurringAmount" type="number" min="0" step="1000" class="form-control" /></div>
+        <div class="col-md-3 recurring"><label asp-for="NextBillingDate" class="form-label"></label><input asp-for="NextBillingDate" class="form-control" /><div class="form-text">@T("Đến kỳ hệ thống tự lập hoá đơn nháp.")</div></div>
+        <div class="col-md-3"><label asp-for="RenewalNoticeDays" class="form-label"></label><input asp-for="RenewalNoticeDays" type="number" min="0" max="365" class="form-control" /><div class="form-text">@T("Tự tạo cơ hội gia hạn trước ngày kết thúc (0 = không).")</div></div>
         <div class="col-md-2"><label asp-for="VatPercent" class="form-label"></label>
             <select asp-for="VatPercent" class="form-select">@foreach (var v in new[] { 0m, 5m, 8m, 10m }) { <option value="@v" selected="@(Model.VatPercent == v)">@v%</option> }</select></div>
         @if (!string.IsNullOrEmpty(Model.SourceText)) { <div class="col-md-4 d-flex align-items-end small text-muted">@Model.SourceText</div> }
@@ -60,6 +64,12 @@
 @section Scripts {
 <partial name="_ValidationScriptsPartial" />
 <script>
+    // Ô số tiền mỗi kỳ / kỳ hoá đơn tiếp theo chỉ hiện khi có chu kỳ thanh toán
+    (function () {
+        const cyc = document.getElementById("billingCycle");
+        const upd = () => document.querySelectorAll(".recurring").forEach(el => el.classList.toggle("d-none", cyc.value === "0"));
+        cyc.addEventListener("change", upd); upd();
+    })();
     // Số tiền từng đợt = tỷ lệ × tổng giá trị hợp đồng (gồm VAT); cảnh báo khi tổng tỷ lệ ≠ 100%
     (function () {
         function recalcMilestones() {

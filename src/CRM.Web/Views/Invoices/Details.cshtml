@@ -13,6 +13,7 @@
     {
         <a class="btn btn-success" asp-controller="Payments" asp-action="Create" asp-route-invoiceId="@Model.Id">@Icon("wallet") @T("Ghi nhận thanh toán")</a>
     }
+    <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Compose" asp-route-type="Invoice" asp-route-id="@Model.Id">@Icon("email") @T("Gửi email")</a>
     <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
     @if (User.SeesAll() && Model.IsBillable && !payments.Any())
     {
@@ -88,3 +89,4 @@
 </div>
 
 <div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Invoice, id = Model.Id, hint = T("File PDF / XML hoá đơn điện tử, biên bản điều chỉnh…") })</div>
+<div class="mt-3">@await Component.InvokeAsync("AuditTrail", new { type = "Invoice", id = Model.Id })</div>

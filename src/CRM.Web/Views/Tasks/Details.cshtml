@@ -124,6 +124,7 @@
         </div>
 
         @await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Activity, id = a.Id, hint = T("Tài liệu, hình ảnh, kết quả công việc…") })
+        @await Component.InvokeAsync("AuditTrail", new { type = "Activity", id = a.Id })
     </div>
 
     <div class="col-lg-4">

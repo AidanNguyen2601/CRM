@@ -47,21 +47,41 @@ public abstract class CrmControllerBase : Controller
     /// <summary>Sales luôn là người phụ trách bản ghi họ tạo; Manager/Admin được chọn.</summary>
     protected int? ResolveOwner(int? requested) => User.SeesAll() ? (requested ?? CurrentUserId) : CurrentUserId;
 
+    /// <summary>Sửa bản ghi: quản lý được đổi người phụ trách; nhân viên sửa bản ghi của mình giữ là mình; người được chia sẻ sửa thì giữ người phụ trách cũ.</summary>
+    protected int? KeepOwner(int? existing, int? requested) =>
+        User.SeesAll() ? (requested ?? CurrentUserId) : existing == null || existing == CurrentUserId ? CurrentUserId : existing;
+
     protected async Task LoadOwnersAsync(int? selected)
     {
         ViewBag.Owners = new SelectList(await Db.UsersInScope.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync(),
             "Id", "FullName", selected);
     }
 
+    /// <summary>Danh sách: nhãn của từng dòng, trường tùy biến "hiện ở danh sách", danh sách nhãn để lọc</summary>
+    protected async Task LoadRowExtrasAsync(string type, IEnumerable<int> ids)
+    {
+        var list = ids.ToList();
+        ViewBag.RowTags = await CustomData.TagsOfAsync(Db, type, list);
+        ViewBag.RowFields = await CustomData.FieldsAsync(Db, type, listOnly: true);
+        ViewBag.RowValues = ((List<CustomFieldDef>)ViewBag.RowFields).Count > 0 ? await CustomData.ValuesAsync(Db, type, list) : new Dictionary<int, Dictionary<int, string?>>();
+        ViewBag.TagOptions = await Db.Tags.OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).ToListAsync();
+    }
+
+    /// <summary>Danh sách bảng giá đang dùng (form khách hàng)</summary>
+    protected async Task LoadPriceListsAsync(int? selected)
+    {
+        ViewBag.PriceLists = new SelectList(await Db.PriceLists.Where(p => p.IsActive || p.Id == selected).OrderBy(p => p.Name).Select(p => new { p.Id, p.Name }).ToListAsync(), "Id", "Name", selected);
+    }
+
     protected async Task LoadCustomersAsync(int? selected)
     {
-        ViewBag.Customers = new SelectList(await Db.Customers.VisibleTo(User).OrderBy(c => c.Name)
+        ViewBag.Customers = new SelectList(await Db.Customers.VisibleTo(User, Db).OrderBy(c => c.Name)
             .Select(c => new { c.Id, Name = c.Code + " - " + c.Name }).ToListAsync(), "Id", "Name", selected);
     }
 
     protected async Task LoadContactsAsync(int? customerId, int? selected)
     {
-        var q = Db.Contacts.VisibleTo(User);
+        var q = Db.Contacts.VisibleTo(User, Db);
         if (customerId.HasValue) q = q.Where(c => c.CustomerId == customerId);
         ViewBag.Contacts = new SelectList(await q.OrderBy(c => c.FullName)
             .Select(c => new { c.Id, Name = c.FullName + (c.JobTitle != null ? " (" + c.JobTitle + ")" : "") }).ToListAsync(),
@@ -70,10 +90,23 @@ public abstract class CrmControllerBase : Controller
 
     protected async Task LoadOpportunitiesAsync(int? customerId, int? selected)
     {
-        var q = Db.Opportunities.VisibleTo(User);
+        var q = Db.Opportunities.VisibleTo(User, Db);
         if (customerId.HasValue) q = q.Where(o => o.CustomerId == customerId);
         ViewBag.Opportunities = new SelectList(await q.OrderByDescending(o => o.CreatedAt)
             .Select(o => new { o.Id, o.Name }).ToListAsync(), "Id", "Name", selected);
+    }
+
+    /// <summary>
+    /// Quyền với bản ghi có người phụ trách: quản lý / quản trị, người phụ trách, hoặc người được chia sẻ
+    /// (edit = true: cần chia sẻ có quyền sửa).
+    /// </summary>
+    protected async Task<bool> CanAccessAsync<T>(T item, bool edit = true) where T : class, IOwned
+    {
+        if (User.CanAccess(item)) return true;
+        var id = Db.Entry(item).Property<int>("Id").CurrentValue;
+        var uid = CurrentUserId;
+        var type = typeof(T).Name;
+        return await Db.RecordShares.AnyAsync(s => s.EntityType == type && s.EntityId == id && s.UserId == uid && (!edit || s.CanEdit));
     }
 
     protected IActionResult NotAllowed()

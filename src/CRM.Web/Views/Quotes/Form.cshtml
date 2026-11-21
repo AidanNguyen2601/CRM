@@ -5,7 +5,7 @@
     <div asp-validation-summary="All" class="text-danger"></div>
     <div class="card mb-3"><div class="card-body row g-3">
         <div class="col-md-3"><label asp-for="Number" class="form-label"></label><input asp-for="Number" class="form-control" readonly /></div>
-        <div class="col-md-5"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers" data-contacts-for="#ContactId"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span></div>
+        <div class="col-md-5"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers" data-contacts-for="#ContactId"><option value="">@T("-- Chọn khách hàng --")</option></select><span asp-validation-for="CustomerId" class="text-danger small"></span><div class="form-text text-primary" id="priceListNote"></div></div>
         <div class="col-md-4"><label asp-for="ContactId" class="form-label"></label><select asp-for="ContactId" class="form-select" asp-items="ViewBag.Contacts"><option value="">@T("-- Chọn --")</option></select></div>
         <div class="col-md-4"><label asp-for="OpportunityId" class="form-label"></label><select asp-for="OpportunityId" class="form-select" asp-items="ViewBag.Opportunities"><option value="">@T("-- Không --")</option></select></div>
         <div class="col-md-2"><label asp-for="QuoteDate" class="form-label"></label><input asp-for="QuoteDate" class="form-control" /></div>
@@ -59,6 +59,18 @@
 <script>
 (function () {
     const products = @Html.Raw(ViewBag.ProductsJson);
+    // Bảng giá của khách hàng: giá sản phẩm lấy theo bảng giá (nếu có), không thì giá bán chuẩn
+    let custPrices = {};
+    const custSel = document.getElementById('CustomerId');
+    async function loadPrices() {
+        custPrices = {}; let name = null;
+        if (custSel && custSel.value) {
+            const r = await fetch('@Url.Action("ForCustomer", "PriceLists")?customerId=' + custSel.value);
+            if (r.ok) { const d = await r.json(); custPrices = d.prices || {}; name = d.name; }
+        }
+        document.getElementById('priceListNote').textContent = name ? (@Json.Serialize(T("Áp dụng bảng giá: {0}"))).replace('{0}', name) : '';
+    }
+    if (custSel) { custSel.addEventListener('change', loadPrices); loadPrices(); }
     const tbody = document.getElementById('lines');
     const fmt = n => Math.round(n).toLocaleString('vi-VN');
     const num = el => parseFloat(el && el.value ? el.value : '0') || 0;
@@ -109,7 +121,7 @@
         const tr = e.target.closest('tr');
         tr.querySelector('[data-f=Description]').value = p.name;
         tr.querySelector('[data-f=Unit]').value = p.unit;
-        tr.querySelector('[data-f=UnitPrice]').value = p.price;
+        tr.querySelector('[data-f=UnitPrice]').value = custPrices[p.id] ?? p.price;
         recalc();
     });
     document.addEventListener('input', e => { if (e.target.classList.contains('calc')) recalc(); });

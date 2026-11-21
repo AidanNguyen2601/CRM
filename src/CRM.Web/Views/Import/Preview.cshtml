@@ -1,0 +1,54 @@
+@model CRM.Web.Controllers.ImportSession
+@{
+    var def = (ImportDefinition)ViewBag.Def;
+    var plan = Model.Plan!;
+    ViewData["Title"] = T("Nhập {0} – kiểm tra", T(def.Label));
+    var willWrite = plan.Count("Create") + plan.Count("Update");
+    string Css(string a) => a switch { "Create" => "bg-success", "Update" => "bg-primary", "Skip" => "bg-secondary", _ => "bg-danger" };
+    string Label(string a) => a switch { "Create" => T("Tạo mới"), "Update" => T("Cập nhật"), "Skip" => T("Bỏ qua"), _ => T("Lỗi") };
+    var shown = plan.Rows.Where(r => r.Action is "Error" or "Skip").Take(300).ToList();
+}
+<div class="row g-3 mb-3">
+    @foreach (var a in new[] { "Create", "Update", "Skip", "Error" })
+    {
+        <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="label">@Label(a)</div><div class="value"><span class="badge @Css(a) fs-5">@plan.Count(a)</span></div></div></div>
+    }
+</div>
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+    <form asp-action="Execute" method="post">
+        <input type="hidden" name="key" value="@Model.Key" />
+        <button class="btn btn-primary" @(willWrite == 0 ? "disabled" : "") data-confirm-click="@T("Ghi {0} dòng vào CRM?", willWrite)">@Icon("check") @T("Nhập {0} dòng", willWrite)</button>
+    </form>
+    <a class="btn btn-outline-secondary" asp-action="Map" asp-route-key="@Model.Key">← @T("Chỉnh khớp cột / chế độ trùng")</a>
+    <span class="small text-muted">@T("Dòng lỗi và dòng bỏ qua sẽ không được nhập. Sửa file rồi tải lại nếu cần.")</span>
+</div>
+@if (shown.Any())
+{
+    <div class="card"><div class="card-header">@T("Dòng lỗi / bỏ qua") @if (plan.Rows.Count(r => r.Action is "Error" or "Skip") > shown.Count) { <span class="small text-muted">(@T("hiển thị {0} dòng đầu", shown.Count))</span> }</div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-sm mb-0" data-no-grid>
+            <thead><tr><th style="width:70px">@T("Dòng")</th><th style="width:100px">@T("Kết quả")</th><th>@T("Dữ liệu")</th><th>@T("Chi tiết")</th></tr></thead>
+            <tbody>
+            @foreach (var r in shown)
+            {
+                <tr><td>@r.RowNo</td><td><span class="badge @Css(r.Action)">@Label(r.Action)</span></td><td class="small">@r.Display</td><td class="small @(r.Action == "Error" ? "text-danger" : "text-muted")">@string.Join("; ", r.Messages)</td></tr>
+            }
+            </tbody>
+        </table>
+    </div></div>
+}
+@if (plan.Count("Update") > 0)
+{
+    <div class="card mt-3"><div class="card-header">@T("Bản ghi sẽ được cập nhật")</div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-sm mb-0" data-no-grid>
+            <thead><tr><th style="width:70px">@T("Dòng")</th><th>@T("Dữ liệu trong file")</th><th>@T("Bản ghi đang có")</th></tr></thead>
+            <tbody>
+            @foreach (var r in plan.Rows.Where(r => r.Action == "Update").Take(100))
+            {
+                <tr><td>@r.RowNo</td><td class="small">@r.Display</td><td class="small">@r.MatchTitle</td></tr>
+            }
+            </tbody>
+        </table>
+    </div></div>
+}

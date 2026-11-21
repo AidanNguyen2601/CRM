@@ -19,6 +19,7 @@ public static class DemoDataGenerator
     public static async Task<DemoDataResult> GenerateAsync(CrmDbContext db, int customerCount, int? seed = null)
     {
         customerCount = Math.Clamp(customerCount, 1, 1000);
+        db.SuppressAudit = true;
         var g = new Gen(db, new Random(seed ?? Environment.TickCount));
         await using var tx = await db.Database.BeginTransactionAsync();
         var result = await g.RunAsync(customerCount);
@@ -30,6 +31,7 @@ public static class DemoDataGenerator
     public static async Task<(int Campaigns, int Members, int Leads, int Opportunities)> GenerateMarketingAsync(CrmDbContext db, int campaignCount, int? seed = null)
     {
         campaignCount = Math.Clamp(campaignCount, 1, 50);
+        db.SuppressAudit = true;
         var g = new Gen(db, new Random(seed ?? Environment.TickCount));
         await using var tx = await db.Database.BeginTransactionAsync();
         var result = await g.RunMarketingAsync(campaignCount);
@@ -41,6 +43,7 @@ public static class DemoDataGenerator
     public static async Task<(int Tickets, int Open, int Closed, int Comments)> GenerateSupportAsync(CrmDbContext db, int ticketCount, int? seed = null)
     {
         ticketCount = Math.Clamp(ticketCount, 1, 1000);
+        db.SuppressAudit = true;
         var g = new Gen(db, new Random(seed ?? Environment.TickCount));
         await using var tx = await db.Database.BeginTransactionAsync();
         var result = await g.RunSupportAsync(ticketCount);

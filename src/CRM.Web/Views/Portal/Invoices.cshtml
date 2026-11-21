@@ -1,0 +1,34 @@
+@model List<Invoice>
+@{
+    ViewData["Title"] = T("Hoá đơn & hợp đồng");
+    var contracts = (List<Contract>)ViewBag.Contracts;
+}
+<h4 class="mb-3">@T("Hoá đơn")</h4>
+<div class="card mb-4"><div class="card-body p-0 table-responsive">
+<table class="table mb-0" data-no-grid>
+    <thead><tr><th>@T("Số hoá đơn")</th><th>@T("Ngày")</th><th>@T("Hạn thanh toán")</th><th class="money">@T("Tổng thanh toán")</th><th class="money">@T("Còn phải thanh toán")</th><th>@T("Trạng thái")</th></tr></thead>
+    <tbody>
+    @foreach (var i in Model)
+    {
+        var left = i.Total - i.PaidAmount;
+        <tr><td>@i.Symbol @i.Number</td><td>@i.InvoiceDate.ToDate()</td><td class="@(left > 0 && i.DueDate < DateTime.Today ? "text-danger fw-semibold" : "")">@i.DueDate.ToDate()</td>
+            <td class="money">@i.Total.ToMoney()</td><td class="money">@left.ToMoney()</td><td><partial name="_Badge" model="i.Status" /></td></tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="6" class="text-center text-muted p-4">@T("Chưa có hoá đơn.")</td></tr> }
+    </tbody>
+    @if (Model.Any()) { <tfoot><tr class="fw-semibold"><td colspan="4">@T("Tổng còn phải thanh toán")</td><td class="money">@Model.Sum(i => i.Total - i.PaidAmount).ToMoney()</td><td></td></tr></tfoot> }
+</table>
+</div></div>
+<h4 class="mb-3">@T("Hợp đồng")</h4>
+<div class="card"><div class="card-body p-0 table-responsive">
+<table class="table mb-0" data-no-grid>
+    <thead><tr><th>@T("Số hợp đồng")</th><th>@T("Tên hợp đồng")</th><th>@T("Hiệu lực")</th><th class="money">@T("Giá trị")</th><th>@T("Trạng thái")</th></tr></thead>
+    <tbody>
+    @foreach (var c in contracts)
+    {
+        <tr><td>@c.Number</td><td>@c.Title</td><td>@c.StartDate.ToDate() – @c.EndDate.ToDate()</td><td class="money">@c.Total.ToMoney()</td><td><partial name="_Badge" model="c.Status" /></td></tr>
+    }
+    @if (!contracts.Any()) { <tr><td colspan="5" class="text-center text-muted p-4">@T("Chưa có hợp đồng.")</td></tr> }
+    </tbody>
+</table>
+</div></div>

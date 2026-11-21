@@ -13,7 +13,7 @@ public class LeadsController : CrmControllerBase
 
     public async Task<IActionResult> Index([FromQuery] LeadFilter f)
     {
-        var q = Db.Leads.VisibleTo(User).Include(l => l.Owner).AsNoTracking();
+        var q = Db.Leads.VisibleTo(User, Db).Include(l => l.Owner).AsNoTracking();
         if (!string.IsNullOrWhiteSpace(f.Keyword))
         {
             var k = f.Keyword.Trim();
@@ -26,11 +26,13 @@ public class LeadsController : CrmControllerBase
         if (f.OwnerId.HasValue) q = q.Where(l => l.OwnerId == f.OwnerId);
 
         f.Page = Math.Max(1, f.Page);
+        q = q.WithTag(Db, f.TagId);
         var total = await q.CountAsync();
-        var items = await q.OrderBy(l => l.Rating).ThenByDescending(l => l.CreatedAt)
+        var items = await q.OrderByDescending(l => l.Score).ThenBy(l => l.Rating).ThenByDescending(l => l.CreatedAt)
             .Skip((f.Page - 1) * f.PageSize).Take(f.PageSize).ToListAsync();
         await LoadOwnersAsync(f.OwnerId);
         ViewBag.Filter = f;
+        await LoadRowExtrasAsync("Lead", items.Select(x => x.Id));
         return View(new PagedList<Lead>(items, total, f.Page, f.PageSize));
     }
 
@@ -38,9 +40,11 @@ public class LeadsController : CrmControllerBase
     {
         var l = await Db.Leads.Include(x => x.Owner).Include(x => x.ConvertedCustomer).Include(x => x.Campaign).FirstOrDefaultAsync(x => x.Id == id);
         if (l == null) return NotFound();
-        if (!User.CanAccess(l)) return NotAllowed();
+        if (!await CanAccessAsync(l, edit: false)) return NotAllowed();
         ViewBag.Activities = await Db.Activities.Include(a => a.Owner).Where(a => a.LeadId == id)
             .OrderByDescending(a => a.DueDate).ToListAsync();
+        var acts = (List<Activity>)ViewBag.Activities;
+        ViewBag.ScoreBreakdown = LeadScoring.Explain(l, acts.Count(a => a.Status == ActivityStatus.Completed), acts.Select(a => (DateTime?)(a.CompletedAt ?? a.CreatedAt)).DefaultIfEmpty().Max());
         return View(l);
     }
 
@@ -60,7 +64,7 @@ public class LeadsController : CrmControllerBase
     {
         var l = await Db.Leads.FindAsync(id);
         if (l == null) return NotFound();
-        if (!User.CanAccess(l)) return NotAllowed();
+        if (!await CanAccessAsync(l)) return NotAllowed();
         await LoadLookups(l);
         return View("Form", l);
     }
@@ -70,15 +74,21 @@ public class LeadsController : CrmControllerBase
     {
         if (string.IsNullOrWhiteSpace(model.Phone) && string.IsNullOrWhiteSpace(model.Email))
             ModelState.AddModelError(nameof(model.Phone), I18n.T("Cần ít nhất số điện thoại hoặc email"));
+        var (cfValues, cfErrors) = await CustomData.ReadAsync(Db, "Lead", Request.Form);
+        foreach (var cfErr in cfErrors) ModelState.AddModelError(string.Empty, cfErr);
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);
             return View("Form", model);
         }
 
+        var autoAssigned = false;
         if (model.Id == 0)
         {
-            model.OwnerId = ResolveOwner(model.OwnerId);
+            // Quản lý chọn "Tự phân bổ" → giao theo cấu hình phân bổ lead
+            var assign = HttpContext.RequestServices.GetRequiredService<LeadAssignService>();
+            autoAssigned = model.OwnerId == -1 && User.SeesAll() && await assign.AssignAsync(new[] { model }, CurrentUserId) > 0;
+            if (!autoAssigned) model.OwnerId = ResolveOwner(model.OwnerId is -1 ? null : model.OwnerId);
             model.CreatedAt = DateTime.Now;
             if (model.Status == LeadStatus.Converted) model.Status = LeadStatus.Qualified;
             Db.Leads.Add(model);
@@ -87,7 +97,7 @@ public class LeadsController : CrmControllerBase
         {
             var l = await Db.Leads.FindAsync(model.Id);
             if (l == null) return NotFound();
-            if (!User.CanAccess(l)) return NotAllowed();
+            if (!await CanAccessAsync(l)) return NotAllowed();
             if (l.Status == LeadStatus.Converted)
             {
                 TempData["Error"] = I18n.T("Lead đã chuyển đổi, không thể sửa.");
@@ -97,9 +107,12 @@ public class LeadsController : CrmControllerBase
             l.Email = model.Email; l.Phone = model.Phone; l.Source = model.Source; l.Rating = model.Rating;
             l.Status = model.Status == LeadStatus.Converted ? l.Status : model.Status;
             l.EstimatedValue = model.EstimatedValue; l.Description = model.Description; l.CampaignId = model.CampaignId;
-            l.OwnerId = ResolveOwner(model.OwnerId);
+            l.OwnerId = KeepOwner(l.OwnerId, model.OwnerId is -1 ? l.OwnerId : model.OwnerId);
         }
         await Db.SaveChangesAsync();
+        await CustomData.SaveAsync(Db, model.Id, cfValues);
+        if (autoAssigned) { HttpContext.RequestServices.GetRequiredService<LeadAssignService>().NotifyAssigned(new[] { model }, CurrentUserId); await Db.SaveChangesAsync(); }
+        await LeadScoring.RecalculateAsync(Db, new[] { model.Id });
         TempData["Success"] = I18n.T("Đã lưu lead.");
         return RedirectToAction(nameof(Details), new { id = model.Id });
     }
@@ -109,7 +122,7 @@ public class LeadsController : CrmControllerBase
     {
         var l = await Db.Leads.FindAsync(id);
         if (l == null) return NotFound();
-        if (!User.CanAccess(l)) return NotAllowed();
+        if (!await CanAccessAsync(l)) return NotAllowed();
         if (l.Status == LeadStatus.Converted) return RedirectToAction(nameof(Details), new { id });
 
         // Gợi ý khách hàng trùng tên công ty
@@ -130,7 +143,7 @@ public class LeadsController : CrmControllerBase
     {
         var l = await Db.Leads.FindAsync(vm.LeadId);
         if (l == null) return NotFound();
-        if (!User.CanAccess(l)) return NotAllowed();
+        if (!await CanAccessAsync(l)) return NotAllowed();
         if (l.Status == LeadStatus.Converted) return RedirectToAction(nameof(Details), new { id = l.Id });
 
         if (vm.ExistingCustomerId == null && string.IsNullOrWhiteSpace(vm.NewCustomerName))

@@ -31,6 +31,7 @@
             <form asp-action="SetStatus" asp-route-id="@c.Id" method="post"><input type="hidden" name="status" value="@CampaignStatus.Active" /><button class="btn btn-outline-success">@Icon("undo") @T("Mở lại")</button></form>
         }
         <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@c.Id">@T("Sửa")</a>
+        @if (c.IsOpen) { <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Campaign" asp-route-id="@c.Id">@Icon("email") @T("Gửi email")</a> }
         if (c.IsOpen)
         {
             <a class="btn btn-primary" asp-action="Segment" asp-route-id="@c.Id">@Icon("target") @T("Thêm đối tượng")</a>
@@ -216,6 +217,7 @@
 </div>
 
 <div class="mt-3">@await Component.InvokeAsync("Attachments", new { type = AttachmentTarget.Campaign, id = c.Id, hint = T("Banner, brochure, danh sách khách mời, báo cáo kết quả…") })</div>
+<div class="mt-3">@await Component.InvokeAsync("AuditTrail", new { type = "Campaign", id = c.Id })</div>
 
 @section Scripts {
 <script>

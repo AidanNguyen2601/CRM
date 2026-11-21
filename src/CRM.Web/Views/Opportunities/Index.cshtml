@@ -17,6 +17,7 @@
     <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên cơ hội, khách hàng")" /></div>
     <div><label class="form-label small mb-1">@T("Giai đoạn")</label><select name="Stage" class="form-select" asp-items="stageItems"><option value="">@T("-- Tất cả --")</option></select></div>
     @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
+    <partial name="_TagFilter" />
     <button class="btn btn-outline-primary">@T("Lọc")</button>
     <a class="btn btn-outline-secondary ms-auto" asp-action="Pipeline">Xem Kanban</a>
     <a class="btn btn-primary" asp-action="Create">@T("+ Thêm cơ hội")</a>
@@ -28,7 +29,7 @@
     @foreach (var o in Model.Items)
     {
         <tr>
-            <td><a asp-action="Details" asp-route-id="@o.Id" class="fw-semibold">@o.Name</a></td>
+            <td><a asp-action="Details" asp-route-id="@o.Id" class="fw-semibold">@o.Name</a><partial name="_RowExtras" model="o.Id" /></td>
             <td>@o.Customer?.Name</td>
             <td><partial name="_Badge" model="o.Stage" /></td>
             <td class="money">@o.Amount.ToMoney()</td>

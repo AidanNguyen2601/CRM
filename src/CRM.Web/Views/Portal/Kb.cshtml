@@ -1,0 +1,19 @@
+@model List<KbArticle>
+@{
+    ViewData["Title"] = T("Hướng dẫn");
+    var a = ViewBag.Article as KbArticle;
+}
+@if (a != null)
+{
+    <a asp-action="Kb" class="small">← @T("Hướng dẫn")</a>
+    <div class="card mt-2"><div class="card-body"><h4>@a.Title</h4><div class="kb-body">@a.Body</div></div></div>
+}
+else
+{
+    <form method="get" class="d-flex gap-2 mb-3" style="max-width:560px"><input name="q" value="@ViewBag.Q" class="form-control" placeholder="@T("Tìm hướng dẫn, câu hỏi thường gặp…")" /><button class="btn btn-outline-primary">@T("Tìm")</button></form>
+    <div class="list-group">
+        @foreach (var x in Model) { <a class="list-group-item list-group-item-action" asp-action="Kb" asp-route-id="@x.Id">@x.Title</a> }
+        @if (!Model.Any()) { <div class="list-group-item text-muted">@T("Không có bài viết phù hợp.")</div> }
+    </div>
+    <div class="small text-muted mt-3">@T("Không tìm thấy câu trả lời?") <a asp-action="NewTicket">@T("Gửi yêu cầu hỗ trợ")</a></div>
+}

@@ -1,0 +1,50 @@
+@model AppUser
+@{
+    ViewData["Title"] = T("Xác thực 2 lớp");
+    var enabled = (bool)ViewBag.Enabled;
+    var required = (bool)ViewBag.Required;
+}
+@if (required && !enabled)
+{
+    <div class="alert alert-warning" style="max-width:760px">@Icon("alert") @T("Theo chính sách bảo mật, vai trò của bạn bắt buộc dùng xác thực 2 lớp. Vui lòng thiết lập để tiếp tục sử dụng hệ thống.")</div>
+}
+<div class="card" style="max-width:760px"><div class="card-body">
+    @if (enabled)
+    {
+        <h5>@T("Xác thực 2 lớp đang bật")</h5>
+        <p class="text-muted">@T("Mỗi lần đăng nhập, sau mật khẩu bạn cần nhập mã 6 số từ ứng dụng Authenticator.")</p>
+        @if ((bool)ViewBag.Locked)
+        {
+            <p class="small text-muted">@T("Vai trò của bạn bắt buộc dùng xác thực 2 lớp nên không thể tắt. Đổi điện thoại: nhờ quản trị đặt lại xác thực 2 lớp rồi thiết lập lại.")</p>
+        }
+        else
+        {
+            <form asp-action="DisableTwoFactor" method="post" class="d-flex gap-2 align-items-end" style="max-width:480px" data-confirm="@T("Tắt xác thực 2 lớp cho tài khoản của bạn?")">
+                <div class="flex-grow-1"><label class="form-label small">@T("Nhập mật khẩu để xác nhận")</label><input type="password" name="password" class="form-control" required autocomplete="current-password" /></div>
+                <button class="btn btn-outline-danger">@T("Tắt xác thực 2 lớp")</button>
+            </form>
+        }
+    }
+    else
+    {
+        <h5>@T("Thiết lập xác thực 2 lớp")</h5>
+        <ol class="mb-3">
+            <li>@T("Cài ứng dụng Google Authenticator, Microsoft Authenticator hoặc ứng dụng tương tự trên điện thoại.")</li>
+            <li>@T("Trong ứng dụng chọn \"Thêm tài khoản\" → \"Nhập khóa thiết lập\", nhập:")
+                <div class="my-2"><span class="small text-muted">@T("Tên tài khoản:")</span> <b>CRM – @Model.Username</b></div>
+                <div class="totp-key">@Totp.Pretty((string)ViewBag.Secret)</div>
+                <div class="small text-muted mt-1">@T("Loại khóa: theo thời gian (TOTP), 6 chữ số.") <a href="@ViewBag.Uri">@T("Mở bằng ứng dụng trên điện thoại này")</a></div></li>
+            <li>@T("Nhập mã 6 số ứng dụng đang hiển thị để hoàn tất:")</li>
+        </ol>
+        <form asp-action="EnableTwoFactor" method="post" class="d-flex gap-2 align-items-center" style="max-width:420px" autocomplete="off">
+            <input type="hidden" name="secretProtected" value="@ViewBag.SecretProtected" />
+            <input name="code" class="form-control otp-input" inputmode="numeric" maxlength="7" required placeholder="000000" autocomplete="one-time-code" />
+            <button class="btn btn-primary text-nowrap">@T("Kích hoạt")</button>
+        </form>
+    }
+</div></div>
+@if (!required || enabled) { <div class="mt-3"><a asp-action="Profile">← @T("Tài khoản của tôi")</a></div> }
+else
+{
+    <form asp-action="Logout" method="post" class="mt-3"><button class="btn btn-link p-0">@T("Đăng xuất")</button></form>
+}
