@@ -40,6 +40,22 @@
                     <dt class="col-5">@T("Chiến dịch")</dt>
                     <dd class="col-7">@if (User.CanAccess(Model.Campaign)) { <a asp-controller="Campaigns" asp-action="Details" asp-route-id="@Model.CampaignId">@Model.Campaign.Name</a> } else { @Model.Campaign.Name }</dd>
                 }
+                @if (Model.WebForm != null)
+                {
+                    <dt class="col-5">@T("Form website")</dt><dd class="col-7">@Model.WebForm.Name</dd>
+                }
+                @if (Model.UtmSource != null || Model.UtmMedium != null || Model.UtmCampaign != null)
+                {
+                    <dt class="col-5">UTM</dt><dd class="col-7">@string.Join(" / ", new[] { Model.UtmSource, Model.UtmMedium, Model.UtmCampaign }.Where(x => !string.IsNullOrEmpty(x)))</dd>
+                }
+                @if (!string.IsNullOrEmpty(Model.LandingPage))
+                {
+                    <dt class="col-5">@T("Trang gửi form")</dt><dd class="col-7 text-break">@(Uri.TryCreate(Model.LandingPage, UriKind.Absolute, out var lp) && lp.Scheme is "http" or "https" ? Html.Raw($"<a href=\"{System.Net.WebUtility.HtmlEncode(Model.LandingPage)}\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">{System.Net.WebUtility.HtmlEncode(lp.Host + lp.AbsolutePath)}</a>") : Model.LandingPage)</dd>
+                }
+                @if (Model.ConsentAt.HasValue)
+                {
+                    <dt class="col-5">@T("Đồng ý xử lý dữ liệu")</dt><dd class="col-7">@Model.ConsentAt.Value.ToDateTime()</dd>
+                }
                 <dt class="col-5">@T("Giá trị dự kiến")</dt><dd class="col-7">@Model.EstimatedValue.ToMoney()</dd>
                 <dt class="col-5">@T("Phụ trách")</dt><dd class="col-7">@Model.Owner?.FullName</dd>
                 <dt class="col-5">@T("Ngày tạo")</dt><dd class="col-7">@Model.CreatedAt.ToDate()</dd>

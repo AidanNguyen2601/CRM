@@ -1,0 +1,14 @@
+@* Ô mã số thuế + nút tra cứu (wwwroot/js/datacheck.js). Model: (tên ô MST, giá trị, selector ô tên, selector ô địa chỉ, selector ô tỉnh/thành – có thể rỗng) *@
+@model (string Field, string? Value, string Name, string Address, string City)
+@{ var value = ViewContext.ViewData.ModelState.TryGetValue(Model.Field, out var ms) && ms.AttemptedValue != null ? ms.AttemptedValue : Model.Value; }
+<div class="input-group">
+    <input id="@Model.Field" name="@Model.Field" value="@value" class="form-control" maxlength="20" data-dc="taxCode" inputmode="numeric" autocomplete="off" />
+    <button type="button" class="btn btn-outline-secondary" data-tax-lookup="#@Model.Field" data-tax-status="#taxStatus"
+            data-fill-name="@Model.Name" data-fill-address="@Model.Address" data-fill-city="@Model.City"
+            data-empty="@T("Nhập mã số thuế trước khi tra cứu.")" data-fail="@T("Không kết nối được dịch vụ tra cứu mã số thuế. Vui lòng nhập tay.")"
+            data-overwrite="@T("Thay thông tin đang nhập bằng dữ liệu tra cứu?")" data-yes="@T("Thay thế")" data-keep="@T("Giữ nguyên")"
+            data-lname="@T("Tên")" data-laddress="@T("Địa chỉ")" data-active="@T("Đang hoạt động")"
+            data-inactive="@T("Doanh nghiệp có tình trạng: {0}. Hãy kiểm tra kỹ trước khi giao dịch.")"
+            title="@T("Tra cứu thông tin doanh nghiệp theo mã số thuế")">@T("Tra cứu")</button>
+</div>
+<div id="taxStatus" class="small mt-1"></div>

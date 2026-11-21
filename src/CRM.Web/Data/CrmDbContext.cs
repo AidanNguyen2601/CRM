@@ -65,6 +65,8 @@ public class CrmDbContext : DbContext
     public DbSet<CustomFieldDef> CustomFieldDefs => Set<CustomFieldDef>();
     public DbSet<CustomFieldValue> CustomFieldValues => Set<CustomFieldValue>();
     public DbSet<KbArticle> KbArticles => Set<KbArticle>();
+    public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
+    public DbSet<WebForm> WebForms => Set<WebForm>();
     public DbSet<InboundMessage> InboundMessages => Set<InboundMessage>();
     public DbSet<NpsSurvey> NpsSurveys => Set<NpsSurvey>();
     public DbSet<NpsResponse> NpsResponses => Set<NpsResponse>();
@@ -170,6 +172,19 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<NpsResponse>().HasIndex(x => x.Token).IsUnique();
         modelBuilder.Entity<NpsSurvey>().HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById);
 
+        // ---- SLA: chính sách áp cho khách hàng / hợp đồng / phiếu ----
+        modelBuilder.Entity<Customer>().HasOne(x => x.SlaPolicy).WithMany().HasForeignKey(x => x.SlaPolicyId);
+        modelBuilder.Entity<Contract>().HasOne(x => x.SlaPolicy).WithMany().HasForeignKey(x => x.SlaPolicyId);
+        modelBuilder.Entity<Ticket>().HasOne(x => x.SlaPolicy).WithMany().HasForeignKey(x => x.SlaPolicyId);
+        modelBuilder.Entity<Ticket>().HasIndex(x => x.SlaPausedAt);
+
+        // ---- Form thu lead trên website ----
+        modelBuilder.Entity<WebForm>().HasIndex(x => x.Token).IsUnique();
+        modelBuilder.Entity<WebForm>().HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId);
+        modelBuilder.Entity<WebForm>().HasOne(x => x.Campaign).WithMany().HasForeignKey(x => x.CampaignId);
+        modelBuilder.Entity<WebForm>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId);
+        modelBuilder.Entity<Lead>().HasOne(x => x.WebForm).WithMany().HasForeignKey(x => x.WebFormId);
+
         // ---- Kế hoạch bán hàng ----
         modelBuilder.Entity<SalesPlan>().HasIndex(x => x.Number).IsUnique();
         modelBuilder.Entity<SalesPlan>().HasIndex(x => new { x.Year, x.Status });
@@ -209,6 +224,7 @@ public class CrmDbContext : DbContext
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         AssignBranchesAsync(CancellationToken.None).GetAwaiter().GetResult();
+        SlaEngine.ApplyAsync(this).GetAwaiter().GetResult();
         var customerMoved = CustomerBranchChanged();
         var events = SuppressAudit ? null : AutomationService.Collect(this);
         var audit = SuppressAudit ? null : AuditTrail.Collect(this);
@@ -222,6 +238,7 @@ public class CrmDbContext : DbContext
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken ct = default)
     {
         await AssignBranchesAsync(ct);
+        await SlaEngine.ApplyAsync(this, ct);
         var customerMoved = CustomerBranchChanged();
         // Nhật ký: thu thập trước khi lưu (giá trị cũ), ghi sau khi lưu (đã có Id của bản ghi mới)
         var events = SuppressAudit ? null : AutomationService.Collect(this);

@@ -21,6 +21,9 @@ public class CustomersController : CrmControllerBase
                              || (c.Phone != null && c.Phone.Contains(k)) || (c.Email != null && c.Email.Contains(k)));
         }
         if (f.Type.HasValue) q = q.Where(c => c.Type == f.Type);
+        if (f.Health == "good") q = q.Where(c => c.HealthScore >= CustomerHealth.GoodFrom);
+        else if (f.Health == "warn") q = q.Where(c => c.HealthScore >= CustomerHealth.WarnFrom && c.HealthScore < CustomerHealth.GoodFrom);
+        else if (f.Health == "risk") q = q.Where(c => c.HealthScore < CustomerHealth.WarnFrom);
         if (f.OwnerId.HasValue) q = q.Where(c => c.OwnerId == f.OwnerId);
 
         f.Page = Math.Max(1, f.Page);
@@ -56,7 +59,7 @@ public class CustomersController : CrmControllerBase
         var n = await Db.Customers.IgnoreQueryFilters().CountAsync() + 1;
         var model = new Customer { Code = $"KH{n:0000}", OwnerId = CurrentUserId };
         while (await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.Code == model.Code)) model.Code = $"KH{++n:0000}";
-        await LoadOwnersAsync(model.OwnerId); await LoadPriceListsAsync(model.PriceListId);
+        await LoadOwnersAsync(model.OwnerId); await LoadPriceListsAsync(model.PriceListId); await LoadSlaPoliciesAsync(model.SlaPolicyId);
         return View("Form", model);
     }
 
@@ -65,7 +68,7 @@ public class CustomersController : CrmControllerBase
         var c = await Db.Customers.FindAsync(id);
         if (c == null) return NotFound();
         if (!await CanAccessAsync(c)) return NotAllowed();
-        await LoadOwnersAsync(c.OwnerId); await LoadPriceListsAsync(c.PriceListId);
+        await LoadOwnersAsync(c.OwnerId); await LoadPriceListsAsync(c.PriceListId); await LoadSlaPoliciesAsync(c.SlaPolicyId);
         return View("Form", c);
     }
 
@@ -74,13 +77,22 @@ public class CustomersController : CrmControllerBase
     {
         if (await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.Code == model.Code && c.Id != model.Id))
             ModelState.AddModelError(nameof(model.Code), I18n.T("Mã khách hàng đã tồn tại"));
-        if (!string.IsNullOrWhiteSpace(model.TaxCode) && await Db.Customers.IgnoreQueryFilters().AnyAsync(c => c.TaxCode == model.TaxCode && c.Id != model.Id))
-            ModelState.AddModelError(nameof(model.TaxCode), I18n.T("Mã số thuế đã thuộc về khách hàng khác"));
+        // Chuẩn hoá MST (bỏ khoảng trắng / dấu chấm, đơn vị phụ thuộc dạng 0123456789-001) rồi so theo chữ số
+        model.TaxCode = TaxLookupService.Normalize(model.TaxCode) ?? model.TaxCode?.Trim();
+        var taxDigits = ImportService.Digits(model.TaxCode);
+        if (taxDigits.Length >= 10)
+        {
+            var prefix = taxDigits[..10];
+            var same = (await Db.Customers.IgnoreQueryFilters().Where(c => c.Id != model.Id && c.TaxCode != null && c.TaxCode.Contains(prefix))
+                .Select(c => new { c.TaxCode, c.Name }).ToListAsync()).FirstOrDefault(c => ImportService.Digits(c.TaxCode) == taxDigits);
+            if (same != null) ModelState.AddModelError(nameof(model.TaxCode), I18n.T("Mã số thuế đã thuộc về khách hàng khác") + $" ({same.Name})");
+        }
+        if (ModelState.IsValid) await DuplicateGuardAsync(nameof(Customer), model.Id, model.Name, model.TaxCode, model.Phone, model.Email);
         var (cfValues, cfErrors) = await CustomData.ReadAsync(Db, "Customer", Request.Form);
         foreach (var cfErr in cfErrors) ModelState.AddModelError(string.Empty, cfErr);
         if (!ModelState.IsValid)
         {
-            await LoadOwnersAsync(model.OwnerId); await LoadPriceListsAsync(model.PriceListId);
+            await LoadOwnersAsync(model.OwnerId); await LoadPriceListsAsync(model.PriceListId); await LoadSlaPoliciesAsync(model.SlaPolicyId);
             return View("Form", model);
         }
 
@@ -88,7 +100,7 @@ public class CustomersController : CrmControllerBase
         {
             model.OwnerId = ResolveOwner(model.OwnerId);
             model.CreatedAt = DateTime.Now;
-            if (!User.SeesAll()) model.PriceListId = null;
+            if (!User.SeesAll()) { model.PriceListId = null; model.SlaPolicyId = null; }
             Db.Customers.Add(model);
         }
         else
@@ -99,7 +111,7 @@ public class CustomersController : CrmControllerBase
             c.Code = model.Code; c.Name = model.Name; c.Type = model.Type; c.Industry = model.Industry; c.TaxCode = model.TaxCode;
             c.Phone = model.Phone; c.Email = model.Email; c.Website = model.Website; c.Address = model.Address; c.City = model.City;
             c.EmployeeCount = model.EmployeeCount; c.Description = model.Description; c.OwnerId = KeepOwner(c.OwnerId, model.OwnerId);
-            if (User.SeesAll()) c.PriceListId = model.PriceListId;   // chỉ quản lý gắn bảng giá
+            if (User.SeesAll()) { c.PriceListId = model.PriceListId; c.SlaPolicyId = model.SlaPolicyId; }   // chỉ quản lý gắn bảng giá, SLA
             c.UpdatedAt = DateTime.Now;
         }
         await Db.SaveChangesAsync();

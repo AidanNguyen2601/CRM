@@ -33,7 +33,8 @@ public static class AuditTrail
     private static readonly HashSet<string> Ignored = new()
     {
         "Id", "CreatedAt", "UpdatedAt", "PasswordHash", "UiPrefs", "LastLoginAt", "FailedLoginCount", "LockoutUntil",
-        "TwoFactorSecret", "PasswordChangedAt", "BranchId", "PortalPasswordHash", "PortalLastLoginAt", "Score"
+        "TwoFactorSecret", "PasswordChangedAt", "BranchId", "PortalPasswordHash", "PortalLastLoginAt", "Score",
+        "SlaPausedAt", "SlaPausedMinutes", "HealthScore", "HealthUpdatedAt", "Submissions", "LastSubmissionAt"
     };
 
     public static string TypeLabel(string type) => Types.TryGetValue(type, out var t) ? I18n.T(t) : type;

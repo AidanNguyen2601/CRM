@@ -496,6 +496,107 @@ public static class SchemaUpgrader
             END
             """;
 
+        // ---------- SLA: chính sách theo khách hàng / hợp đồng, giờ làm việc, dừng khi chờ khách ----------
+        yield return """
+            IF OBJECT_ID(N'[dbo].[SlaPolicies]', N'U') IS NULL
+                CREATE TABLE [dbo].[SlaPolicies] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_SlaPolicies] PRIMARY KEY,
+                    [Name] nvarchar(100) NOT NULL,
+                    [Description] nvarchar(500) NULL,
+                    [IsDefault] bit NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [BusinessHours] bit NOT NULL,
+                    [PauseWhenWaiting] bit NOT NULL,
+                    [Escalate] bit NOT NULL,
+                    [UrgentResponse] decimal(6,2) NOT NULL,
+                    [UrgentResolve] decimal(6,2) NOT NULL,
+                    [HighResponse] decimal(6,2) NOT NULL,
+                    [HighResolve] decimal(6,2) NOT NULL,
+                    [NormalResponse] decimal(6,2) NOT NULL,
+                    [NormalResolve] decimal(6,2) NOT NULL,
+                    [LowResponse] decimal(6,2) NOT NULL,
+                    [LowResolve] decimal(6,2) NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+            IF COL_LENGTH(N'dbo.Customers', N'SlaPolicyId') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Customers] ADD [SlaPolicyId] int NULL CONSTRAINT [FK_Customers_SlaPolicies_SlaPolicyId] REFERENCES [dbo].[SlaPolicies] ([Id]);
+                EXEC(N'CREATE INDEX [IX_Customers_SlaPolicyId] ON [dbo].[Customers] ([SlaPolicyId])');
+            END
+            IF COL_LENGTH(N'dbo.Contracts', N'SlaPolicyId') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Contracts] ADD [SlaPolicyId] int NULL CONSTRAINT [FK_Contracts_SlaPolicies_SlaPolicyId] REFERENCES [dbo].[SlaPolicies] ([Id]);
+                EXEC(N'CREATE INDEX [IX_Contracts_SlaPolicyId] ON [dbo].[Contracts] ([SlaPolicyId])');
+            END
+            IF COL_LENGTH(N'dbo.Tickets', N'SlaPolicyId') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Tickets] ADD
+                    [SlaPolicyId] int NULL CONSTRAINT [FK_Tickets_SlaPolicies_SlaPolicyId] REFERENCES [dbo].[SlaPolicies] ([Id]),
+                    [SlaPausedAt] datetime2 NULL,
+                    [SlaPausedMinutes] int NOT NULL CONSTRAINT [DF_Tickets_SlaPausedMinutes] DEFAULT 0;
+                EXEC(N'CREATE INDEX [IX_Tickets_SlaPolicyId] ON [dbo].[Tickets] ([SlaPolicyId])');
+                EXEC(N'CREATE INDEX [IX_Tickets_SlaPausedAt] ON [dbo].[Tickets] ([SlaPausedAt])');
+            END
+            """;
+
+        // ---------- Form thu lead trên website (UTM, đồng ý xử lý dữ liệu) ----------
+        yield return """
+            IF OBJECT_ID(N'[dbo].[WebForms]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[WebForms] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_WebForms] PRIMARY KEY,
+                    [Name] nvarchar(100) NOT NULL,
+                    [Token] nvarchar(32) NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [Title] nvarchar(150) NULL,
+                    [Intro] nvarchar(500) NULL,
+                    [SubmitText] nvarchar(50) NULL,
+                    [SuccessMessage] nvarchar(500) NULL,
+                    [RedirectUrl] nvarchar(300) NULL,
+                    [Accent] nvarchar(7) NULL,
+                    [AskCompany] bit NOT NULL,
+                    [AskJobTitle] bit NOT NULL,
+                    [AskMessage] bit NOT NULL,
+                    [RequireEmail] bit NOT NULL,
+                    [RequirePhone] bit NOT NULL,
+                    [AskConsent] bit NOT NULL,
+                    [ConsentText] nvarchar(500) NULL,
+                    [Source] int NOT NULL,
+                    [CampaignId] int NULL CONSTRAINT [FK_WebForms_Campaigns_CampaignId] REFERENCES [dbo].[Campaigns] ([Id]),
+                    [OwnerId] int NULL CONSTRAINT [FK_WebForms_Users_OwnerId] REFERENCES [dbo].[Users] ([Id]),
+                    [BranchId] int NULL CONSTRAINT [FK_WebForms_Branches_BranchId] REFERENCES [dbo].[Branches] ([Id]),
+                    [AllowedDomains] nvarchar(500) NULL,
+                    [Submissions] int NOT NULL,
+                    [LastSubmissionAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE UNIQUE INDEX [IX_WebForms_Token] ON [dbo].[WebForms] ([Token]);
+                CREATE INDEX [IX_WebForms_CampaignId] ON [dbo].[WebForms] ([CampaignId]);
+                CREATE INDEX [IX_WebForms_OwnerId] ON [dbo].[WebForms] ([OwnerId]);
+                CREATE INDEX [IX_WebForms_BranchId] ON [dbo].[WebForms] ([BranchId]);
+            END
+            IF COL_LENGTH(N'dbo.Leads', N'WebFormId') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[Leads] ADD
+                    [WebFormId] int NULL CONSTRAINT [FK_Leads_WebForms_WebFormId] REFERENCES [dbo].[WebForms] ([Id]),
+                    [UtmSource] nvarchar(100) NULL,
+                    [UtmMedium] nvarchar(100) NULL,
+                    [UtmCampaign] nvarchar(150) NULL,
+                    [LandingPage] nvarchar(500) NULL,
+                    [Referrer] nvarchar(500) NULL,
+                    [ConsentAt] datetime2 NULL;
+                EXEC(N'CREATE INDEX [IX_Leads_WebFormId] ON [dbo].[Leads] ([WebFormId])');
+            END
+            """;
+
+        // ---------- Dự báo doanh số: nhóm dự báo của cơ hội ----------
+        yield return """
+            IF COL_LENGTH(N'dbo.Opportunities', N'ForecastCategory') IS NULL
+                ALTER TABLE [dbo].[Opportunities] ADD [ForecastCategory] int NULL;
+            IF COL_LENGTH(N'dbo.Customers', N'HealthScore') IS NULL
+                ALTER TABLE [dbo].[Customers] ADD [HealthScore] int NULL, [HealthUpdatedAt] datetime2 NULL;
+            """;
+
         // ---------- Kế hoạch bán hàng ----------
         yield return """
             IF OBJECT_ID(N'[dbo].[SalesPlans]', N'U') IS NULL

@@ -80,11 +80,15 @@ public class LeadFilter : ListFilter
 {
     public LeadStatus? Status { get; set; }
     public LeadSource? Source { get; set; }
+    /// <summary>Lead từ form website (hiện mọi trạng thái)</summary>
+    public int? WebFormId { get; set; }
 }
 
 public class CustomerFilter : ListFilter
 {
     public CustomerType? Type { get; set; }
+    /// <summary>good / warn / risk – lọc theo điểm sức khoẻ đã tính</summary>
+    public string? Health { get; set; }
 }
 
 public class OpportunityFilter : ListFilter
@@ -382,6 +386,7 @@ public class ContractFormViewModel
     [Range(0, 1_000_000_000_000)][Display(Name = "Số tiền mỗi kỳ (trước VAT)")] public decimal RecurringAmount { get; set; }
     [DataType(DataType.Date)][Display(Name = "Kỳ lập hoá đơn tiếp theo")] public DateTime? NextBillingDate { get; set; }
     [Range(0, 365)][Display(Name = "Nhắc gia hạn trước (ngày)")] public int RenewalNoticeDays { get; set; } = 60;
+    [Display(Name = "Chính sách SLA")] public int? SlaPolicyId { get; set; }
 
     [Range(0, 100)]
     [Display(Name = "Thuế GTGT (%)")]

@@ -202,6 +202,7 @@
         <div class="card mb-3"><div class="card-header">@Icon("clock") @T("Cam kết xử lý (SLA)")</div><div class="card-body small">
             <table class="table table-sm mb-0">
                 <tr><td class="text-muted">@T("Tiếp nhận")</td><td>@t.CreatedAt.ToDateTime()</td></tr>
+                <tr><td class="text-muted">@T("Chính sách SLA")</td><td>@(t.SlaPolicy?.Name ?? T("Mức chuẩn (24/7)"))@if (t.SlaPolicy?.BusinessHours == true) { <span class="text-muted small"> · @T("giờ làm việc")</span> }@if (t.SlaPausedMinutes > 0) { <div class="small text-muted">@T("Đã dừng {0} phút khi chờ khách", t.SlaPausedMinutes)</div> }</td></tr>
                 <tr><td class="text-muted">@T("Hạn phản hồi")</td><td>@t.ResponseDueAt.ToDateTime()</td></tr>
                 <tr><td class="text-muted">@T("Phản hồi lần đầu")</td><td>@if (t.FirstResponseAt.HasValue) { <span class="@(t.FirstResponseAt > t.ResponseDueAt ? "text-danger" : "text-success")">@t.FirstResponseAt.Value.ToDateTime() <span class="text-muted">(@Dur(t.CreatedAt, t.FirstResponseAt))</span></span> } else { <span class="text-muted">–</span> }</td></tr>
                 <tr><td class="text-muted">@T("Hạn giải quyết")</td><td>@t.ResolveDueAt.ToDateTime()</td></tr>

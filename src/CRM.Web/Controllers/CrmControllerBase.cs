@@ -73,6 +73,13 @@ public abstract class CrmControllerBase : Controller
         ViewBag.PriceLists = new SelectList(await Db.PriceLists.Where(p => p.IsActive || p.Id == selected).OrderBy(p => p.Name).Select(p => new { p.Id, p.Name }).ToListAsync(), "Id", "Name", selected);
     }
 
+    /// <summary>Danh sách chính sách SLA đang dùng (form khách hàng / hợp đồng); rỗng = chưa cấu hình SLA</summary>
+    protected async Task LoadSlaPoliciesAsync(int? selected)
+    {
+        ViewBag.SlaPolicies = new SelectList(await Db.SlaPolicies.Where(p => p.IsActive || p.Id == selected).OrderBy(p => p.Name)
+            .Select(p => new { p.Id, Name = p.Name + (p.IsDefault ? " (" + I18n.T("mặc định") + ")" : "") }).ToListAsync(), "Id", "Name", selected);
+    }
+
     protected async Task LoadCustomersAsync(int? selected)
     {
         ViewBag.Customers = new SelectList(await Db.Customers.VisibleTo(User, Db).OrderBy(c => c.Name)
@@ -107,6 +114,41 @@ public abstract class CrmControllerBase : Controller
         var uid = CurrentUserId;
         var type = typeof(T).Name;
         return await Db.RecordShares.AnyAsync(s => s.EntityType == type && s.EntityId == id && s.UserId == uid && (!edit || s.CanEdit));
+    }
+
+    /// <summary>
+    /// Chặn tạo bản ghi có thể trùng (cùng MST / email / điện thoại...) cho tới khi người dùng xác nhận "không phải trùng"
+    /// (ô confirmDuplicate trong #dupBox). Trả false và đặt ViewBag.Duplicates khi cần xác nhận.
+    /// </summary>
+    protected async Task<bool> DuplicateGuardAsync(string entity, int id, string? name, string? taxCode, string? phone, string? email, string? company = null)
+    {
+        if (id != 0 || Request.HasFormContentType && Request.Form["confirmDuplicate"] == "true") return true;
+        var hits = await HttpContext.RequestServices.GetRequiredService<DuplicateCheckService>().CheckAsync(entity, id, name, taxCode, phone, email, company, User);
+        if (!hits.Any(h => h.Strong)) return true;
+        ViewBag.Duplicates = hits;
+        ModelState.AddModelError(string.Empty, I18n.T("Dữ liệu có thể trùng với bản ghi đã có. Hãy kiểm tra danh sách bên dưới; nếu không phải trùng, đánh dấu xác nhận rồi lưu lại."));
+        return false;
+    }
+
+    /// <summary>Trả file PDF chứng từ (đã kiểm tra quyền ở action gọi). inline = mở xem trên trình duyệt thay vì tải về.</summary>
+    protected async Task<IActionResult> PdfFileAsync(string type, int id, bool inline)
+    {
+        try
+        {
+            var pdf = await HttpContext.RequestServices.GetRequiredService<PdfService>().RenderAsync(type, id);
+            if (pdf == null) return NotFound();
+            if (inline)
+            {
+                Response.Headers.ContentDisposition = new System.Net.Mime.ContentDisposition { Inline = true, FileName = pdf.Value.FileName }.ToString();
+                return File(pdf.Value.Data, "application/pdf");
+            }
+            return File(pdf.Value.Data, "application/pdf", pdf.Value.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+            return RedirectToAction("Details", new { id });
+        }
     }
 
     protected IActionResult NotAllowed()

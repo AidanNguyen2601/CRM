@@ -20,6 +20,7 @@
         <div class="col-md-3 recurring"><label asp-for="RecurringAmount" class="form-label"></label><input asp-for="RecurringAmount" type="number" min="0" step="1000" class="form-control" /></div>
         <div class="col-md-3 recurring"><label asp-for="NextBillingDate" class="form-label"></label><input asp-for="NextBillingDate" class="form-control" /><div class="form-text">@T("Đến kỳ hệ thống tự lập hoá đơn nháp.")</div></div>
         <div class="col-md-3"><label asp-for="RenewalNoticeDays" class="form-label"></label><input asp-for="RenewalNoticeDays" type="number" min="0" max="365" class="form-control" /><div class="form-text">@T("Tự tạo cơ hội gia hạn trước ngày kết thúc (0 = không).")</div></div>
+        @if (((SelectList)ViewBag.SlaPolicies).Any()) { <div class="col-md-3"><label asp-for="SlaPolicyId" class="form-label"></label><select asp-for="SlaPolicyId" class="form-select" asp-items="ViewBag.SlaPolicies"><option value="">@T("-- Theo khách hàng / mặc định --")</option></select><div class="form-text">@T("Gói hỗ trợ: áp cho phiếu hỗ trợ gắn hợp đồng này.")</div></div> }
         <div class="col-md-2"><label asp-for="VatPercent" class="form-label"></label>
             <select asp-for="VatPercent" class="form-select">@foreach (var v in new[] { 0m, 5m, 8m, 10m }) { <option value="@v" selected="@(Model.VatPercent == v)">@v%</option> }</select></div>
         @if (!string.IsNullOrEmpty(Model.SourceText)) { <div class="col-md-4 d-flex align-items-end small text-muted">@Model.SourceText</div> }

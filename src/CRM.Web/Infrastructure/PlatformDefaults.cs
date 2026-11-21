@@ -70,6 +70,18 @@ public static class PlatformDefaults
                     Action = AutomationAction.Notify, Assignee = AutomationAssignee.Manager, Title = "Phiếu hỗ trợ khẩn cấp: {{Ten}}" });
             await db.SaveChangesAsync();
         }
+
+        // Chính sách SLA: "Tiêu chuẩn" giữ đúng thời hạn cũ (24/7) và bật dừng khi chờ khách + báo quản lý; "Khách hàng VIP" để gắn cho khách / hợp đồng
+        if (!await db.SlaPolicies.AnyAsync())
+        {
+            db.SlaPolicies.AddRange(
+                new SlaPolicy { Name = "Tiêu chuẩn", Description = "Áp cho mọi phiếu không có SLA riêng", IsDefault = true, BusinessHours = false,
+                    UrgentResponse = 1, UrgentResolve = 4, HighResponse = 4, HighResolve = 24, NormalResponse = 8, NormalResolve = 72, LowResponse = 24, LowResolve = 120 },
+                new SlaPolicy { Name = "Khách hàng VIP", Description = "Gói hỗ trợ ưu tiên – gắn trên khách hàng hoặc hợp đồng", BusinessHours = false,
+                    UrgentResponse = 0.5m, UrgentResolve = 2, HighResponse = 1, HighResolve = 8, NormalResponse = 4, NormalResolve = 24, LowResponse = 8, LowResolve = 48 });
+            await db.SaveChangesAsync();
+            SlaEngine.Invalidate();
+        }
     }
 
     /// <summary>

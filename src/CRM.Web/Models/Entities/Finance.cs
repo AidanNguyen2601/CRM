@@ -109,6 +109,10 @@ public class Contract : IOwned, IBranchScoped
     public int? RenewalOpportunityId { get; set; }
     /// <summary>Hợp đồng gốc (hợp đồng này là bản gia hạn)</summary>
     public int? RenewedFromId { get; set; }
+    /// <summary>Gói hỗ trợ / SLA cam kết trong hợp đồng: áp cho phiếu hỗ trợ gắn hợp đồng này</summary>
+    [Display(Name = "Chính sách SLA")]
+    public int? SlaPolicyId { get; set; }
+    public SlaPolicy? SlaPolicy { get; set; }
 
     public ICollection<ContractLine> Lines { get; set; } = new List<ContractLine>();
     public ICollection<ContractMilestone> Milestones { get; set; } = new List<ContractMilestone>();

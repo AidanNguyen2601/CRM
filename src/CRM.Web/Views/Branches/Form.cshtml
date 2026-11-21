@@ -24,7 +24,7 @@
     </div>
     <h6 class="text-muted">@T("Thông tin pháp lý & liên hệ")</h6>
     <div class="row g-3">
-        <div class="col-md-4"><label asp-for="TaxCode" class="form-label"></label><input asp-for="TaxCode" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="TaxCode" class="form-label"></label><partial name="_TaxLookup" model='("TaxCode", Model.TaxCode, "#Name", "#Address", "")' /></div>
         <div class="col-md-4"><label asp-for="Representative" class="form-label"></label><input asp-for="Representative" class="form-control" /></div>
         <div class="col-md-4"><label asp-for="InvoiceSymbol" class="form-label"></label><input asp-for="InvoiceSymbol" class="form-control text-uppercase" placeholder="vd. 1C26THN" />
             <div class="form-text">@T("Ký hiệu mặc định khi xuất hoá đơn của đơn vị này")</div></div>
@@ -36,4 +36,4 @@
     <div class="mt-4"><button class="btn btn-primary">@Icon("check") @T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
 </form>
 </div></div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/datacheck.js" asp-append-version="true"></script> }

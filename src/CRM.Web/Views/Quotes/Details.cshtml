@@ -11,7 +11,13 @@
     <a class="btn btn-outline-secondary" asp-controller="BusinessPlans" asp-action="Create" asp-route-quoteId="@Model.Id">@Icon("plan") @T("Lập phương án KD")</a>
     <a class="btn btn-outline-secondary" asp-controller="Contracts" asp-action="Create" asp-route-quoteId="@Model.Id">@Icon("contract") @T("Lập hợp đồng")</a>
     <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Compose" asp-route-type="Quote" asp-route-id="@Model.Id">@Icon("email") @T("Gửi email")</a>
-    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+    @{ var blocked = Model.ApprovalStatus is QuoteApproval.Pending or QuoteApproval.Rejected; }
+    @if (!blocked)
+    {
+        <a class="btn btn-outline-secondary ms-auto" asp-action="Pdf" asp-route-id="@Model.Id" asp-route-inline="true" target="_blank">@Icon("file-pdf") @T("Xem PDF")</a>
+        <a class="btn btn-outline-secondary" asp-action="Pdf" asp-route-id="@Model.Id">@Icon("download") @T("Tải PDF")</a>
+    }
+    <button class="btn btn-outline-secondary @(blocked ? "ms-auto" : "")" onclick="window.print()">@T("In")</button>
 </div>
 @if (Model.ApprovalStatus != QuoteApproval.None)
 {

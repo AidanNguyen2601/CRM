@@ -9,6 +9,10 @@
 <form method="get" class="toolbar">
     <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" placeholder="@T("Tên, mã, MST, SĐT, email")" /></div>
     <div><label class="form-label small mb-1">@T("Phân loại")</label><select name="Type" class="form-select" asp-items="typeItems"><option value="">@T("-- Tất cả --")</option></select></div>
+    <div><label class="form-label small mb-1">@T("Sức khoẻ")</label><select name="Health" class="form-select">
+        <option value="">@T("-- Tất cả --")</option>
+        @foreach (var lv in new[] { "good", "warn", "risk" }) { <option value="@lv" selected="@(f.Health == lv)">@CustomerHealth.LevelText(lv)</option> }
+    </select></div>
     @if (User.SeesAll()) { <div><label class="form-label small mb-1">@T("Phụ trách")</label><select name="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tất cả --")</option></select></div> }
     <partial name="_TagFilter" />
     <button class="btn btn-outline-primary">@T("Lọc")</button>
@@ -16,7 +20,7 @@
 </form>
 <div class="card"><div class="card-body p-0">
 <table class="table table-hover mb-0">
-    <thead><tr><th>@T("Mã")</th><th>@T("Tên khách hàng")</th><th>@T("Ngành")</th><th>@T("Tỉnh/TP")</th><th>@T("Liên hệ")</th><th>@T("Phân loại")</th><th class="money">@T("Doanh số đã thắng")</th><th>@T("Phụ trách")</th></tr></thead>
+    <thead><tr><th>@T("Mã")</th><th>@T("Tên khách hàng")</th><th>@T("Ngành")</th><th>@T("Tỉnh/TP")</th><th>@T("Liên hệ")</th><th>@T("Phân loại")</th><th>@T("Sức khoẻ")</th><th class="money">@T("Doanh số đã thắng")</th><th>@T("Phụ trách")</th></tr></thead>
     <tbody>
     @foreach (var c in Model.Items)
     {
@@ -27,11 +31,12 @@
             <td>@Catalogs.Text(CatalogGroup.City, c.City)</td>
             <td class="small">@c.Phone<br />@c.Email</td>
             <td><partial name="_Badge" model="c.Type" /></td>
+            <td>@if (c.HealthScore is int hs) { var lv = CustomerHealth.LevelOf(hs); <span class="badge text-bg-@CustomerHealth.LevelCss(lv)" title="@CustomerHealth.LevelText(lv)">@hs</span> }</td>
             <td class="money">@(won.TryGetValue(c.Id, out var w) ? w.ToMoney() : "")</td>
             <td>@c.Owner?.FullName</td>
         </tr>
     }
-    @if (!Model.Items.Any()) { <tr><td colspan="8" class="text-center text-muted p-4">@T("Không có khách hàng.")</td></tr> }
+    @if (!Model.Items.Any()) { <tr><td colspan="9" class="text-center text-muted p-4">@T("Không có khách hàng.")</td></tr> }
     </tbody>
 </table>
 </div>

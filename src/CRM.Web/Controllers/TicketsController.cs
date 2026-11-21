@@ -91,7 +91,7 @@ public class TicketsController : CrmControllerBase
 
     public async Task<IActionResult> Details(int id)
     {
-        var t = await Db.Tickets.Include(x => x.Customer).Include(x => x.Contact).Include(x => x.Contract).Include(x => x.Product)
+        var t = await Db.Tickets.Include(x => x.Customer).Include(x => x.Contact).Include(x => x.Contract).Include(x => x.Product).Include(x => x.SlaPolicy)
             .Include(x => x.Owner).Include(x => x.CreatedBy)
             .Include(x => x.Comments).ThenInclude(c => c.Author)
             .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
@@ -583,6 +583,12 @@ public class TicketsController : CrmControllerBase
 
     private async Task LoadFormAsync(Ticket t)
     {
+        // Gợi ý SLA theo chính sách mặc định (khách hàng / hợp đồng có SLA riêng sẽ được áp khi lưu)
+        var sla = await SlaEngine.LoadAsync(Db);
+        var def = sla.DefaultId.HasValue ? sla.Policies[sla.DefaultId.Value] : null;
+        ViewBag.SlaMap = Enum.GetValues<TicketPriority>().ToDictionary(p => ((int)p).ToString(), p =>
+            def != null ? new[] { def.For(p).Response, def.For(p).Resolve } : new decimal[] { TicketSla.For(p).ResponseHours, TicketSla.For(p).ResolveHours });
+        ViewBag.SlaBusiness = def?.BusinessHours == true;
         var customers = User.IsSupportDesk() ? Db.Customers.AsQueryable() : Db.Customers.VisibleTo(User);
         ViewBag.Customers = new SelectList(await customers.OrderBy(c => c.Name)
             .Select(c => new { c.Id, Name = c.Code + " - " + c.Name }).ToListAsync(), "Id", "Name", t.CustomerId);

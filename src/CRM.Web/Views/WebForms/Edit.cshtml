@@ -1,0 +1,80 @@
+@model WebForm
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Tạo form thu lead") : T("Form thu lead: {0}", Model.Name);
+    var b = (string)ViewBag.Base;
+    var url = $"{b}/f/{Model.Token}";
+    var autoAssign = (bool)ViewBag.AutoAssign;
+}
+<div class="row g-3">
+    <div class="col-xl-7">
+        <form asp-action="Save" method="post" class="card"><div class="card-body">
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+            <div class="row g-3">
+                <div class="col-md-8"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" placeholder="@T("Vd. Landing page ERP – Google Ads")" /><span asp-validation-for="Name" class="text-danger small"></span></div>
+                <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" asp-for="IsActive" /><label class="form-check-label" asp-for="IsActive"></label></div></div>
+                <div class="col-md-8"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="Accent" class="form-label"></label>
+                    <div class="d-flex gap-2"><input type="color" class="form-control form-control-color" value="@(Model.Accent ?? "#0d6efd")" oninput="this.nextElementSibling.value=this.value" aria-label="@T("Màu chủ đạo")" /><input asp-for="Accent" class="form-control font-monospace" placeholder="#0d6efd" /></div></div>
+                <div class="col-12"><label asp-for="Intro" class="form-label"></label><textarea asp-for="Intro" class="form-control" rows="2"></textarea></div>
+
+                <div class="col-12"><div class="fw-semibold mb-1">@T("Trường trên form")</div>
+                    <div class="small text-muted mb-2">@T("Họ tên luôn có; cần ít nhất email hoặc điện thoại.")</div>
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var p in new[] { "RequirePhone", "RequireEmail", "AskCompany", "AskJobTitle", "AskMessage", "AskConsent" })
+                        {
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="@p" value="true" id="@p" @((bool)typeof(WebForm).GetProperty(p)!.GetValue(Model)! ? "checked" : "") /><input type="hidden" name="@p" value="false" /><label class="form-check-label" for="@p">@Html.DisplayName(p)</label></div>
+                        }
+                    </div></div>
+                <div class="col-12"><label asp-for="ConsentText" class="form-label"></label><textarea asp-for="ConsentText" class="form-control" rows="2" placeholder="@T("Tôi đồng ý để công ty lưu trữ và sử dụng thông tin trên nhằm liên hệ tư vấn, theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.")"></textarea></div>
+                <div class="col-md-4"><label asp-for="SubmitText" class="form-label"></label><input asp-for="SubmitText" class="form-control" /></div>
+                <div class="col-md-8"><label asp-for="SuccessMessage" class="form-label"></label><input asp-for="SuccessMessage" class="form-control" placeholder="@T("Chúng tôi đã nhận được thông tin và sẽ liên hệ với bạn sớm nhất.")" /></div>
+                <div class="col-12"><label asp-for="RedirectUrl" class="form-label"></label><input asp-for="RedirectUrl" class="form-control" placeholder="https://congty.vn/cam-on" /><span asp-validation-for="RedirectUrl" class="text-danger small"></span></div>
+
+                <div class="col-12"><hr class="my-1" /><div class="fw-semibold">@T("Xử lý lead")</div></div>
+                <div class="col-md-4"><label asp-for="Source" class="form-label"></label><select asp-for="Source" class="form-select" asp-items="Html.GetEnumSelectList<LeadSource>()"></select></div>
+                <div class="col-md-4"><label asp-for="CampaignId" class="form-label"></label><select asp-for="CampaignId" class="form-select" asp-items="ViewBag.Campaigns"><option value="">--</option></select></div>
+                <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"><option value="">@T("-- Tự phân bổ theo cấu hình --")</option></select><span asp-validation-for="OwnerId" class="text-danger small"></span></div>
+                @if (!autoAssign) { <div class="col-12"><div class="alert alert-warning py-2 small mb-0">@T("Tự phân bổ lead đang tắt: lead không chọn người nhận sẽ chờ quản lý phân công (quản lý được thông báo).") <a asp-controller="Automation" asp-action="LeadAssign">@T("Cấu hình phân bổ")</a></div></div> }
+                <div class="col-md-6"><label asp-for="BranchId" class="form-label"></label><select asp-for="BranchId" class="form-select" asp-items="ViewBag.Branches"><option value="">@T("-- Đơn vị gốc --")</option></select><div class="form-text">@T("Dùng khi lead chưa có người phụ trách.")</div></div>
+                <div class="col-md-6"><label asp-for="AllowedDomains" class="form-label"></label><textarea asp-for="AllowedDomains" class="form-control font-monospace" rows="2" placeholder="congty.vn&#10;landing.congty.vn"></textarea><div class="form-text">@T("Chỉ các trang thuộc tên miền này được nhúng / gửi form. Để trống = mọi trang.")</div></div>
+            </div>
+            <div class="mt-4 d-flex gap-2"><button class="btn btn-primary">@T("Lưu")</button> <a asp-action="Index" class="btn btn-light">@T("Quay lại")</a></div>
+        </div></form>
+        @if (Model.Id > 0)
+        {
+            <div class="d-flex gap-2 mt-3">
+                <form asp-action="Regenerate" asp-route-id="@Model.Id" method="post" data-confirm="@T("Đổi mã form? Mã nhúng cũ trên website sẽ ngừng hoạt động.")"><button class="btn btn-sm btn-outline-secondary">@T("Đổi mã form")</button></form>
+                <form asp-action="Delete" asp-route-id="@Model.Id" method="post" data-confirm="@T("Xóa form \"{0}\"? Form đã có lead sẽ chỉ chuyển sang ngừng nhận.", Model.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form>
+            </div>
+        }
+    </div>
+    <div class="col-xl-5">
+        @if (Model.Id == 0)
+        {
+            <div class="card"><div class="card-body text-muted small">@T("Lưu form để lấy mã nhúng.")</div></div>
+        }
+        else
+        {
+            <div class="card mb-3"><div class="card-header">@Icon("globe") @T("Đưa form lên website")</div><div class="card-body small">
+                <div class="fw-semibold mb-1">@T("1. Nhúng vào trang (khuyên dùng)")</div>
+                <p class="text-muted mb-1">@T("Dán đoạn mã vào vị trí muốn hiện form. Tự mang theo UTM của trang quảng cáo, tự co giãn chiều cao.")</p>
+                <textarea class="form-control font-monospace small mb-3" rows="2" readonly onclick="this.select()">&lt;script src="@b/js/crm-form.js" data-form="@Model.Token" async&gt;&lt;/script&gt;</textarea>
+                <div class="fw-semibold mb-1">@T("2. Đường dẫn trực tiếp")</div>
+                <p class="text-muted mb-1">@T("Dùng cho nút \"Đăng ký\", bài đăng mạng xã hội, mã QR. Thêm UTM: {0}", "?utm_source=facebook&utm_medium=cpc&utm_campaign=…")</p>
+                <div class="input-group input-group-sm mb-3"><input class="form-control font-monospace" value="@url" readonly onclick="this.select()" aria-label="URL" /><a class="btn btn-outline-secondary" href="@url" target="_blank" rel="noopener">@T("Mở")</a></div>
+                <div class="fw-semibold mb-1">@T("3. Form HTML tự thiết kế")</div>
+                <p class="text-muted mb-1">@T("Gửi POST tới địa chỉ trên với các trường: FullName, Phone, Email, Company, JobTitle, Message, consent=true, UtmSource, UtmMedium, UtmCampaign. Tên miền trang gửi phải nằm trong danh sách được phép (nếu có).")</p>
+                <textarea class="form-control font-monospace small" rows="6" readonly onclick="this.select()">&lt;form method="post" action="@url"&gt;
+  &lt;input name="FullName" required&gt; &lt;input name="Phone"&gt; &lt;input name="Email" type="email"&gt;
+  &lt;textarea name="Message"&gt;&lt;/textarea&gt;
+  &lt;label&gt;&lt;input type="checkbox" name="consent" value="true" required&gt; Đồng ý xử lý dữ liệu&lt;/label&gt;
+  &lt;button&gt;Gửi&lt;/button&gt;
+&lt;/form&gt;</textarea>
+            </div></div>
+            <div class="card"><div class="card-header">@T("Xem trước")</div><div class="card-body p-2">
+                <iframe src="@url?embed=1" title="@T("Xem trước")" style="width:100%;height:560px;border:0"></iframe>
+            </div></div>
+        }
+    </div>
+</div>

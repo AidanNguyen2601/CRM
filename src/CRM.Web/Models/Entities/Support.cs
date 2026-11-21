@@ -114,6 +114,14 @@ public class Ticket : IOwned, IBranchScoped
     [StringLength(150)][Display(Name = "Email người yêu cầu")] public string? ReporterEmail { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Chính sách SLA đã áp khi tính hạn (null = mức chuẩn của hệ thống)</summary>
+    [Display(Name = "Chính sách SLA")] public int? SlaPolicyId { get; set; }
+    public SlaPolicy? SlaPolicy { get; set; }
+    /// <summary>Đồng hồ SLA đang dừng từ lúc này (phiếu chờ khách phản hồi)</summary>
+    public DateTime? SlaPausedAt { get; set; }
+    /// <summary>Tổng số phút SLA đã dừng (đã cộng vào hạn)</summary>
+    public int SlaPausedMinutes { get; set; }
+
     [Display(Name = "Hạn phản hồi")] public DateTime ResponseDueAt { get; set; }
     [Display(Name = "Hạn giải quyết")] public DateTime ResolveDueAt { get; set; }
     [Display(Name = "Phản hồi lần đầu")] public DateTime? FirstResponseAt { get; set; }
@@ -146,12 +154,14 @@ public class Ticket : IOwned, IBranchScoped
         ResolveDueAt = CreatedAt.AddHours(res);
     }
 
+    /// <summary>Thời điểm "hiện tại" của đồng hồ SLA: đang dừng thì tính tới lúc dừng</summary>
+    [NotMapped] private DateTime SlaNow => SlaPausedAt ?? DateTime.Now;
     /// <summary>Đã / đang trễ hạn phản hồi</summary>
-    [NotMapped] public bool ResponseBreached => (FirstResponseAt ?? (IsOpen ? DateTime.Now : ResolvedAt ?? ClosedAt ?? DateTime.Now)) > ResponseDueAt;
+    [NotMapped] public bool ResponseBreached => (FirstResponseAt ?? (IsOpen ? SlaNow : ResolvedAt ?? ClosedAt ?? DateTime.Now)) > ResponseDueAt;
     /// <summary>Đã / đang trễ hạn giải quyết</summary>
-    [NotMapped] public bool ResolveBreached => (ResolvedAt ?? (IsOpen ? DateTime.Now : ClosedAt ?? DateTime.Now)) > ResolveDueAt;
+    [NotMapped] public bool ResolveBreached => (ResolvedAt ?? (IsOpen ? SlaNow : ClosedAt ?? DateTime.Now)) > ResolveDueAt;
 
-    /// <summary>Trạng thái SLA để hiển thị: ok / warn / breach / done (đã giải quyết đúng hạn)</summary>
+    /// <summary>Trạng thái SLA để hiển thị: ok / warn / breach / paused (chờ khách) / done (đã giải quyết đúng hạn)</summary>
     [NotMapped]
     public string SlaState
     {
@@ -159,6 +169,7 @@ public class Ticket : IOwned, IBranchScoped
         {
             if (!IsOpen) return ResolveBreached ? "breach" : "done";
             if (ResolveBreached || (FirstResponseAt == null && ResponseBreached)) return "breach";
+            if (SlaPausedAt != null) return "paused";
             var due = FirstResponseAt == null ? ResponseDueAt : ResolveDueAt;
             var total = (due - CreatedAt).TotalMinutes;
             return total > 0 && (due - DateTime.Now).TotalMinutes < total * TicketSla.WarnRatio ? "warn" : "ok";

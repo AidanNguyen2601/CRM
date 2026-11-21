@@ -60,6 +60,7 @@ public class ContactsController : CrmControllerBase
     {
         var (cfValues, cfErrors) = await CustomData.ReadAsync(Db, "Contact", Request.Form);
         foreach (var cfErr in cfErrors) ModelState.AddModelError(string.Empty, cfErr);
+        if (ModelState.IsValid) await DuplicateGuardAsync(nameof(Contact), model.Id, model.FullName, null, model.Phone, model.Email);
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);

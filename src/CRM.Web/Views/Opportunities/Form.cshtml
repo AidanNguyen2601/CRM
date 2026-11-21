@@ -14,6 +14,7 @@
         <div class="col-md-3"><label asp-for="Amount" class="form-label"></label><input asp-for="Amount" class="form-control" /><span asp-validation-for="Amount" class="text-danger small"></span></div>
         <div class="col-md-2"><label asp-for="Probability" class="form-label"></label><input asp-for="Probability" class="form-control" id="Probability" /></div>
         <div class="col-md-3"><label asp-for="ExpectedCloseDate" class="form-label"></label><input asp-for="ExpectedCloseDate" class="form-control" /></div>
+        <div class="col-md-4"><label asp-for="ForecastCategory" class="form-label"></label><select asp-for="ForecastCategory" class="form-select" asp-items="Html.GetEnumSelectList<ForecastCategory>()"><option value="">@T("-- Tự động theo xác suất --")</option></select></div>
         @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
         <div class="col-md-8"><label asp-for="LostReason" class="form-label"></label><input asp-for="LostReason" class="form-control" list="lossReasons" /><partial name="_CatalogDatalist" model='("lossReasons", CatalogGroup.LossReason)' /><span asp-validation-for="LostReason" class="text-danger small"></span></div>
         <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>

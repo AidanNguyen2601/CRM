@@ -127,7 +127,7 @@ public class OpportunitiesController : CrmControllerBase
             if (o == null) return NotFound();
             if (!await CanAccessAsync(o)) return NotAllowed();
             o.Name = model.Name; o.CustomerId = model.CustomerId; o.ContactId = model.ContactId; o.Stage = model.Stage;
-            o.Amount = model.Amount; o.Probability = model.Probability; o.ExpectedCloseDate = model.ExpectedCloseDate;
+            o.Amount = model.Amount; o.Probability = model.Probability; o.ExpectedCloseDate = model.ExpectedCloseDate; o.ForecastCategory = model.ForecastCategory;
             o.Source = model.Source; o.CampaignId = model.CampaignId; o.LostReason = model.LostReason; o.Description = model.Description;
             o.OwnerId = KeepOwner(o.OwnerId, model.OwnerId);
             entity = o;

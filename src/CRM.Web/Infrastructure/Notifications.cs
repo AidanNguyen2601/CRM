@@ -45,6 +45,7 @@ public class NotificationService
         "renewal" => "contract",
         "approval" => "check",
         "nps" => "star",
+        "health" => "alert",
         _ => "bell"
     };
 }
@@ -97,17 +98,48 @@ public class NotificationWorker : BackgroundService
         }
 
         // Phiếu hỗ trợ đang mở: sắp trễ (trong 2 giờ) / đã trễ SLA (trong 1 ngày gần nhất)
+        // (phiếu đang dừng đồng hồ SLA vì chờ khách thì không nhắc)
         var tickets = await db.Tickets.IgnoreQueryFilters().AsNoTracking()
-            .Where(t => t.OwnerId != null && (t.Status == TicketStatus.New || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingCustomer))
-            .Select(t => new { t.Id, t.OwnerId, t.Number, t.Subject, Due = t.FirstResponseAt == null ? t.ResponseDueAt : t.ResolveDueAt, Response = t.FirstResponseAt == null })
+            .Where(t => t.SlaPausedAt == null && (t.Status == TicketStatus.New || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingCustomer))
+            .Select(t => new { t.Id, t.OwnerId, t.BranchId, t.Number, t.Subject, Due = t.FirstResponseAt == null ? t.ResponseDueAt : t.ResolveDueAt, Response = t.FirstResponseAt == null,
+                Escalate = t.SlaPolicy == null || t.SlaPolicy.Escalate })
             .Where(t => t.Due >= now.AddDays(-1) && t.Due <= now.AddHours(2)).ToListAsync(ct);
-        foreach (var t in tickets)
+        foreach (var t in tickets.Where(t => t.OwnerId != null))
         {
             var late = t.Due < now;
             var what = t.Response ? "phản hồi" : "giải quyết";
             candidates.Add((t.OwnerId!.Value, "sla",
                 late ? $"Phiếu {t.Number} đã quá hạn {what} SLA: {t.Subject}" : $"Phiếu {t.Number} sắp đến hạn {what} ({t.Due:HH:mm}): {t.Subject}",
                 $"/Tickets/Details/{t.Id}", $"sla{(late ? "-late" : "")}:{t.Id}:{t.Due:yyyyMMddHHmm}"));
+        }
+
+        // Báo cấp trên: phiếu đã trễ hạn, hoặc phiếu chưa phân công sắp đến hạn → quản lý gần nhất của đơn vị (không có thì quản trị)
+        var escalate = tickets.Where(t => t.Escalate && (t.Due < now || t.OwnerId == null)).ToList();
+        if (escalate.Count > 0)
+        {
+            var parents = await db.Branches.AsNoTracking().Select(b => new { b.Id, b.ParentId }).ToDictionaryAsync(b => b.Id, b => b.ParentId, ct);
+            var managers = await db.Users.AsNoTracking().Where(u => u.IsActive && (u.Role == AppRoles.Manager || u.Role == AppRoles.Admin))
+                .Select(u => new { u.Id, u.Role, u.BranchId }).ToListAsync(ct);
+            List<int> Chain(int id)
+            {
+                var list = new List<int>();
+                for (int? b = id; b.HasValue && !list.Contains(b.Value); b = parents.GetValueOrDefault(b.Value)) list.Add(b.Value);
+                return list;
+            }
+            foreach (var t in escalate)
+            {
+                var chain = Chain(t.BranchId);
+                var nearest = managers.Where(m => m.Role == AppRoles.Manager && chain.Contains(m.BranchId)).OrderBy(m => chain.IndexOf(m.BranchId)).FirstOrDefault()?.Id
+                              ?? managers.Where(m => m.Role == AppRoles.Admin).OrderBy(m => m.Id).FirstOrDefault()?.Id;
+                if (nearest == null || nearest == t.OwnerId) continue;
+                var late = t.Due < now;
+                var what = t.Response ? "phản hồi" : "giải quyết";
+                candidates.Add((nearest.Value, "sla",
+                    t.OwnerId == null
+                        ? $"Phiếu {t.Number} chưa phân công, {(late ? "đã quá" : "sắp đến")} hạn {what} SLA: {t.Subject}"
+                        : $"Báo cáo trễ SLA: phiếu {t.Number} đã quá hạn {what}: {t.Subject}",
+                    $"/Tickets/Details/{t.Id}", $"sla-esc:{t.Id}:{t.Due:yyyyMMddHHmm}:{(late ? 1 : 0)}"));
+            }
         }
         if (candidates.Count == 0) return 0;
 

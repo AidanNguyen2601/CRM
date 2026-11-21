@@ -1,0 +1,109 @@
+@* Trang form thu lead công khai (/f/{token}) – độc lập, không dùng layout CRM; nhúng iframe được (embed=1) *@
+@model CRM.Web.Controllers.LeadFormController.PublicFormModel
+@{
+    Layout = null;
+    var f = Model.Form;
+    var v = Model.Values;
+    var accent = !string.IsNullOrEmpty(f.Accent) && System.Text.RegularExpressions.Regex.IsMatch(f.Accent, "^#[0-9a-fA-F]{6}$") ? f.Accent : "#0d6efd";
+    var redirect = Model.Done && Model.Embed && Uri.TryCreate(f.RedirectUrl, UriKind.Absolute, out var ru) && ru.Scheme is "http" or "https" ? f.RedirectUrl : null;
+}
+<!doctype html>
+<html lang="@(I18n.IsEnglish ? "en" : "vi")">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>@(f.Title ?? f.Name)</title>
+    <style>
+        :root { --accent: @accent; --text: #1f2933; --muted: #6b7785; --line: #d5dbe3; --bg: #ffffff; --err-bg: #fdecee; --err: #b02a37; }
+        @@media (prefers-color-scheme: dark) { :root { --text: #e6e9ee; --muted: #9aa5b1; --line: #3a4350; --bg: #161b22; --err-bg: #3b1d22; --err: #ff8a95; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--text); background: @(Model.Embed ? "transparent" : "var(--bg)"); }
+        .wrap { max-width: 560px; margin: @(Model.Embed ? "0" : "32px auto"); padding: 16px; }
+        h1 { font-size: 1.35rem; margin: 0 0 6px; color: var(--accent); }
+        .intro { color: var(--muted); margin: 0 0 16px; white-space: pre-line; }
+        label { display: block; font-weight: 600; font-size: .9rem; margin: 12px 0 4px; }
+        .req { color: var(--err); }
+        input[type=text], input[type=email], input[type=tel], textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: inherit; background: transparent; }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+        textarea { min-height: 96px; resize: vertical; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+        @@media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+        .consent { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; font-size: .85rem; color: var(--muted); margin-top: 14px; }
+        .consent input { margin-top: 3px; }
+        button { margin-top: 16px; width: 100%; padding: 12px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+        button:hover { filter: brightness(1.08); }
+        .errors { background: var(--err-bg); color: var(--err); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+        .errors ul { margin: 0; padding-left: 18px; }
+        .done { text-align: center; padding: 32px 8px; }
+        .done svg { width: 56px; height: 56px; color: var(--accent); }
+        .trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+@if (Model.Done)
+{
+    <div class="done" role="status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" /></svg>
+        <h1>@T("Cảm ơn bạn!")</h1>
+        <p class="intro">@(f.SuccessMessage ?? T("Chúng tôi đã nhận được thông tin và sẽ liên hệ với bạn sớm nhất."))</p>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(f.Title)) { <h1>@f.Title</h1> }
+    @if (!string.IsNullOrWhiteSpace(f.Intro)) { <p class="intro">@f.Intro</p> }
+    @if (Model.Errors.Count > 0)
+    {
+        <div class="errors" role="alert"><ul>@foreach (var e in Model.Errors) { <li>@e</li> }</ul></div>
+    }
+    <form method="post" action="/f/@f.Token" asp-antiforgery="false" novalidate>
+        <input type="hidden" name="_ts" value="@Model.Stamp" />
+        <input type="hidden" name="_embed" value="@(Model.Embed ? "true" : "false")" />
+        <input type="hidden" name="UtmSource" value="@v.UtmSource" /><input type="hidden" name="UtmMedium" value="@v.UtmMedium" /><input type="hidden" name="UtmCampaign" value="@v.UtmCampaign" />
+        <input type="hidden" name="Page" value="@v.Page" /><input type="hidden" name="Ref" value="@v.Ref" />
+        <div class="trap" aria-hidden="true"><label for="website">Website</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off" /></div>
+
+        <label for="FullName">@T("Họ và tên") <span class="req">*</span></label>
+        <input type="text" id="FullName" name="FullName" value="@v.FullName" maxlength="150" autocomplete="name" required />
+        <div class="row">
+            <div><label for="Phone">@T("Điện thoại") @if (f.RequirePhone) { <span class="req">*</span> }</label>
+                <input type="tel" id="Phone" name="Phone" value="@v.Phone" maxlength="20" autocomplete="tel" /></div>
+            <div><label for="Email">Email @if (f.RequireEmail) { <span class="req">*</span> }</label>
+                <input type="email" id="Email" name="Email" value="@v.Email" maxlength="150" autocomplete="email" /></div>
+        </div>
+        @if (f.AskCompany || f.AskJobTitle)
+        {
+            <div class="row">
+                @if (f.AskCompany) { <div><label for="Company">@T("Công ty")</label><input type="text" id="Company" name="Company" value="@v.Company" maxlength="200" autocomplete="organization" /></div> }
+                @if (f.AskJobTitle) { <div><label for="JobTitle">@T("Chức vụ")</label><input type="text" id="JobTitle" name="JobTitle" value="@v.JobTitle" maxlength="100" autocomplete="organization-title" /></div> }
+            </div>
+        }
+        @if (f.AskMessage)
+        {
+            <label for="Message">@T("Nhu cầu của bạn")</label>
+            <textarea id="Message" name="Message" maxlength="2000">@v.Message</textarea>
+        }
+        @if (f.AskConsent)
+        {
+            <label class="consent"><input type="checkbox" name="consent" value="true" @(v.Consent ? "checked" : "") />
+                <span>@(f.ConsentText ?? T("Tôi đồng ý để công ty lưu trữ và sử dụng thông tin trên nhằm liên hệ tư vấn, theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân."))</span></label>
+        }
+        <button type="submit">@(f.SubmitText ?? T("Gửi thông tin"))</button>
+    </form>
+}
+</div>
+@if (Model.Embed)
+{
+    <script>
+        // Báo chiều cao cho trang chứa iframe (crm-form.js) và chuyển trang sau khi gửi (nếu cấu hình)
+        (function () {
+            function h() { parent.postMessage({ type: 'crm-form-height', height: document.documentElement.scrollHeight }, '*'); }
+            window.addEventListener('load', h); window.addEventListener('resize', h); h();
+            @if (redirect != null) { <text>parent.postMessage({ type: 'crm-form-redirect', url: @Json.Serialize(redirect) }, '*');</text> }
+        })();
+    </script>
+}
+</body>
+</html>

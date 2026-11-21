@@ -14,7 +14,9 @@
         <a class="btn btn-success" asp-controller="Payments" asp-action="Create" asp-route-invoiceId="@Model.Id">@Icon("wallet") @T("Ghi nhận thanh toán")</a>
     }
     <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Compose" asp-route-type="Invoice" asp-route-id="@Model.Id">@Icon("email") @T("Gửi email")</a>
-    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+    <a class="btn btn-outline-secondary ms-auto" asp-action="Pdf" asp-route-id="@Model.Id" asp-route-inline="true" target="_blank" title="@T("Đề nghị thanh toán (PDF)")">@Icon("file-pdf") @T("Xem PDF")</a>
+    <a class="btn btn-outline-secondary" asp-action="Pdf" asp-route-id="@Model.Id">@Icon("download") @T("Tải PDF")</a>
+    <button class="btn btn-outline-secondary" onclick="window.print()">@T("In")</button>
     @if (User.SeesAll() && Model.IsBillable && !payments.Any())
     {
         <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" data-confirm="@T("Hủy hoá đơn {0}?", Model.FullNumber)"><button class="btn btn-outline-danger">@T("Hủy hoá đơn")</button></form>

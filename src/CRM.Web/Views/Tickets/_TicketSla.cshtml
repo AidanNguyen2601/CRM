@@ -19,6 +19,9 @@
     case "breach" when !Model.IsOpen:
         <span class="sla sla-breach" title="@T("Hạn giải quyết: {0}", Model.ResolveDueAt.ToDateTime())">@Icon("clock") @T("Trễ {0}", Span((Model.ResolvedAt ?? Model.ClosedAt ?? DateTime.Now) - Model.ResolveDueAt))</span>
         break;
+    case "paused":
+        <span class="sla sla-paused" title="@T("Đồng hồ SLA dừng từ {0} trong khi chờ khách phản hồi", Model.SlaPausedAt?.ToDateTime())">@Icon("clock") @T("Tạm dừng – chờ khách")</span>
+        break;
     case "breach":
         <span class="sla sla-breach" title="@T("Hạn {0}: {1}", what, due.ToDateTime())">@Icon("clock") @T("Quá hạn {0} {1}", what, Span(left))</span>
         break;

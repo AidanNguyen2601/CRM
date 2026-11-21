@@ -1,0 +1,48 @@
+@model List<WebForm>
+@{
+    ViewData["Title"] = T("Form thu lead website");
+    var stats = (Dictionary<int, CRM.Web.Controllers.WebFormsController.FormStat>)ViewBag.Stats;
+    var utm = (List<CRM.Web.Controllers.WebFormsController.UtmRow>)ViewBag.Utm;
+    var days = (int)ViewBag.Days;
+}
+<div class="toolbar">
+    <a class="btn btn-primary" asp-action="Edit">@Icon("plus") @T("Tạo form")</a>
+</div>
+<div class="card mb-3"><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0 align-middle">
+    <thead><tr><th>@T("Tên form")</th><th>@T("Nguồn lead")</th><th>@T("Giao cho")</th><th class="money">@T("Lượt gửi")</th><th class="money">@T("Lead")</th><th class="money">@T("Đủ điều kiện")</th><th class="money">@T("Đã chuyển đổi")</th><th class="money">@T("Tỷ lệ chuyển đổi")</th><th>@T("Lần gửi gần nhất")</th></tr></thead>
+    <tbody>
+    @foreach (var f in Model)
+    {
+        var s = stats.GetValueOrDefault(f.Id) ?? new(0, 0, 0);
+        <tr class="@(f.IsActive ? "" : "text-muted")">
+            <td><a asp-action="Edit" asp-route-id="@f.Id" class="fw-semibold">@f.Name</a>@if (!f.IsActive) { <span class="badge text-bg-secondary ms-1">@T("Ngừng nhận")</span> }</td>
+            <td>@f.Source.GetDisplayName()</td>
+            <td>@(f.Owner?.FullName ?? T("Tự phân bổ"))</td>
+            <td class="money">@f.Submissions.ToString("N0")</td>
+            <td class="money"><a asp-controller="Leads" asp-action="Index" asp-route-WebFormId="@f.Id">@s.Leads.ToString("N0")</a></td>
+            <td class="money">@s.Qualified.ToString("N0")</td>
+            <td class="money">@s.Converted.ToString("N0")</td>
+            <td class="money">@(s.Leads == 0 ? "–" : (100.0 * s.Converted / s.Leads).ToString("0.#") + "%")</td>
+            <td>@f.LastSubmissionAt?.ToDateTime()</td>
+        </tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="9" class="text-muted p-3">@T("Chưa có form. Tạo form rồi dán mã nhúng vào website / landing page để lead tự vào CRM.")</td></tr> }
+    </tbody>
+</table></div></div></div>
+
+<div class="card"><div class="card-header d-flex align-items-center gap-2">@Icon("trending") @T("Hiệu quả theo nguồn quảng cáo (UTM)")
+    <div class="ms-auto btn-group btn-group-sm">
+        @foreach (var d in new[] { 30, 90, 365 }) { <a class="btn @(d == days ? "btn-primary" : "btn-outline-secondary")" asp-route-days="@d">@T("{0} ngày", d)</a> }
+    </div></div>
+    <div class="card-body p-0"><div class="table-responsive"><table class="table mb-0">
+        <thead><tr><th>utm_source</th><th>utm_medium</th><th>utm_campaign</th><th class="money">@T("Lead")</th><th class="money">@T("Đã chuyển đổi")</th><th class="money">@T("Tỷ lệ")</th><th class="money">@T("Doanh số thắng")</th></tr></thead>
+        <tbody>
+        @foreach (var r in utm)
+        {
+            <tr><td>@r.Source</td><td>@r.Medium</td><td>@r.Campaign</td><td class="money">@r.Leads.ToString("N0")</td><td class="money">@r.Converted.ToString("N0")</td>
+                <td class="money">@((100.0 * r.Converted / r.Leads).ToString("0.#"))%</td><td class="money">@r.Won.ToMoney()</td></tr>
+        }
+        @if (!utm.Any()) { <tr><td colspan="7" class="text-muted p-3">@T("Chưa có lead mang thông tin UTM trong kỳ. Gắn ?utm_source=…&utm_medium=…&utm_campaign=… vào đường dẫn quảng cáo để đo hiệu quả từng kênh.")</td></tr> }
+        </tbody>
+    </table></div></div>
+</div>

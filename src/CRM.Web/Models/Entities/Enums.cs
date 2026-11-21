@@ -48,6 +48,15 @@ public enum OpportunityStage
     [Display(Name = "Thua")] ClosedLost = 0
 }
 
+/// <summary>Nhóm dự báo doanh số của cơ hội đang mở</summary>
+public enum ForecastCategory
+{
+    [Display(Name = "Chắc chắn")] Commit = 1,
+    [Display(Name = "Có thể")] BestCase = 2,
+    [Display(Name = "Pipeline")] Pipeline = 3,
+    [Display(Name = "Loại khỏi dự báo")] Omitted = 9
+}
+
 public enum ActivityType
 {
     [Display(Name = "Cuộc gọi")] Call = 1,

@@ -297,6 +297,7 @@ th.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .sla-warn { background: #fff4d6; color: #8a5a00; }
 .sla-breach { background: #fde2e4; color: #b02a37; font-weight: 600; }
 .sla-done { background: #eef2f7; color: #475569; }
+.sla-paused { background: #e8eefc; color: #3651a6; }
 .csat-stars span { color: #cbd5e1; font-size: 1.05rem; letter-spacing: 1px; }
 .csat-stars span.on { color: #f5a524; }
 .csat-pick { display: inline-flex; flex-direction: row-reverse; gap: 2px; }
@@ -439,3 +440,33 @@ html[data-theme="dark"] .tc.tc-customer { background: rgba(22, 163, 74, .12); }
 .portal-nav { background: var(--accent, #0f9d8a); }
 .portal-link { color: rgba(255,255,255,.85); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
 .portal-link:hover, .portal-link.active { color: #fff; background: rgba(255,255,255,.15); }
+
+/* ---------- Dự báo doanh số ---------- */
+.fc-won { background: #198754; }
+.fc-commit { background: #0d6efd; }
+.fc-best { background: #6ea8fe; }
+.fc-pipe { background: #ced4da; }
+.fc-omit { background: transparent; border: 1px dashed #adb5bd; }
+.fc-stack { position: relative; display: flex; height: 22px; border-radius: 6px; background: #f1f3f5; overflow: visible; }
+.fc-stack > div { height: 100%; }
+.fc-stack > div:first-child { border-radius: 6px 0 0 6px; }
+.fc-target { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1px; background: #dc3545; border-radius: 2px; }
+.fc-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; flex-shrink: 0; }
+.fc-target-dot { background: #dc3545; width: 3px; }
+.fc-col { display: flex; flex-direction: column; justify-content: flex-end; width: 18px; }
+.fc-col > div { width: 100%; }
+.fc-col > div:first-child { border-radius: 3px 3px 0 0; }
+.fc-row-omit td { opacity: .6; }
+
+/* Lớp tiện ích của Bootstrap 5.2+ (dự án dùng 5.1): nền + chữ tương phản cho huy hiệu */
+.text-bg-primary { color: #fff !important; background-color: #0d6efd !important; }
+.text-bg-secondary { color: #fff !important; background-color: #6c757d !important; }
+.text-bg-success { color: #fff !important; background-color: #198754 !important; }
+.text-bg-danger { color: #fff !important; background-color: #dc3545 !important; }
+.text-bg-warning { color: #000 !important; background-color: #ffc107 !important; }
+.text-bg-info { color: #000 !important; background-color: #0dcaf0 !important; }
+.text-bg-light { color: #000 !important; background-color: #f8f9fa !important; }
+.text-bg-dark { color: #fff !important; background-color: #212529 !important; }
+.text-warning-emphasis { color: #997404 !important; }
+html[data-theme="dark"] .text-warning-emphasis { color: #ffda6a !important; }
+html[data-theme="dark"] .text-bg-light { color: var(--text) !important; background-color: var(--surface-2) !important; }

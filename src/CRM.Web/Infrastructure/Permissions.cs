@@ -26,16 +26,16 @@ public class PermissionService
 
     public static readonly PermModule[] Modules =
     {
-        new("Customers", "Khách hàng & liên hệ", new[] { "Customers", "Contacts" }, new[] { View, Create, Edit, Delete }),
+        new("Customers", "Khách hàng & liên hệ", new[] { "Customers", "Contacts", "Health" }, new[] { View, Create, Edit, Delete }),
         new("Leads", "Lead (KH tiềm năng)", new[] { "Leads" }, new[] { View, Create, Edit, Delete }),
-        new("Opportunities", "Cơ hội bán hàng", new[] { "Opportunities" }, new[] { View, Create, Edit, Delete }),
+        new("Opportunities", "Cơ hội bán hàng & dự báo", new[] { "Opportunities", "Forecast" }, new[] { View, Create, Edit, Delete }),
         new("Quotes", "Báo giá", new[] { "Quotes" }, new[] { View, Create, Edit, Delete }),
         new("BusinessPlans", "Phương án kinh doanh", new[] { "BusinessPlans" }, new[] { View, Create, Edit, Delete }),
         new("Contracts", "Hợp đồng", new[] { "Contracts", "Renewals" }, new[] { View, Create, Edit, Delete }),
         new("Invoices", "Hoá đơn", new[] { "Invoices" }, new[] { View, Create, Edit, Delete }),
         new("Payments", "Thanh toán", new[] { "Payments" }, new[] { View, Create, Edit, Delete }),
         new("Activities", "Lịch làm việc & công việc", new[] { "Activities", "Tasks" }, new[] { View, Create, Edit, Delete }),
-        new("Campaigns", "Chiến dịch tiếp thị", new[] { "Campaigns" }, new[] { View, Create, Edit, Delete, Export }),
+        new("Campaigns", "Chiến dịch tiếp thị & form thu lead", new[] { "Campaigns", "WebForms" }, new[] { View, Create, Edit, Delete, Export }),
         new("Tickets", "Phiếu hỗ trợ", new[] { "Tickets" }, new[] { View, Create, Edit, Delete }),
         new("Products", "Hàng hoá / dịch vụ & bảng giá", new[] { "Products", "PriceLists" }, new[] { View, Create, Edit, Delete }),
         new("Kpi", "KPI & hoa hồng", new[] { "Kpi", "Commissions" }, new[] { View }),

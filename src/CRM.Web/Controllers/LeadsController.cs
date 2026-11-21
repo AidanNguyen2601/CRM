@@ -21,7 +21,8 @@ public class LeadsController : CrmControllerBase
                              || (l.Email != null && l.Email.Contains(k)) || (l.Phone != null && l.Phone.Contains(k)));
         }
         if (f.Status.HasValue) q = q.Where(l => l.Status == f.Status);
-        else q = q.Where(l => l.Status != LeadStatus.Converted && l.Status != LeadStatus.Unqualified);
+        else if (!f.WebFormId.HasValue) q = q.Where(l => l.Status != LeadStatus.Converted && l.Status != LeadStatus.Unqualified);
+        if (f.WebFormId.HasValue) q = q.Where(l => l.WebFormId == f.WebFormId);
         if (f.Source.HasValue) q = q.Where(l => l.Source == f.Source);
         if (f.OwnerId.HasValue) q = q.Where(l => l.OwnerId == f.OwnerId);
 
@@ -38,7 +39,7 @@ public class LeadsController : CrmControllerBase
 
     public async Task<IActionResult> Details(int id)
     {
-        var l = await Db.Leads.Include(x => x.Owner).Include(x => x.ConvertedCustomer).Include(x => x.Campaign).FirstOrDefaultAsync(x => x.Id == id);
+        var l = await Db.Leads.Include(x => x.Owner).Include(x => x.ConvertedCustomer).Include(x => x.Campaign).Include(x => x.WebForm).FirstOrDefaultAsync(x => x.Id == id);
         if (l == null) return NotFound();
         if (!await CanAccessAsync(l, edit: false)) return NotAllowed();
         ViewBag.Activities = await Db.Activities.Include(a => a.Owner).Where(a => a.LeadId == id)
@@ -76,6 +77,7 @@ public class LeadsController : CrmControllerBase
             ModelState.AddModelError(nameof(model.Phone), I18n.T("Cần ít nhất số điện thoại hoặc email"));
         var (cfValues, cfErrors) = await CustomData.ReadAsync(Db, "Lead", Request.Form);
         foreach (var cfErr in cfErrors) ModelState.AddModelError(string.Empty, cfErr);
+        if (ModelState.IsValid) await DuplicateGuardAsync(nameof(Lead), model.Id, model.FullName, null, model.Phone, model.Email, model.Company);
         if (!ModelState.IsValid)
         {
             await LoadLookups(model);

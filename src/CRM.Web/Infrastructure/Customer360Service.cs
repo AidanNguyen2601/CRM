@@ -143,9 +143,15 @@ public class Customer360Service
 
         // Doanh thu 12 tháng: lấy số lớn hơn giữa hoá đơn đã xuất và cơ hội đã thắng (khách chưa xuất hoá đơn vẫn được tính)
         var won12m = won.Where(o => (o.ClosedAt ?? o.CreatedAt) >= today.AddMonths(-12)).Sum(o => o.Amount);
+        // Hỗ trợ (CSAT 6 tháng), NPS gần nhất, hợp đồng sắp hết hạn (60 ngày) chưa có cơ hội / hợp đồng gia hạn
+        var csat = m.Tickets.Where(t => t.SatisfactionScore.HasValue && (t.ClosedAt ?? t.ResolvedAt ?? t.CreatedAt) >= today.AddDays(-180)).Select(t => t.SatisfactionScore!.Value).ToList();
+        var nps = await _db.NpsResponses.Where(r => r.CustomerId == id && r.Score != null).OrderByDescending(r => r.RespondedAt).Select(r => r.Score).FirstOrDefaultAsync();
+        var renewedIds = await _db.Contracts.IgnoreQueryFilters().Where(k => k.CustomerId == id && k.RenewedFromId != null).Select(k => k.RenewedFromId!.Value).ToListAsync();
+        var expiring = m.Contracts.Count(k => k.Status == ContractStatus.Active && k.EndDate >= today && k.EndDate <= today.AddDays(60) && k.RenewalOpportunityId == null && !renewedIds.Contains(k.Id));
         m.Health = CustomerHealth.Evaluate(new HealthInput(
             m.DaysSinceInteraction, m.Receivable, m.Overdue, maxOverdueDays, m.OpenOpportunities,
-            Math.Max(m.Invoiced12m, won12m), Math.Max(m.Invoiced, m.WonTotal), m.Activities.Count(a => a.IsOverdue)));
+            Math.Max(m.Invoiced12m, won12m), Math.Max(m.Invoiced, m.WonTotal), m.Activities.Count(a => a.IsOverdue),
+            m.OpenTickets, m.BreachedTickets, csat.Count == 0 ? null : csat.Average(), nps, expiring));
         m.Alerts = BuildAlerts(m, today);
         m.Timeline = BuildTimeline(m, _catalogs);
         return m;
@@ -281,46 +287,69 @@ public class Customer360Service
 }
 
 public record HealthInput(int? DaysSinceInteraction, decimal Receivable, decimal Overdue, int MaxOverdueDays,
-    int OpenOpportunities, decimal Revenue12m, decimal RevenueAllTime, int OverdueTasks);
+    int OpenOpportunities, decimal Revenue12m, decimal RevenueAllTime, int OverdueTasks,
+    int OpenTickets = 0, int BreachedTickets = 0, double? Csat = null, int? LatestNps = null, int ExpiringNoRenewal = 0);
 
 /// <summary>
-/// Điểm sức khỏe khách hàng 0–100 = tổng 5 yếu tố. ≥ 70: Tốt, 40–69: Cần chú ý, &lt; 40: Rủi ro.
-/// Logic thuần C# (không truy cập DB) để dễ kiểm thử và điều chỉnh trọng số.
+/// Điểm sức khỏe khách hàng 0–100 = tổng 7 yếu tố. ≥ 70: Tốt, 40–69: Cần chú ý, &lt; 40: Rủi ro.
+/// Dùng chung cho trang khách hàng 360° và tác vụ tính hằng giờ (CustomerHealthService) – logic thuần C#, không truy cập DB.
 /// </summary>
 public static class CustomerHealth
 {
+    public const int GoodFrom = 70, WarnFrom = 40;
+
+    public static string LevelOf(int score) => score >= GoodFrom ? "good" : score >= WarnFrom ? "warn" : "risk";
+
     public static HealthResult Evaluate(HealthInput i)
     {
         var f = new List<HealthFactor>();
 
-        // 1. Tương tác gần đây (30)
+        // 1. Tương tác gần đây (25)
         var d = i.DaysSinceInteraction;
-        f.Add(new(T("Tương tác gần đây"), d switch { null => 0, <= 30 => 30, <= 60 => 20, <= 90 => 10, _ => 0 }, 30,
+        f.Add(new(T("Tương tác gần đây"), d switch { null => 0, <= 30 => 25, <= 60 => 16, <= 90 => 8, _ => 0 }, 25,
             d is null ? T("Chưa có tương tác") : T("{0} ngày trước", d)));
 
-        // 2. Công nợ (25)
-        int debt = i.Overdue <= 0 ? 25 : i.MaxOverdueDays <= 30 ? 12 : 0;
-        f.Add(new(T("Thanh toán đúng hạn"), debt, 25,
+        // 2. Công nợ (20)
+        int debt = i.Overdue <= 0 ? 20 : i.MaxOverdueDays <= 30 ? 10 : 0;
+        f.Add(new(T("Thanh toán đúng hạn"), debt, 20,
             i.Overdue <= 0 ? (i.Receivable > 0 ? T("Còn phải thu {0}, chưa quá hạn", i.Receivable.ToShortMoney()) : T("Không có nợ quá hạn"))
                            : T("Quá hạn {0}, lâu nhất {1} ngày", i.Overdue.ToShortMoney(), i.MaxOverdueDays)));
 
-        // 3. Doanh thu (20)
-        int rev = i.Revenue12m > 0 ? 20 : i.RevenueAllTime > 0 ? 10 : 0;
-        f.Add(new(T("Doanh thu"), rev, 20,
+        // 3. Doanh thu (15)
+        int rev = i.Revenue12m > 0 ? 15 : i.RevenueAllTime > 0 ? 7 : 0;
+        f.Add(new(T("Doanh thu"), rev, 15,
             i.Revenue12m > 0 ? T("{0} trong 12 tháng", i.Revenue12m.ToShortMoney())
                 : i.RevenueAllTime > 0 ? T("Không phát sinh trong 12 tháng") : T("Chưa có doanh thu")));
 
-        // 4. Cơ hội đang mở (15)
-        f.Add(new(T("Cơ hội đang mở"), i.OpenOpportunities > 0 ? 15 : 0, 15,
-            i.OpenOpportunities > 0 ? T("{0} cơ hội", i.OpenOpportunities) : T("Không có cơ hội mới")));
+        // 4. Hỗ trợ (15): phiếu tồn, trễ SLA, mức hài lòng
+        var sup = 15 - Math.Min(8, i.OpenTickets * 3) - (i.BreachedTickets > 0 ? 5 : 0) - (i.Csat is < 3 ? 5 : 0);
+        var supNotes = new List<string>();
+        if (i.OpenTickets > 0) supNotes.Add(T("{0} phiếu đang mở", i.OpenTickets));
+        if (i.BreachedTickets > 0) supNotes.Add(T("{0} phiếu trễ SLA", i.BreachedTickets));
+        if (i.Csat.HasValue) supNotes.Add(T("hài lòng TB {0}/5", i.Csat.Value.ToString("0.#")));
+        f.Add(new(T("Hỗ trợ"), Math.Max(0, sup), 15, supNotes.Count == 0 ? T("Không có phiếu hỗ trợ tồn đọng") : string.Join(", ", supNotes)));
 
-        // 5. Kỷ luật chăm sóc (10)
-        f.Add(new(T("Chăm sóc đúng hẹn"), i.OverdueTasks == 0 ? 10 : i.OverdueTasks <= 2 ? 5 : 0, 10,
+        // 5. Cơ hội & gia hạn (10)
+        var opp = (i.OpenOpportunities > 0 ? 10 : 0) - (i.ExpiringNoRenewal > 0 ? 5 : 0);
+        var oppNote = i.OpenOpportunities > 0 ? T("{0} cơ hội", i.OpenOpportunities) : T("Không có cơ hội mới");
+        if (i.ExpiringNoRenewal > 0) oppNote += " · " + T("{0} hợp đồng sắp hết hạn chưa có kế hoạch gia hạn", i.ExpiringNoRenewal);
+        f.Add(new(T("Cơ hội & gia hạn"), Math.Max(0, opp), 10, oppNote));
+
+        // 6. NPS (10)
+        f.Add(new("NPS", i.LatestNps switch { null => 5, >= 9 => 10, >= 7 => 6, _ => 0 }, 10,
+            i.LatestNps is null ? T("Chưa có khảo sát NPS") : T("Lần gần nhất chấm {0}/10", i.LatestNps)));
+
+        // 7. Kỷ luật chăm sóc (5)
+        f.Add(new(T("Chăm sóc đúng hẹn"), i.OverdueTasks == 0 ? 5 : i.OverdueTasks <= 2 ? 2 : 0, 5,
             i.OverdueTasks == 0 ? T("Không có việc quá hạn") : T("{0} việc quá hạn", i.OverdueTasks)));
 
-        var score = f.Sum(x => x.Score);
-        return new HealthResult { Score = score, Factors = f, Level = score >= 70 ? "good" : score >= 40 ? "warn" : "risk" };
+        var score = Math.Clamp(f.Sum(x => x.Score), 0, 100);
+        return new HealthResult { Score = score, Factors = f, Level = LevelOf(score) };
     }
+
+    /// <summary>Yếu tố kéo điểm xuống nhiều nhất</summary>
+    public static HealthFactor? Weakest(HealthResult r) =>
+        r.Factors.Where(x => x.Score < x.Max).OrderBy(x => (double)x.Score / x.Max).ThenByDescending(x => x.Max).FirstOrDefault();
 
     public static string LevelText(string level) => level switch
     {
@@ -328,4 +357,6 @@ public static class CustomerHealth
         "warn" => T("Cần chú ý"),
         _ => T("Rủi ro")
     };
+
+    public static string LevelCss(string level) => level switch { "good" => "success", "warn" => "warning", _ => "danger" };
 }

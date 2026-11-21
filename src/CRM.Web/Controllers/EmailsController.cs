@@ -24,6 +24,8 @@ public class ComposeEmailViewModel
     public string? Body { get; set; }
     public int? TemplateId { get; set; }
     public bool IncludeDocument { get; set; } = true;
+    /// <summary>Tạo file PDF chứng từ (báo giá / hợp đồng / đề nghị thanh toán) và đính kèm</summary>
+    public bool IncludePdf { get; set; } = true;
     public int[] AttachmentIds { get; set; } = Array.Empty<int>();
 }
 
@@ -93,6 +95,9 @@ public class EmailsController : CrmControllerBase
 
     // ======================= Soạn email từ bản ghi =======================
 
+    /// <summary>Loại bản ghi có mẫu PDF chứng từ</summary>
+    internal static readonly HashSet<string> PdfTypes = new() { nameof(Quote), nameof(Contract), nameof(Invoice) };
+
     /// <summary>Báo giá có chiết khấu vượt hạn mức chưa duyệt thì không được gửi cho khách</summary>
     private async Task<bool> QuoteBlockedAsync(string type, int id) =>
         type == nameof(Quote) && await Db.Quotes.AnyAsync(q => q.Id == id && (q.ApprovalStatus == QuoteApproval.Pending || q.ApprovalStatus == QuoteApproval.Rejected));
@@ -136,6 +141,26 @@ public class EmailsController : CrmControllerBase
         {
             await LoadComposeAsync(ctx, await TemplatesFor(vm.Type));
             return View(vm);
+        }
+        // File PDF chứng từ: tạo mới theo dữ liệu hiện tại, lưu vào tệp đính kèm của bản ghi (để biết đã gửi bản nào) rồi đính kèm email
+        if (vm.IncludePdf && PdfTypes.Contains(vm.Type) && ctx.AttachmentTarget.HasValue)
+        {
+            try
+            {
+                var pdf = await HttpContext.RequestServices.GetRequiredService<PdfService>().RenderAsync(vm.Type, vm.Id);
+                if (pdf != null)
+                {
+                    var att = await HttpContext.RequestServices.GetRequiredService<AttachmentService>()
+                        .SaveBytesAsync(ctx.AttachmentTarget.Value, vm.Id, pdf.Value.FileName, pdf.Value.Data, Cut(I18n.T("Gửi kèm email tới {0}", vm.To!.Trim()), 300), CurrentUserId);
+                    attIds.Add(att.Id);
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                await LoadComposeAsync(ctx, await TemplatesFor(vm.Type));
+                return View(vm);
+            }
         }
         var html = EmailService.ToHtml(vm.Body!.Trim());
         if (vm.IncludeDocument && ctx.DocumentHtml != null) html += ctx.DocumentHtml;

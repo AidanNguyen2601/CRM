@@ -10,6 +10,8 @@ RUN dotnet publish src/CRM.Web/CRM.Web.csproj -c Release -o /app/publish /p:UseA
 # ===== Runtime stage =====
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
+# Font có đủ dấu tiếng Việt để tạo PDF báo giá / hợp đồng / đề nghị thanh toán
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-liberation2 fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     TZ=Asia/Ho_Chi_Minh
 EXPOSE 8080

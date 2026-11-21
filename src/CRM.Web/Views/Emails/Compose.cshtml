@@ -47,6 +47,10 @@
                     @foreach (var t in templates) { <option value="@t.Id">@t.Name</option> }
                 </select>
                 <div class="form-text">@T("Đổi mẫu sẽ thay tiêu đề và nội dung đang soạn.")</div>
+                @if (CRM.Web.Controllers.EmailsController.PdfTypes.Contains(Model.Type))
+                {
+                    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" asp-for="IncludePdf" /><label class="form-check-label" asp-for="IncludePdf">@Icon("file-pdf") @T("Đính kèm file PDF {0} (tự tạo theo mẫu in, lưu vào tệp đính kèm)", ctx.Title)</label></div>
+                }
                 @if (ctx.DocumentHtml != null)
                 {
                     <div class="form-check mt-3"><input class="form-check-input" type="checkbox" asp-for="IncludeDocument" /><label class="form-check-label" asp-for="IncludeDocument">@T("Chèn bảng chi tiết {0} vào cuối email", ctx.Title)</label></div>

@@ -61,6 +61,15 @@ public class ContractsController : CrmControllerBase
     }
 
     /// <summary>Lập hợp đồng; có thể lập từ PAKD đã duyệt, từ báo giá hoặc từ cơ hội.</summary>
+    /// <summary>Tải / xem file PDF hợp đồng</summary>
+    public async Task<IActionResult> Pdf(int id, bool inline = false)
+    {
+        var c = await Db.Contracts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (c == null) return NotFound();
+        if (!User.CanAccess(c)) return NotAllowed();
+        return await PdfFileAsync(nameof(Contract), id, inline);
+    }
+
     public async Task<IActionResult> Create(int? businessPlanId, int? quoteId, int? opportunityId, int? customerId)
     {
         var vm = new ContractFormViewModel { Number = await NextNumberAsync(), CustomerId = customerId, OpportunityId = opportunityId };
@@ -125,7 +134,7 @@ public class ContractsController : CrmControllerBase
         {
             Id = c.Id, Number = c.Number, Title = c.Title, CustomerId = c.CustomerId, ContactId = c.ContactId, OpportunityId = c.OpportunityId,
             QuoteId = c.QuoteId, BusinessPlanId = c.BusinessPlanId, StartDate = c.StartDate, EndDate = c.EndDate,
-            BillingCycle = c.BillingCycle, RecurringAmount = c.RecurringAmount, NextBillingDate = c.NextBillingDate, RenewalNoticeDays = c.RenewalNoticeDays,
+            BillingCycle = c.BillingCycle, RecurringAmount = c.RecurringAmount, NextBillingDate = c.NextBillingDate, RenewalNoticeDays = c.RenewalNoticeDays, SlaPolicyId = c.SlaPolicyId,
             VatPercent = Math.Round(c.VatPercent, 0), PaymentTerms = c.PaymentTerms, Notes = c.Notes,
             Lines = c.Lines.OrderBy(l => l.SortOrder).Select(l => new SalesLineInput
             {
@@ -186,7 +195,7 @@ public class ContractsController : CrmControllerBase
 
         c.Title = vm.Title.Trim(); c.CustomerId = vm.CustomerId; c.ContactId = vm.ContactId; c.OpportunityId = vm.OpportunityId;
         c.QuoteId = vm.QuoteId; c.BusinessPlanId = vm.BusinessPlanId; c.StartDate = vm.StartDate; c.EndDate = vm.EndDate;
-        c.BillingCycle = vm.BillingCycle; c.RecurringAmount = vm.BillingCycle == BillingCycle.None ? 0 : vm.RecurringAmount; c.RenewalNoticeDays = vm.RenewalNoticeDays;
+        c.BillingCycle = vm.BillingCycle; c.RecurringAmount = vm.BillingCycle == BillingCycle.None ? 0 : vm.RecurringAmount; c.RenewalNoticeDays = vm.RenewalNoticeDays; c.SlaPolicyId = vm.SlaPolicyId;
         c.NextBillingDate = vm.BillingCycle == BillingCycle.None ? null : vm.NextBillingDate ?? vm.StartDate;
         c.VatPercent = vm.VatPercent; c.PaymentTerms = vm.PaymentTerms; c.Notes = vm.Notes;
         var sort = 1;
@@ -286,6 +295,7 @@ public class ContractsController : CrmControllerBase
     private async Task LoadLookups(ContractFormViewModel vm)
     {
         await LoadCustomersAsync(vm.CustomerId);
+        await LoadSlaPoliciesAsync(vm.SlaPolicyId);
         await LoadContactsAsync(vm.CustomerId, vm.ContactId);
         await LoadOpportunitiesAsync(vm.CustomerId, vm.OpportunityId);
         ViewBag.ProductsJson = await ProductsJsonAsync(Db);

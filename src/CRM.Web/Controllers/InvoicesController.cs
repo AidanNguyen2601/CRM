@@ -73,6 +73,15 @@ public class InvoicesController : CrmControllerBase
     }
 
     /// <summary>Lập hoá đơn: theo đợt thanh toán (milestoneId), theo toàn bộ hợp đồng (contractId) hoặc hoá đơn lẻ.</summary>
+    /// <summary>Tải / xem file PDF đề nghị thanh toán theo hoá đơn</summary>
+    public async Task<IActionResult> Pdf(int id, bool inline = false)
+    {
+        var inv = await Db.Invoices.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (inv == null) return NotFound();
+        if (!User.CanAccess(inv)) return NotAllowed();
+        return await PdfFileAsync(nameof(Invoice), id, inline);
+    }
+
     public async Task<IActionResult> Create(int? contractId, int? milestoneId, int? customerId)
     {
         var vm = new InvoiceFormViewModel { Symbol = DefaultSymbol(), CustomerId = customerId };

@@ -29,7 +29,9 @@
     }
     <a class="btn btn-outline-primary" asp-controller="Emails" asp-action="Compose" asp-route-type="Contract" asp-route-id="@c.Id">@Icon("email") @T("Gửi email")</a>
     @if (c.IsSigned) { <form asp-controller="Renewals" asp-action="Renew" asp-route-id="@c.Id" method="post" data-confirm="@T("Tạo hợp đồng gia hạn (bản nháp) nối tiếp hợp đồng {0}?", c.Number)"><button class="btn btn-outline-success">@Icon("undo") @T("Gia hạn")</button></form> }
-    <button class="btn btn-outline-secondary ms-auto" onclick="window.print()">@T("In / Lưu PDF")</button>
+    <a class="btn btn-outline-secondary ms-auto" asp-action="Pdf" asp-route-id="@c.Id" asp-route-inline="true" target="_blank">@Icon("file-pdf") @T("Xem PDF")</a>
+    <a class="btn btn-outline-secondary" asp-action="Pdf" asp-route-id="@c.Id">@Icon("download") @T("Tải PDF")</a>
+    <button class="btn btn-outline-secondary" onclick="window.print()">@T("In")</button>
     @if (c.Status is ContractStatus.Draft or ContractStatus.Active)
     {
         <form asp-action="SetStatus" asp-route-id="@c.Id" method="post" data-confirm="@T("Hủy hợp đồng {0}?", c.Number)"><input type="hidden" name="status" value="@((int)ContractStatus.Cancelled)" /><button class="btn btn-outline-danger">@T("Hủy HĐ")</button></form>

@@ -1,0 +1,72 @@
+@model PdfSettings
+@{
+    ViewData["Title"] = T("Mẫu in PDF");
+    var logo = ViewBag.Logo as string;
+    var samples = (Dictionary<string, int?>)ViewBag.Samples;
+    var fontPath = ViewBag.FontPath as string;
+}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <form asp-action="Index" method="post" enctype="multipart/form-data">
+            <div class="card mb-3"><div class="card-header">@Icon("palette") @T("Nhận diện")</div><div class="card-body row g-3">
+                <div class="col-md-7">
+                    <label class="form-label">@T("Logo (PNG / JPG, tối đa 500 KB)")</label>
+                    <input type="file" name="logo" class="form-control" accept=".png,.jpg,.jpeg" />
+                    @if (!string.IsNullOrEmpty(logo))
+                    {
+                        <div class="d-flex align-items-center gap-3 mt-2">
+                            <img src="data:image/@(logo.StartsWith("/9j") ? "jpeg" : "png");base64,@logo" alt="logo" style="max-height:56px;max-width:160px" />
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="removeLogo" value="true" id="rmLogo" /><label class="form-check-label" for="rmLogo">@T("Xóa logo")</label></div>
+                        </div>
+                    }
+                    <div class="form-check mt-2"><input class="form-check-input" type="checkbox" asp-for="ShowLogo" /><label class="form-check-label" asp-for="ShowLogo">@T("In logo trên chứng từ")</label></div>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">@T("Màu chủ đạo")</label>
+                    <div class="d-flex gap-2"><input type="color" class="form-control form-control-color" value="@Model.Accent" oninput="this.nextElementSibling.value=this.value" aria-label="@T("Màu chủ đạo")" />
+                        <input asp-for="Accent" class="form-control font-monospace" maxlength="7" pattern="#[0-9a-fA-F]{6}" /></div>
+                </div>
+                <div class="col-12"><label class="form-label">@T("Chân trang")</label><input asp-for="Footer" class="form-control" maxlength="300" placeholder="@T("Vd. www.congty.vn · Hotline 1900 xxxx")" /></div>
+                <div class="col-12 small text-muted">@T("Tên, mã số thuế, địa chỉ, người đại diện và tài khoản ngân hàng của bên bán lấy theo pháp nhân trong \"Công ty & chi nhánh\".")</div>
+            </div></div>
+            <div class="card mb-3"><div class="card-header">@Icon("quote") @T("Báo giá")</div><div class="card-body">
+                <label class="form-label">@T("Lời kết cuối báo giá")</label><textarea asp-for="QuoteNote" class="form-control" rows="2"></textarea>
+            </div></div>
+            <div class="card mb-3"><div class="card-header">@Icon("contract") @T("Hợp đồng")</div><div class="card-body">
+                <label class="form-label">@T("Điều khoản chung (mỗi dòng một điều)")</label><textarea asp-for="ContractClauses" class="form-control" rows="6"></textarea>
+                <div class="small text-muted mt-1">@T("In thành \"Điều 3. Điều khoản chung\" sau hàng hoá và lịch thanh toán; ghi chú riêng của từng hợp đồng in tiếp theo.")</div>
+            </div></div>
+            <div class="card mb-3"><div class="card-header">@Icon("invoice") @T("Đề nghị thanh toán")</div><div class="card-body">
+                <label class="form-label">@T("Hướng dẫn thanh toán")</label><textarea asp-for="PaymentNote" class="form-control" rows="2"></textarea>
+                <div class="small text-muted mt-1">@T("PDF theo hoá đơn được in là \"Đề nghị thanh toán\" kèm tài khoản nhận tiền – không thay thế hoá đơn điện tử.")</div>
+            </div></div>
+            <button class="btn btn-primary">@T("Lưu mẫu in")</button>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-header">@T("Xem thử")</div><div class="list-group list-group-flush">
+            @foreach (var (type, label) in new[] { ("Quote", T("Báo giá gần nhất")), ("Contract", T("Hợp đồng gần nhất")), ("Invoice", T("Đề nghị thanh toán gần nhất")) })
+            {
+                if (samples[type] is int sid)
+                {
+                    <a class="list-group-item list-group-item-action" asp-action="Preview" asp-route-type="@type" asp-route-id="@sid" target="_blank">@Icon("file-pdf") @label</a>
+                }
+                else
+                {
+                    <span class="list-group-item text-muted">@label – @T("chưa có dữ liệu")</span>
+                }
+            }
+        </div></div>
+        <div class="card"><div class="card-body small text-muted">
+            <p class="mb-2">@T("Nút \"Xem PDF\" / \"Tải PDF\" có trên trang báo giá, hợp đồng, hoá đơn. Khi gửi email từ các trang này, file PDF được tạo và đính kèm tự động.")</p>
+            @if (string.IsNullOrEmpty(fontPath))
+            {
+                <div class="alert alert-warning mb-0 py-2">@T("Máy chủ chưa có font hỗ trợ tiếng Việt để tạo PDF (cần Arial, Liberation Sans hoặc DejaVu Sans).")</div>
+            }
+            else
+            {
+                <div>@T("Font: {0}", System.IO.Path.GetFileName(fontPath))</div>
+            }
+        </div></div>
+    </div>
+</div>

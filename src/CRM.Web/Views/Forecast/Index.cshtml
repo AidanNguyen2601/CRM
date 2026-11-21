@@ -1,0 +1,191 @@
+@model ForecastResult
+@{
+    var p = Model.Period;
+    var period = (string)ViewBag.Period;
+    var years = (int[])ViewBag.Years;
+    var team = (List<AppUser>)ViewBag.Team;
+    var userId = (int?)ViewBag.UserId;
+    var t = Model.Total;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var label = period switch
+    {
+        "year" => T("Năm {0}", p.Year),
+        "month" => T("Tháng {0}/{1}", p.FromMonth, p.Year),
+        _ => T("Quý {0}/{1}", (p.FromMonth - 1) / 3 + 1, p.Year)
+    };
+    ViewData["Title"] = T("Dự báo doanh số – {0}", label);
+    string Pct(decimal part, decimal whole) => whole <= 0 ? "0" : Math.Min(100m, part * 100m / whole).ToString("0.##", inv);
+    string Rate(decimal part, decimal whole) => whole <= 0 ? "0" : (part * 100m / whole).ToString("0.#");
+    var scale = new[] { t.Target, t.BestForecast + t.Pipeline }.Max();
+    var maxMonth = Model.Months.Select(m => Math.Max(m.F.Target, m.F.Won + m.F.Commit + m.F.BestCase + m.F.Pipeline)).DefaultIfEmpty(0).Max();
+    if (maxMonth <= 0) maxMonth = 1;
+    var catCss = new Dictionary<ForecastCategory, string> { [ForecastCategory.Commit] = "commit", [ForecastCategory.BestCase] = "best", [ForecastCategory.Pipeline] = "pipe", [ForecastCategory.Omitted] = "omit" };
+}
+<form method="get" class="toolbar align-items-end">
+    <div class="btn-group" role="group" aria-label="@T("Kỳ")">
+        @foreach (var (key, text) in new[] { ("month", T("Tháng")), ("quarter", T("Quý")), ("year", T("Năm")) })
+        {
+            <a class="btn btn-outline-primary @(period == key ? "active" : "")" asp-route-period="@key" asp-route-year="@p.Year" asp-route-userId="@userId">@text</a>
+        }
+    </div>
+    <input type="hidden" name="period" value="@period" />
+    <div><label class="form-label small mb-1">@T("Năm")</label>
+        <select name="year" class="form-select" onchange="this.form.submit()">@foreach (var y in years) { <option value="@y" selected="@(y == p.Year)">@y</option> }</select></div>
+    @if (period == "month")
+    {
+        <div><label class="form-label small mb-1">@T("Tháng")</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">@for (var i = 1; i <= 12; i++) { <option value="@i" selected="@(i == p.FromMonth)">@T("Tháng {0}", i)</option> }</select></div>
+    }
+    else if (period == "quarter")
+    {
+        <div><label class="form-label small mb-1">@T("Quý")</label>
+            <select name="quarter" class="form-select" onchange="this.form.submit()">@for (var i = 1; i <= 4; i++) { <option value="@i" selected="@(i == (p.FromMonth - 1) / 3 + 1)">@T("Quý {0}", i)</option> }</select></div>
+    }
+    @if (team.Count > 1)
+    {
+        <div><label class="form-label small mb-1">@T("Nhân viên")</label>
+            <select name="userId" class="form-select" onchange="this.form.submit()"><option value="">@T("Toàn đội")</option>
+                @foreach (var u in team) { <option value="@u.Id" selected="@(u.Id == userId)">@u.FullName</option> }</select></div>
+    }
+    <div class="small text-muted mb-2 ms-2">@p.Start.ToDate() – @p.End.AddDays(-1).ToDate()</div>
+</form>
+
+@* ---------- Tổng quan kỳ ---------- *@
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("Chỉ tiêu doanh số")</div><div class="fs-4 fw-semibold">@t.Target.ToShortMoney()</div>
+        @if (t.Target <= 0) { <div class="small text-muted">@T("Chưa giao chỉ tiêu KPI")</div> }</div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("Đã thắng")</div><div class="fs-4 fw-semibold text-success">@t.Won.ToShortMoney()</div>
+        @if (t.Target > 0) { <div class="small text-muted">@T("{0}% chỉ tiêu", Rate(t.Won, t.Target))</div> }</div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100 border-primary"><div class="card-body"><div class="small text-muted" title="@T("Đã thắng + nhóm chắc chắn")">@T("Dự báo chắc chắn")</div><div class="fs-4 fw-semibold text-primary">@t.CommitForecast.ToShortMoney()</div>
+        @if (t.Target > 0) { <div class="small @(t.CommitForecast >= t.Target ? "text-success" : "text-muted")">@T("{0}% chỉ tiêu", Rate(t.CommitForecast, t.Target))</div> }</div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-muted" title="@T("Chắc chắn + nhóm có thể")">@T("Dự báo khả quan")</div><div class="fs-4 fw-semibold">@t.BestForecast.ToShortMoney()</div>
+        <div class="small text-muted" title="@T("Đã thắng + Σ giá trị × xác suất")">@T("Theo trọng số: {0}", t.WeightedForecast.ToShortMoney())</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("Còn thiếu so với chỉ tiêu")</div>
+        <div class="fs-4 fw-semibold @(t.Gap > 0 ? "text-danger" : "text-success")">@(t.Target <= 0 ? "–" : t.Gap > 0 ? t.Gap.ToShortMoney() : T("Đủ"))</div>
+        @if (t.Coverage.HasValue) { <div class="small @(t.Coverage >= 3 ? "text-success" : t.Coverage >= 1.5m ? "text-warning" : "text-danger")" title="@T("Tổng cơ hội đang mở / phần chỉ tiêu còn lại. Nên ≥ 3 lần.")">@T("Độ phủ pipeline: {0}×", t.Coverage.Value.ToString("0.#"))</div> }</div></div></div>
+</div>
+
+@if (scale > 0)
+{
+    <div class="card mb-3"><div class="card-body">
+        <div class="fc-stack" role="img" aria-label="@T("Đã thắng {0}, chắc chắn {1}, có thể {2}, pipeline {3}, chỉ tiêu {4}", t.Won.ToShortMoney(), t.Commit.ToShortMoney(), t.BestCase.ToShortMoney(), t.Pipeline.ToShortMoney(), t.Target.ToShortMoney())">
+            <div class="fc-won" style="width:@Pct(t.Won, scale)%"></div><div class="fc-commit" style="width:@Pct(t.Commit, scale)%"></div>
+            <div class="fc-best" style="width:@Pct(t.BestCase, scale)%"></div><div class="fc-pipe" style="width:@Pct(t.Pipeline, scale)%"></div>
+            @if (t.Target > 0) { <span class="fc-target" style="left:@Pct(t.Target, scale)%" title="@T("Chỉ tiêu {0}", t.Target.ToShortMoney())"></span> }
+        </div>
+        <div class="small text-muted mt-2 d-flex flex-wrap gap-3">
+            <span><span class="fc-dot fc-won"></span> @T("Đã thắng") @t.Won.ToShortMoney()</span>
+            <span><span class="fc-dot fc-commit"></span> @T("Chắc chắn") @t.Commit.ToShortMoney()</span>
+            <span><span class="fc-dot fc-best"></span> @T("Có thể") @t.BestCase.ToShortMoney()</span>
+            <span><span class="fc-dot fc-pipe"></span> Pipeline @t.Pipeline.ToShortMoney()</span>
+            @if (t.Target > 0) { <span><span class="fc-dot fc-target-dot"></span> @T("Chỉ tiêu")</span> }
+            <span class="ms-auto">@T("{0} cơ hội đang mở trong kỳ", t.OpenDeals)</span>
+        </div>
+    </div></div>
+}
+
+<div class="row g-3 mb-3">
+    @if (Model.Months.Count > 1)
+    {
+        <div class="col-xl-7"><div class="card h-100"><div class="card-header">@Icon("calendar") @T("Theo tháng")</div>
+            <div class="card-body">
+                <div class="kpi-chart">
+                    @foreach (var (m, f) in Model.Months)
+                    {
+                        <div class="kpi-col" title="@T("Tháng {0}", m): @T("đã thắng {0}, chắc chắn {1}, có thể {2}, pipeline {3} / chỉ tiêu {4}", f.Won.ToShortMoney(), f.Commit.ToShortMoney(), f.BestCase.ToShortMoney(), f.Pipeline.ToShortMoney(), f.Target.ToShortMoney())">
+                            <div class="kpi-val">@(f.CommitForecast > 0 ? f.CommitForecast.ToShortMoney() : "")</div>
+                            <div class="kpi-bars">
+                                <div class="kpi-b target" style="height:@((f.Target * 150m / maxMonth).ToString("0", inv))px"></div>
+                                <div class="fc-col">
+                                    <div class="fc-pipe" style="height:@((f.Pipeline * 150m / maxMonth).ToString("0", inv))px"></div>
+                                    <div class="fc-best" style="height:@((f.BestCase * 150m / maxMonth).ToString("0", inv))px"></div>
+                                    <div class="fc-commit" style="height:@((f.Commit * 150m / maxMonth).ToString("0", inv))px"></div>
+                                    <div class="fc-won" style="height:@((f.Won * 150m / maxMonth).ToString("0", inv))px"></div>
+                                </div>
+                            </div>
+                            <div class="small text-muted mt-1">T@(m)</div>
+                        </div>
+                    }
+                </div>
+                <div class="small text-muted mt-2"><span class="kpi-legend target"></span> @T("Chỉ tiêu") – @T("cột phải: đã thắng, chắc chắn, có thể, pipeline")</div>
+            </div>
+            <div class="card-body p-0 border-top table-responsive"><table class="table table-sm mb-0">
+                <thead><tr><th>@T("Tháng")</th><th class="money">@T("Chỉ tiêu")</th><th class="money">@T("Đã thắng")</th><th class="money">@T("Chắc chắn")</th><th class="money">@T("Có thể")</th><th class="money">Pipeline</th><th class="money">@T("Dự báo chắc chắn")</th></tr></thead>
+                <tbody>
+                @foreach (var (m, f) in Model.Months)
+                {
+                    <tr><td>@T("Tháng {0}", m)</td><td class="money">@f.Target.ToShortMoney()</td><td class="money">@f.Won.ToShortMoney()</td><td class="money">@f.Commit.ToShortMoney()</td>
+                        <td class="money">@f.BestCase.ToShortMoney()</td><td class="money">@f.Pipeline.ToShortMoney()</td>
+                        <td class="money fw-semibold @(f.Target > 0 && f.CommitForecast < f.Target && new DateTime(p.Year, m, 1).AddMonths(1) <= DateTime.Today ? "text-danger" : "")">@f.CommitForecast.ToShortMoney()</td></tr>
+                }
+                </tbody>
+            </table></div>
+        </div></div>
+    }
+    <div class="@(Model.Months.Count > 1 ? "col-xl-5" : "col-12")"><div class="card h-100"><div class="card-header">@Icon("alert") @T("Rủi ro dự báo") <span class="badge text-bg-warning ms-1">@Model.Risks.Count</span></div>
+        <div class="card-body p-0" style="max-height:560px;overflow:auto">
+            @if (!Model.Risks.Any()) { <div class="p-3 text-muted small">@T("Không có cơ hội trễ ngày chốt, thiếu ngày chốt hay nhóm chắc chắn thiếu tương tác.")</div> }
+            <ul class="list-group list-group-flush small">
+                @foreach (var r in Model.Risks.Take(25))
+                {
+                    <li class="list-group-item">
+                        <div class="d-flex gap-2"><a asp-controller="Opportunities" asp-action="Details" asp-route-id="@r.Deal.Id" class="fw-semibold text-truncate">@r.Deal.Name</a><span class="ms-auto text-nowrap">@r.Deal.Amount.ToShortMoney()</span></div>
+                        <div class="text-muted">@r.Deal.Customer · @r.Deal.Owner</div>
+                        <div class="@(r.Kind == "slipped" ? "text-danger" : "text-warning-emphasis")">@r.Text</div>
+                    </li>
+                }
+            </ul>
+            @if (Model.Risks.Count > 25) { <div class="p-2 small text-muted">@T("và {0} cơ hội khác", Model.Risks.Count - 25)</div> }
+        </div>
+    </div></div>
+</div>
+
+@if (Model.Users.Count > 1)
+{
+    <div class="card mb-3"><div class="card-header">@Icon("users") @T("Theo nhân viên")</div>
+        <div class="card-body p-0 table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+            <thead><tr><th>@T("Nhân viên")</th><th class="money">@T("Chỉ tiêu")</th><th class="money">@T("Đã thắng")</th><th class="money">@T("Chắc chắn")</th><th class="money">@T("Có thể")</th><th class="money">Pipeline</th>
+                <th class="money">@T("Dự báo chắc chắn")</th><th style="min-width:140px">@T("% chỉ tiêu")</th><th class="money">@T("Còn thiếu")</th><th class="money" title="@T("Tổng cơ hội đang mở / phần chỉ tiêu còn lại. Nên ≥ 3 lần.")">@T("Độ phủ")</th></tr></thead>
+            <tbody>
+            @foreach (var (u, f) in Model.Users.OrderByDescending(x => x.F.CommitForecast))
+            {
+                <tr>
+                    <td><a asp-route-userId="@u.Id" asp-route-period="@period" asp-route-year="@p.Year" asp-route-month="@p.FromMonth" asp-route-quarter="@((p.FromMonth - 1) / 3 + 1)">@u.FullName</a></td>
+                    <td class="money">@f.Target.ToShortMoney()</td><td class="money">@f.Won.ToShortMoney()</td><td class="money">@f.Commit.ToShortMoney()</td><td class="money">@f.BestCase.ToShortMoney()</td><td class="money">@f.Pipeline.ToShortMoney()</td>
+                    <td class="money fw-semibold">@f.CommitForecast.ToShortMoney()</td>
+                    <td>@if (f.Target > 0) { var pc = f.CommitForecast * 100m / f.Target; <div class="small">@pc.ToString("0")%</div><div class="kpi-bar"><div class="bg-@(pc >= 100 ? "success" : pc >= 70 ? "primary" : "danger")" style="width:@(Math.Min(pc, 100m).ToString("0.#", inv))%"></div></div> } else { <span class="text-muted small">@T("Chưa giao")</span> }</td>
+                    <td class="money @(f.Gap > 0 ? "text-danger" : "")">@(f.Target > 0 ? f.Gap.ToShortMoney() : "–")</td>
+                    <td class="money @(f.Coverage >= 3 ? "text-success" : f.Coverage >= 1.5m ? "text-warning-emphasis" : f.Coverage.HasValue ? "text-danger" : "")">@(f.Coverage.HasValue ? f.Coverage.Value.ToString("0.#") + "×" : "–")</td>
+                </tr>
+            }
+            </tbody>
+        </table></div>
+    </div>
+}
+
+<div class="card"><div class="card-header">@Icon("opportunity") @T("Cơ hội dự kiến chốt trong kỳ") <span class="text-muted small ms-2">@T("Tự xếp theo xác suất: ≥ {0}% chắc chắn, ≥ {1}% có thể – chọn lại nếu đánh giá khác.", ForecastService.CommitFrom, ForecastService.BestCaseFrom)</span></div>
+    <div class="card-body p-0 table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+        <thead><tr><th>@T("Cơ hội")</th><th>@T("Khách hàng")</th><th>@T("Phụ trách")</th><th>@T("Giai đoạn")</th><th class="money">@T("Giá trị")</th><th class="money">@T("Xác suất")</th><th>@T("Dự kiến chốt")</th><th>@T("Tương tác gần nhất")</th><th style="min-width:170px">@T("Nhóm dự báo")</th></tr></thead>
+        <tbody>
+        @foreach (var d in Model.Deals)
+        {
+            <tr class="fc-row-@catCss[d.Category]">
+                <td><a asp-controller="Opportunities" asp-action="Details" asp-route-id="@d.Id">@d.Name</a></td>
+                <td class="small">@d.Customer</td><td class="small">@d.Owner</td><td class="small">@d.Stage.GetDisplayName()</td>
+                <td class="money">@d.Amount.ToMoney()</td><td class="money">@d.Probability%</td><td>@d.CloseDate.ToDate()</td>
+                <td class="small @(d.LastActivity == null || (DateTime.Today - d.LastActivity.Value).TotalDays > ForecastService.StaleDays ? "text-warning-emphasis" : "text-muted")">@(d.LastActivity?.ToDate() ?? T("chưa có"))</td>
+                <td>
+                    <form asp-action="SetCategory" asp-route-id="@d.Id" method="post" class="d-flex gap-1 align-items-center">
+                        <select name="category" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="@T("Nhóm dự báo")">
+                            <option value="" selected="@(!d.Manual)">@T("Tự động ({0})", ForecastService.AutoCategory(d.Probability).GetDisplayName())</option>
+                            @foreach (var c in Enum.GetValues<ForecastCategory>()) { <option value="@((int)c)" selected="@(d.Manual && d.Category == c)">@c.GetDisplayName()</option> }
+                        </select>
+                        <span class="fc-dot fc-@catCss[d.Category]" title="@d.Category.GetDisplayName()"></span>
+                    </form>
+                </td>
+            </tr>
+        }
+        @if (!Model.Deals.Any()) { <tr><td colspan="9" class="text-muted p-3">@T("Không có cơ hội đang mở dự kiến chốt trong kỳ.")</td></tr> }
+        </tbody>
+    </table></div>
+</div>

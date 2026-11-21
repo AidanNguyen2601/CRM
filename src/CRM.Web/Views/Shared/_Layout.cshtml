@@ -43,6 +43,7 @@
                             @if (Perms.CanController(User, "Activities")) { <a class="@Active("Activities")" asp-controller="Activities" asp-action="Index">@Icon("calendar")<span>@T("Lịch làm việc")</span></a> }
                             @if (Perms.CanController(User, "Tasks")) { <a class="@Active("Tasks")" asp-controller="Tasks" asp-action="Index">@Icon("kanban")<span>@T("Công việc")</span></a> }
                             @if (Perms.CanController(User, "Kpi")) { <a class="@Active("Kpi")" asp-controller="Kpi" asp-action="Index">@Icon("trending")<span>@T("KPI bán hàng")</span></a> }
+                            @if (Perms.CanController(User, "Forecast")) { <a class="@Active("Forecast")" asp-controller="Forecast" asp-action="Index">@Icon("target")<span>@T("Dự báo doanh số")</span></a> }
                             @if (Perms.CanController(User, "Commissions")) { <a class="@Active("Commissions")" asp-controller="Commissions" asp-action="Index">@Icon("coins")<span>@T("Hoa hồng")</span></a> }
                             @if (Perms.CanController(User, "SalesPlans")) { <a class="@Active("SalesPlans")" asp-controller="SalesPlans" asp-action="Index">@Icon("target")<span>@T("Kế hoạch bán hàng")</span></a> }
                             @if (Perms.CanController(User, "Reports")) { <a class="@Active("Reports")" asp-controller="Reports" asp-action="Index">@Icon("report")<span>@T("Báo cáo")</span></a> }
@@ -63,6 +64,7 @@
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@T("Tiếp thị")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             @if (Perms.CanController(User, "Campaigns")) { <a class="@Active("Campaigns")" asp-controller="Campaigns" asp-action="Index">@Icon("campaign")<span>@T("Chiến dịch tiếp thị")</span></a> }
+                            @if (User.SeesAll() && Perms.CanController(User, "WebForms")) { <a class="@Active("WebForms")" asp-controller="WebForms" asp-action="Index">@Icon("globe")<span>@T("Form thu lead website")</span></a> }
                         </div></div>
                     </div>
                     <div class="nav-block hnav-item" data-nav="ops-finance">
@@ -82,6 +84,7 @@
                             {
                                 @if (Perms.CanController(User, "Tickets")) { <a class="@Active("Tickets", "Workload")" asp-controller="Tickets" asp-action="Workload">@Icon("users")<span>@T("Phân công việc")</span></a> }
                                 <a class="@Active("Nps")" asp-controller="Nps" asp-action="Index">@Icon("star")<span>@T("Khảo sát NPS")</span></a>
+                                @if (User.SeesAll()) { <a class="@Active("Sla")" asp-controller="Sla" asp-action="Index">@Icon("clock")<span>@T("SLA & giờ làm việc")</span></a> }
                             }
                             <a class="@Active("Kb")" asp-controller="Kb" asp-action="Index">@Icon("catalog")<span>@T("Kho kiến thức")</span></a>
                         </div></div>
@@ -90,6 +93,7 @@
                         <button type="button" class="nav-group nav-toggle" aria-expanded="true"><span>@L("Khách hàng", "Customers")</span>@Icon("chevron", "chev")</button>
                         <div class="nav-items"><div class="nav-inner">
                             @if (Perms.CanController(User, "Customers")) { <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@Icon("customer")<span>@L("Khách hàng", "Customers")</span></a> }
+                            @if (Perms.CanController(User, "Health")) { <a class="@Active("Health")" asp-controller="Health" asp-action="Index">@Icon("star")<span>@T("Sức khoẻ khách hàng")</span></a> }
                             @if (Perms.CanController(User, "Contacts")) { <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@Icon("contact")<span>@L("Người liên hệ", "Contacts")</span></a> }
                         </div></div>
                     </div>
@@ -131,6 +135,7 @@
                         <a class="@Active("Users")" asp-controller="Users" asp-action="Index">@Icon("users")<span>@T("Người dùng")</span></a>
                         <a class="@Active("Security")" asp-controller="Security" asp-action="Index">@Icon("key")<span>@T("Bảo mật & phân quyền")</span></a>
                         <a class="@Active("Inbound")" asp-controller="Inbound" asp-action="Index">@Icon("email")<span>@T("Email → phiếu hỗ trợ")</span></a>
+                        <a class="@Active("Pdf")" asp-controller="Pdf" asp-action="Index">@Icon("file-pdf")<span>@T("Mẫu in PDF")</span></a>
                         <a class="@Active("DemoData")" asp-controller="DemoData" asp-action="Index">@Icon("receivable")<span>@T("Dữ liệu mẫu")</span></a>
                     }
                 </div></div>

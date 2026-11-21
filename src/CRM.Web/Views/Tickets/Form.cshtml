@@ -62,10 +62,11 @@
             if (r.openTickets > 0) hint.textContent = (@Json.Serialize(T("Khách hàng đang có {0} phiếu hỗ trợ chưa xong — kiểm tra tránh tạo trùng.", "#"))).replace('#', r.openTickets);
         });
         // Gợi ý SLA theo độ ưu tiên
-        const slaMap = { 1: [24, 120], 2: [8, 72], 3: [4, 24], 4: [1, 4] };
+        const slaMap = @Json.Serialize(ViewBag.SlaMap);
+        const slaText = @Json.Serialize(T("SLA: phản hồi {0} giờ, giải quyết {1} giờ", "#1", "#2") + ((bool)ViewBag.SlaBusiness ? " " + T("(giờ làm việc)") : ""));
         function showSla() {
             const s = slaMap[prio.value];
-            sla.textContent = s ? (@Json.Serialize(T("SLA: phản hồi {0} giờ, giải quyết {1} giờ", "#1", "#2"))).replace('#1', s[0]).replace('#2', s[1]) : '';
+            sla.textContent = s ? slaText.replace('#1', s[0]).replace('#2', s[1]) : '';
         }
         prio.addEventListener('change', showSla); showSla();
     })();

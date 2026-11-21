@@ -1,16 +1,17 @@
 @model Contact
 @{ ViewData["Title"] = Model.Id == 0 ? T("Thêm người liên hệ") : T("Sửa liên hệ: {0}", Model.FullName); }
 <div class="card" style="max-width:860px"><div class="card-body">
-<form asp-action="Save" method="post">
+<form asp-action="Save" method="post" data-dupcheck="Contact">
     <input type="hidden" asp-for="Id" /><input type="hidden" asp-for="CreatedAt" />
     <input type="hidden" name="returnTo" value="customer" />
     <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+    <partial name="_DupBox" />
     <div class="row g-3">
         <div class="col-md-6"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
         <div class="col-md-6"><label asp-for="JobTitle" class="form-label"></label><input asp-for="JobTitle" class="form-control" /></div>
         <div class="col-md-6"><label asp-for="CustomerId" class="form-label"></label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">@T("-- Chưa gắn --")</option></select></div>
-        <div class="col-md-3"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" /></div>
-        <div class="col-md-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+        <div class="col-md-3"><label asp-for="Phone" class="form-label"></label><input asp-for="Phone" class="form-control" data-dc="phone" /></div>
+        <div class="col-md-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" data-dc="email" /><span asp-validation-for="Email" class="text-danger small"></span></div>
         <div class="col-md-3"><label asp-for="BirthDate" class="form-label"></label><input asp-for="BirthDate" class="form-control" /></div>
         @if (User.SeesAll()) { <div class="col-md-4"><label asp-for="OwnerId" class="form-label"></label><select asp-for="OwnerId" class="form-select" asp-items="ViewBag.Owners"></select></div> }
         <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="IsPrimary" class="form-check-input" /><label asp-for="IsPrimary" class="form-check-label"></label></div></div>
@@ -39,4 +40,4 @@
     </div></div>
 }
 </div></div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/datacheck.js" asp-append-version="true"></script> }

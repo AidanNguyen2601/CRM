@@ -113,6 +113,25 @@ public class AttachmentService
         return a;
     }
 
+    /// <summary>Lưu file do hệ thống tạo (vd. PDF báo giá gửi kèm email) làm tệp đính kèm của bản ghi</summary>
+    public async Task<Attachment> SaveBytesAsync(AttachmentTarget type, int id, string fileName, byte[] data, string? note, int userId)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        var relative = Path.Combine(DateTime.Today.ToString("yyyy"), DateTime.Today.ToString("MM"), $"{Guid.NewGuid():N}{ext}");
+        var full = FullPath(relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        await File.WriteAllBytesAsync(full, data);
+        if (!new FileExtensionContentTypeProvider().TryGetContentType(fileName, out var contentType)) contentType = "application/octet-stream";
+        var a = new Attachment
+        {
+            TargetType = type, TargetId = id, FileName = fileName.Length > 255 ? fileName[..(255 - ext.Length)] + ext : fileName, ContentType = contentType,
+            Size = data.LongLength, StoragePath = relative.Replace('\\', '/'), Note = note, UploadedById = userId, UploadedAt = DateTime.Now
+        };
+        _db.Attachments.Add(a);
+        await _db.SaveChangesAsync();
+        return a;
+    }
+
     public FileStream? OpenRead(Attachment a)
     {
         var full = FullPath(a.StoragePath);

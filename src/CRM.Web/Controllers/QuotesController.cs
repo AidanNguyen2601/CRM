@@ -37,6 +37,20 @@ public class QuotesController : CrmControllerBase
         return View(q);
     }
 
+    /// <summary>Tải / xem file PDF báo giá. Báo giá đang chờ duyệt hoặc bị từ chối chiết khấu thì chưa xuất được cho khách.</summary>
+    public async Task<IActionResult> Pdf(int id, bool inline = false)
+    {
+        var q = await Db.Quotes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (q == null) return NotFound();
+        if (!User.CanAccess(q)) return NotAllowed();
+        if (q.ApprovalStatus is QuoteApproval.Pending or QuoteApproval.Rejected)
+        {
+            TempData["Error"] = I18n.T("Báo giá có chiết khấu vượt hạn mức chưa được duyệt – chưa thể gửi / chốt với khách hàng.");
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        return await PdfFileAsync(nameof(Quote), id, inline);
+    }
+
     public async Task<IActionResult> Create(int? opportunityId, int? customerId)
     {
         var vm = new QuoteFormViewModel { Number = await NextNumberAsync(), CustomerId = customerId, OpportunityId = opportunityId };

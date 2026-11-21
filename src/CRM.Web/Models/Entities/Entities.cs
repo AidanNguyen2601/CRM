@@ -153,6 +153,16 @@ public class Customer : IOwned, IBranchScoped
     public int? PriceListId { get; set; }
     public PriceList? PriceList { get; set; }
 
+    /// <summary>Điểm sức khoẻ 0–100 (tự tính mỗi giờ: tương tác, hỗ trợ, công nợ, NPS, hợp đồng); null = chưa tính / khách tiềm năng</summary>
+    [Display(Name = "Sức khoẻ")]
+    public int? HealthScore { get; set; }
+    public DateTime? HealthUpdatedAt { get; set; }
+
+    /// <summary>Chính sách SLA riêng của khách hàng (vd. khách VIP); trống = chính sách mặc định</summary>
+    [Display(Name = "Chính sách SLA")]
+    public int? SlaPolicyId { get; set; }
+    public SlaPolicy? SlaPolicy { get; set; }
+
     public ICollection<Contact> Contacts { get; set; } = new List<Contact>();
 }
 
@@ -272,6 +282,17 @@ public class Lead : IOwned, IBranchScoped
     [Display(Name = "Điểm lead")]
     public int Score { get; set; }
 
+    // ---- Lead từ form website: form gửi, nguồn quảng cáo (UTM), trang gửi ----
+    [Display(Name = "Form website")] public int? WebFormId { get; set; }
+    public WebForm? WebForm { get; set; }
+    [StringLength(100)][Display(Name = "UTM source")] public string? UtmSource { get; set; }
+    [StringLength(100)][Display(Name = "UTM medium")] public string? UtmMedium { get; set; }
+    [StringLength(150)][Display(Name = "UTM campaign")] public string? UtmCampaign { get; set; }
+    [StringLength(500)][Display(Name = "Trang gửi form")] public string? LandingPage { get; set; }
+    [StringLength(500)][Display(Name = "Trang giới thiệu")] public string? Referrer { get; set; }
+    /// <summary>Thời điểm người gửi đồng ý xử lý dữ liệu cá nhân (form website)</summary>
+    [Display(Name = "Đồng ý xử lý dữ liệu")] public DateTime? ConsentAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
 
@@ -312,6 +333,10 @@ public class Opportunity : IOwned, IBranchScoped
     [DataType(DataType.Date)]
     [Display(Name = "Dự kiến chốt")]
     public DateTime? ExpectedCloseDate { get; set; }
+
+    /// <summary>Nhóm dự báo do người phụ trách đánh giá (null = tự xếp theo xác suất)</summary>
+    [Display(Name = "Nhóm dự báo")]
+    public ForecastCategory? ForecastCategory { get; set; }
 
     [Display(Name = "Nguồn")]
     public LeadSource? Source { get; set; }

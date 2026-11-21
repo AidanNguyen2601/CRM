@@ -1,0 +1,11 @@
+@* Vùng cảnh báo trùng trên form (xem wwwroot/js/datacheck.js). ViewBag.Duplicates: danh sách trùng khi máy chủ chặn lưu. *@
+@{
+    var initial = ViewBag.Duplicates as IEnumerable<DupHit>;
+    var json = initial == null ? null : System.Text.Json.JsonSerializer.Serialize(initial.Select(h => new
+    {
+        type = h.Type, typeLabel = DuplicateCheckService.TypeLabel(h.Type), id = h.Id, title = h.Title, detail = h.Detail, reason = h.Reason, owner = h.Owner, url = h.Url, strong = h.Strong
+    }));
+}
+<div id="dupBox" data-title="@T("Có thể đã tồn tại trong hệ thống:")" data-similar="@T("Bản ghi tương tự:")"
+     data-confirm="@T("Tôi đã kiểm tra – đây không phải bản ghi trùng, vẫn lưu")" data-owner="@T("Phụ trách:")" data-noaccess="@T("(không thuộc phạm vi của bạn – liên hệ người phụ trách)")"
+     data-initial="@json"></div>
