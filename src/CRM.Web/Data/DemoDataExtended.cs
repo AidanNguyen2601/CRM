@@ -262,6 +262,7 @@ public static class DemoDataExtended
         // ---------- 10. Chấm lại điểm lead, sức khoẻ khách hàng ----------
         await LeadScoring.RecalculateAsync(db, null);
         var health = await services.GetRequiredService<CustomerHealthService>().RecalculateAsync();
+        await services.GetRequiredService<LoyaltyService>().BackfillAsync();   // điểm thưởng từ các phiếu thu mẫu
         return new ExtendedDemoResult(priceLists, priced, tags.Count, tagged, fields, values, vipCustomers, vipContracts, forecastSet, recurring, approvals,
             surveys, responses, answered, forms, webLeads, health);
     }

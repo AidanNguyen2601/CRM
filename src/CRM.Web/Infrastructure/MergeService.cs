@@ -167,6 +167,16 @@ public class MergeService
         {
             moved += await _db.Database.ExecuteSqlRawAsync($"UPDATE [dbo].[EmailMessages] SET [CustomerId] = {{0}} WHERE [CustomerId] IN ({idList})", masterId);
             await _db.SyncTicketBranchesAsync();
+            // Sổ điểm thưởng đã chuyển sang bản ghi chính: tính lại số dư, tích lũy và hạng
+            var ly = await _db.LoyaltyTransactions.Where(t => t.CustomerId == masterId).Select(t => new { t.Type, t.Points, t.Remaining, t.Reversed }).ToListAsync();
+            if (ly.Count > 0 && master is Customer mc)
+            {
+                var json = await _db.AppSettings.Where(a => a.Key == LoyaltySettings.Key).Select(a => a.Value).FirstOrDefaultAsync();
+                var ls = string.IsNullOrEmpty(json) ? new LoyaltySettings() : System.Text.Json.JsonSerializer.Deserialize<LoyaltySettings>(json) ?? new LoyaltySettings();
+                mc.LoyaltyPoints = ly.Sum(t => t.Remaining);
+                mc.LoyaltyLifetime = Math.Max(0, ly.Where(t => !t.Reversed && (t.Type == LoyaltyTxType.Earn || (t.Type == LoyaltyTxType.Adjust && t.Points > 0))).Sum(t => t.Points) + ly.Where(t => t.Type == LoyaltyTxType.Adjust && t.Points < 0).Sum(t => t.Points));
+                mc.LoyaltyTierId = ls.TierFor(mc.LoyaltyLifetime)?.Id;
+            }
         }
 
         // 3) Xóa bản ghi trùng (dữ liệu liên quan đã chuyển hết)

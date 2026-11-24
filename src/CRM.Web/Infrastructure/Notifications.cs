@@ -46,6 +46,7 @@ public class NotificationService
         "approval" => "check",
         "nps" => "star",
         "health" => "alert",
+        "loyalty" => "star",
         _ => "bell"
     };
 }

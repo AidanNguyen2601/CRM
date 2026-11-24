@@ -158,6 +158,11 @@ public class Customer : IOwned, IBranchScoped
     public int? HealthScore { get; set; }
     public DateTime? HealthUpdatedAt { get; set; }
 
+    /// <summary>Điểm thưởng khách hàng thân thiết: số dư dùng được, tổng điểm tích lũy trọn đời (xét hạng) và hạng hiện tại (Id hạng trong cấu hình chương trình)</summary>
+    [Display(Name = "Điểm thưởng")] public int LoyaltyPoints { get; set; }
+    public int LoyaltyLifetime { get; set; }
+    public int? LoyaltyTierId { get; set; }
+
     /// <summary>Chính sách SLA riêng của khách hàng (vd. khách VIP); trống = chính sách mặc định</summary>
     [Display(Name = "Chính sách SLA")]
     public int? SlaPolicyId { get; set; }

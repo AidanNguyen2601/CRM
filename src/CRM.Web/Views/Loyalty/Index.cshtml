@@ -1,0 +1,91 @@
+@using CRM.Web.ViewModels
+@model PagedList<Customer>
+@{
+    ViewData["Title"] = T("Khách hàng thân thiết");
+    var s = (LoyaltySettings)ViewBag.Settings;
+    var per = (Dictionary<int, (int N, int Pts)>)ViewBag.PerTier;
+    var total = (int)ViewBag.TotalMembers;
+    var tier = (int?)ViewBag.Tier;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var points = (int)ViewBag.TotalPoints;
+}
+<form method="get" class="toolbar align-items-end">
+    <div><label class="form-label small mb-1">@T("Tìm khách hàng")</label><input name="q" value="@ViewBag.Q" class="form-control" placeholder="@T("Tên hoặc mã")" /></div>
+    @if (tier.HasValue) { <input type="hidden" name="tier" value="@tier" /> }
+    @if (ViewBag.Owners != null)
+    {
+        <div><label class="form-label small mb-1">@T("Phụ trách")</label>
+            <select name="ownerId" class="form-select" asp-items="ViewBag.Owners" onchange="this.form.submit()"><option value="">@T("-- Tất cả --")</option></select></div>
+    }
+    <button class="btn btn-outline-secondary">@T("Lọc")</button>
+    @if (User.IsInRole(AppRoles.Admin) || User.IsInRole(AppRoles.Manager))
+    {
+        <div class="ms-auto d-flex gap-2">
+            <button form="backfill" class="btn btn-outline-primary" data-confirm="@T("Tích điểm bù cho các phiếu thu chưa có điểm?")">@T("Tích điểm từ lịch sử thanh toán")</button>
+            <a class="btn btn-outline-secondary" asp-action="Settings">@Icon("panel") @T("Cấu hình chương trình")</a>
+        </div>
+    }
+</form>
+<form id="backfill" asp-action="Backfill" method="post" class="d-none"></form>
+@if (!s.Enabled) { <div class="alert alert-warning small">@T("Chương trình khách hàng thân thiết đang tắt – phiếu thu mới sẽ không được tích điểm.")</div> }
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("Thành viên")</div><div class="fs-3 fw-semibold">@total</div>
+        <div class="small text-muted">@T("Khách hàng & đối tác")</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("Điểm đang lưu hành")</div><div class="fs-3 fw-semibold">@points.ToString("N0")</div>
+        <div class="small text-muted">@T("Quy đổi ≈ {0}", (points * s.PointValue).ToShortMoney())</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("30 ngày qua")</div>
+        <div class="small mt-1"><span class="text-success fw-semibold">+@(((int)ViewBag.Earned30).ToString("N0"))</span> @T("tích")</div>
+        <div class="small"><span class="text-primary fw-semibold">−@(((int)ViewBag.Redeemed30).ToString("N0"))</span> @T("đã đổi") · <span class="text-muted">−@(((int)ViewBag.Expired30).ToString("N0"))</span> @T("hết hạn")</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">@T("Sắp hết hạn (30 ngày)")</div><div class="fs-3 fw-semibold @((int)ViewBag.ExpiringSoon > 0 ? "text-warning" : "")">@(((int)ViewBag.ExpiringSoon).ToString("N0"))</div>
+        <div class="small text-muted">@T("điểm – nhắc khách dùng sớm")</div></div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+    @foreach (var t in s.Ordered)
+    {
+        var d = per.GetValueOrDefault(t.Id);
+        <div class="col-6 col-lg">
+            <a class="card h-100 text-decoration-none @(tier == t.Id ? "border-2" : "")" style="@(tier == t.Id ? "border-color:" + t.Color + " !important" : "")" asp-route-tier="@t.Id" asp-route-ownerId="@ViewBag.OwnerId">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2"><span style="width:12px;height:12px;border-radius:50%;background:@t.Color;display:inline-block"></span><span class="fw-semibold text-body">@t.Label</span>
+                        <span class="ms-auto small text-muted">≥ @t.MinPoints</span></div>
+                    <div class="fs-3 fw-semibold text-body">@d.N <span class="fs-6 text-muted">@T("khách")</span></div>
+                    <div class="small text-muted">@d.Pts.ToString("N0") @T("điểm")</div>
+                    @if (total > 0) { <div class="kpi-bar mt-2"><div style="width:@((100.0 * d.N / total).ToString("0.#", inv))%; background:@t.Color"></div></div> }
+                </div>
+            </a>
+        </div>
+    }
+</div>
+
+<div class="card"><div class="card-header d-flex align-items-center gap-2">@Icon("star") @T("Xếp theo tổng điểm tích lũy")
+        @if (tier.HasValue) { <a class="ms-auto small" asp-route-ownerId="@ViewBag.OwnerId" asp-route-q="@ViewBag.Q">@T("Xem tất cả hạng")</a> }</div>
+    <div class="card-body p-0 table-responsive"><table class="table table-hover mb-0 align-middle">
+        <thead><tr><th>@T("Khách hàng")</th><th>@T("Hạng")</th><th class="money">@T("Điểm hiện có")</th><th class="money">@T("Tích lũy")</th><th style="min-width:200px">@T("Tiến độ lên hạng")</th><th>@T("Phụ trách")</th></tr></thead>
+        <tbody>
+        @foreach (var c in Model.Items)
+        {
+            var t = s.TierById(c.LoyaltyTierId);
+            var next = s.NextTier(c.LoyaltyLifetime);
+            <tr>
+                <td><a asp-action="Customer" asp-route-id="@c.Id" class="fw-semibold">@c.Name</a><div class="small text-muted">@c.Code</div></td>
+                <td>@if (t != null) { <span class="badge" style="background:@t.Color;color:#fff">@t.Label</span> }</td>
+                <td class="money fw-semibold">@c.LoyaltyPoints.ToString("N0")</td>
+                <td class="money">@c.LoyaltyLifetime.ToString("N0")</td>
+                <td>@if (next != null)
+                    {
+                        var from = t?.MinPoints ?? 0;
+                        var pc = next.MinPoints == from ? 0 : 100.0 * (c.LoyaltyLifetime - from) / (next.MinPoints - from);
+                        <div class="kpi-bar mt-0"><div style="width:@(Math.Clamp(pc, 2, 100).ToString("0", inv))%; background:@next.Color"></div></div>
+                        <div class="small text-muted">@T("Còn {0} điểm lên {1}", next.MinPoints - c.LoyaltyLifetime, next.Label)</div>
+                    }
+                    else { <span class="small text-muted">@T("Hạng cao nhất")</span> }</td>
+                <td class="small">@c.Owner?.FullName</td>
+            </tr>
+        }
+        @if (!Model.Items.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có khách hàng nào có điểm. Điểm được tích tự động khi ghi nhận phiếu thu.")</td></tr> }
+        </tbody>
+    </table></div>
+</div>
+<partial name="_Pager" model="Model" />

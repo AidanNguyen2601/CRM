@@ -13,6 +13,8 @@ public static partial class StandardReports
 {
     private static IReadOnlyList<ReportDefinition> Extra => new ReportDefinition[]
     {
+        new("loyalty-tiers", GroupMarketing, T("Khách hàng thân thiết theo hạng"), T("Mỗi hạng thành viên: số khách, điểm đang lưu hành, giá trị quy đổi, điểm tích / đổi / hết hạn trong kỳ và doanh thu 12 tháng."), "trophy",
+            ReportFilters.Period, LoyaltyTiers),
         new("quote-win-rate", GroupSales, T("Tỷ lệ chốt báo giá theo nhân viên"), T("Báo giá lập trong kỳ: đã gửi, chấp nhận, từ chối, tỷ lệ chấp nhận, giá trị, chiết khấu thực tế trung bình và tỷ lệ phải duyệt chiết khấu."), "quote",
             ReportFilters.Period, QuoteWinRate),
         new("discount-approvals", GroupSales, T("Duyệt chiết khấu báo giá"), T("Báo giá có chiết khấu vượt hạn mức trong kỳ: chờ duyệt, đã duyệt, bị từ chối, người duyệt và thời gian xử lý."), "check",
@@ -223,6 +225,42 @@ public static partial class StandardReports
         r.Totals![4] = Pct((int)(decimal)r.Totals![3]!, (int)(decimal)r.Totals![1]!);
         r.Note = T("Đã gia hạn = có hợp đồng nối tiếp được tạo từ hợp đồng này (nút Gia hạn). Tháng chưa tới có tỷ lệ thấp vì chưa đến hạn gia hạn.");
         return r.Chart(0, 4, ReportChartKind.Line);
+    }
+
+    private static async Task<ReportResult> LoyaltyTiers(ReportContext x)
+    {
+        var f = x.Filter; var owner = x.Owner;
+        var json = await x.Db.AppSettings.Where(a => a.Key == LoyaltySettings.Key).Select(a => a.Value).FirstOrDefaultAsync();
+        var s = string.IsNullOrEmpty(json) ? new LoyaltySettings() : System.Text.Json.JsonSerializer.Deserialize<LoyaltySettings>(json) ?? new LoyaltySettings();
+        var customers = x.Db.Customers.Where(c => (c.Type == CustomerType.Customer || c.Type == CustomerType.Partner) && (owner == null || c.OwnerId == owner));
+        var members = await customers.Select(c => new { c.Id, c.LoyaltyTierId, c.LoyaltyPoints }).ToListAsync();
+        var ids = customers.Select(c => c.Id);
+        var tx = await x.Db.LoyaltyTransactions.Where(t => ids.Contains(t.CustomerId) && t.CreatedAt >= f.FromDate && t.CreatedAt < f.ToExclusive)
+            .Select(t => new { t.CustomerId, t.Type, t.Points }).ToListAsync();
+        var since = DateTime.Today.AddMonths(-12);
+        var revenue = (await x.Db.Invoices.Where(i => i.CustomerId != null && ids.Contains(i.CustomerId.Value) && i.InvoiceDate >= since
+                && (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.PartiallyPaid || i.Status == InvoiceStatus.Paid))
+            .GroupBy(i => i.CustomerId!.Value).Select(g => new { g.Key, V = g.Sum(i => i.Total) }).ToListAsync()).ToDictionary(g => g.Key, g => g.V);
+        var tierOf = members.ToDictionary(m => m.Id, m => m.LoyaltyTierId);
+        var r = new ReportResult()
+            .Col(T("Hạng")).Col(T("Từ điểm tích lũy"), K.Number).Col(T("Số khách"), K.Number).Col(T("Điểm đang lưu hành"), K.Number).Col(T("Giá trị quy đổi"), K.Money)
+            .Col(T("Điểm tích trong kỳ"), K.Number).Col(T("Điểm đã đổi"), K.Number).Col(T("Điểm hết hạn"), K.Number).Col(T("Doanh thu 12 tháng"), K.Money);
+        foreach (var t in s.Ordered)
+        {
+            var mem = members.Where(m => m.LoyaltyTierId == t.Id).ToList();
+            var inTier = tx.Where(a => tierOf.GetValueOrDefault(a.CustomerId) == t.Id).ToList();
+            var pts = mem.Sum(m => m.LoyaltyPoints);
+            r.Add(t.Label, t.MinPoints, mem.Count, pts, pts * s.PointValue,
+                inTier.Where(a => a.Type is LoyaltyTxType.Earn or LoyaltyTxType.Adjust && a.Points > 0).Sum(a => a.Points),
+                -inTier.Where(a => a.Type == LoyaltyTxType.Redeem).Sum(a => a.Points), -inTier.Where(a => a.Type == LoyaltyTxType.Expire).Sum(a => a.Points),
+                mem.Sum(m => revenue.GetValueOrDefault(m.Id)));
+        }
+        var unranked = members.Where(m => s.TierById(m.LoyaltyTierId) == null).ToList();
+        if (unranked.Count > 0) r.Add(T("Chưa xếp hạng"), 0, unranked.Count, unranked.Sum(m => m.LoyaltyPoints), unranked.Sum(m => m.LoyaltyPoints) * s.PointValue, 0, 0, 0, unranked.Sum(m => revenue.GetValueOrDefault(m.Id)));
+        r.AutoTotals(T("Tổng cộng"));
+        r.Totals![1] = null;
+        r.Note = T("1 điểm = {0}. Điểm tích / đổi / hết hạn tính theo ngày phát sinh trong kỳ, nhóm theo hạng hiện tại của khách.", s.PointValue.ToMoney());
+        return r.Chart(0, 2, ReportChartKind.Pie);
     }
 
     // ================== CHĂM SÓC KHÁCH HÀNG ==================

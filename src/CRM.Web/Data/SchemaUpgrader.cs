@@ -650,6 +650,33 @@ public static class SchemaUpgrader
             END
             """;
 
+        // ---------- Khách hàng thân thiết: điểm thưởng ----------
+        yield return """
+            IF COL_LENGTH(N'dbo.Customers', N'LoyaltyPoints') IS NULL
+                ALTER TABLE [dbo].[Customers] ADD
+                    [LoyaltyPoints] int NOT NULL CONSTRAINT [DF_Customers_LoyaltyPoints] DEFAULT 0,
+                    [LoyaltyLifetime] int NOT NULL CONSTRAINT [DF_Customers_LoyaltyLifetime] DEFAULT 0,
+                    [LoyaltyTierId] int NULL;
+            IF OBJECT_ID(N'[dbo].[LoyaltyTransactions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[LoyaltyTransactions] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_LoyaltyTransactions] PRIMARY KEY,
+                    [CustomerId] int NOT NULL CONSTRAINT [FK_LoyaltyTransactions_Customers_CustomerId] REFERENCES [dbo].[Customers] ([Id]),
+                    [Type] int NOT NULL,
+                    [Points] int NOT NULL,
+                    [Remaining] int NOT NULL,
+                    [ExpiresAt] datetime2 NULL,
+                    [Reversed] bit NOT NULL,
+                    [PaymentId] int NULL,
+                    [Description] nvarchar(500) NULL,
+                    [CreatedById] int NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_LoyaltyTransactions_CustomerId_CreatedAt] ON [dbo].[LoyaltyTransactions] ([CustomerId], [CreatedAt]);
+                CREATE INDEX [IX_LoyaltyTransactions_PaymentId] ON [dbo].[LoyaltyTransactions] ([PaymentId]);
+            END
+            """;
+
         // ---------- Kế hoạch bán hàng ----------
         yield return """
             IF OBJECT_ID(N'[dbo].[SalesPlans]', N'U') IS NULL

@@ -68,6 +68,7 @@ public class CrmDbContext : DbContext
     public DbSet<CustomFieldValue> CustomFieldValues => Set<CustomFieldValue>();
     public DbSet<KbArticle> KbArticles => Set<KbArticle>();
     public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
+    public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
     public DbSet<WebForm> WebForms => Set<WebForm>();
     public DbSet<InboundMessage> InboundMessages => Set<InboundMessage>();
     public DbSet<NpsSurvey> NpsSurveys => Set<NpsSurvey>();
@@ -189,6 +190,9 @@ public class CrmDbContext : DbContext
 
         modelBuilder.Entity<ReportAccess>().HasIndex(x => new { x.ReportKey, x.SubjectType, x.Subject }).IsUnique();
         modelBuilder.Entity<ReportSchedule>().HasIndex(x => new { x.IsActive, x.NextRunAt });
+        modelBuilder.Entity<LoyaltyTransaction>().HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<LoyaltyTransaction>().HasIndex(x => new { x.CustomerId, x.CreatedAt });
+        modelBuilder.Entity<LoyaltyTransaction>().HasIndex(x => x.PaymentId);
 
         // ---- Kế hoạch bán hàng ----
         modelBuilder.Entity<SalesPlan>().HasIndex(x => x.Number).IsUnique();

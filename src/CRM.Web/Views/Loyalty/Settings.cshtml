@@ -1,0 +1,71 @@
+@model LoyaltySettings
+@{
+    ViewData["Title"] = T("Cấu hình khách hàng thân thiết");
+    var usage = (Dictionary<int, int>)ViewBag.Usage;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+<div class="toolbar"><a asp-action="Index" class="small">← @T("Khách hàng thân thiết")</a></div>
+<form asp-action="SaveSettings" method="post">
+    <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+    <div class="row g-3">
+        <div class="col-xl-5">
+            <div class="card"><div class="card-header">@Icon("coins") @T("Quy tắc tích và đổi điểm")</div><div class="card-body">
+                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="Enabled" value="true" checked="@Model.Enabled" id="en" /><input type="hidden" name="Enabled" value="false" />
+                    <label class="form-check-label" for="en">@T("Bật chương trình khách hàng thân thiết")</label></div>
+                <div class="mb-3"><label class="form-label">@T("Số tiền thanh toán để được 1 điểm (đồng)")</label>
+                    <input name="SpendPerPoint" type="number" min="1000" step="1000" class="form-control" value="@Model.SpendPerPoint.ToString("0", inv)" />
+                    <div class="form-text">@T("Điểm tích khi ghi nhận phiếu thu, nhân hệ số của hạng hiện tại, làm tròn xuống.")</div></div>
+                <div class="mb-3"><label class="form-label">@T("Giá trị quy đổi của 1 điểm (đồng)")</label>
+                    <input name="PointValue" type="number" min="0" step="100" class="form-control" value="@Model.PointValue.ToString("0", inv)" /></div>
+                <div class="mb-3"><label class="form-label">@T("Điểm hết hạn sau (tháng)")</label>
+                    <input name="ExpiryMonths" type="number" min="0" max="120" class="form-control" value="@Model.ExpiryMonths" />
+                    <div class="form-text">@T("0 = không hết hạn. Điểm cũ nhất được dùng trước; điểm hết hạn không làm giảm hạng.")</div></div>
+                <div class="mb-1"><label class="form-label">@T("Số điểm tối thiểu mỗi lần đổi")</label>
+                    <input name="MinRedeem" type="number" min="1" class="form-control" value="@Model.MinRedeem" /></div>
+            </div></div>
+        </div>
+        <div class="col-xl-7">
+            <div class="card"><div class="card-header d-flex align-items-center">@Icon("badge") @T("Hạng thành viên")
+                <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="addTier">@Icon("plus") @T("Thêm hạng")</button></div>
+                <div class="card-body p-0 table-responsive"><table class="table mb-0 align-middle" id="tiers">
+                    <thead><tr><th>@T("Tên hạng")</th><th style="width:110px">@T("Từ điểm tích lũy")</th><th style="width:90px">@T("Hệ số nhân")</th><th style="width:90px">@T("Chiết khấu %")</th><th style="width:60px">@T("Màu")</th><th>@T("Quyền lợi")</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var t in Model.Ordered)
+                    {
+                        <tr>
+                            <td><input type="hidden" name="tierId" value="@t.Id" /><input name="tierName" class="form-control form-control-sm" value="@t.Name" maxlength="50" /></td>
+                            <td><input name="tierMin" type="number" min="0" class="form-control form-control-sm" value="@t.MinPoints" /></td>
+                            <td><input name="tierMult" type="number" min="0.1" max="10" step="0.05" class="form-control form-control-sm" value="@t.EarnMultiplier.ToString("0.##", inv)" /></td>
+                            <td><input name="tierDiscount" type="number" min="0" max="100" step="0.5" class="form-control form-control-sm" value="@t.DiscountPercent.ToString("0.##", inv)" /></td>
+                            <td><input name="tierColor" type="color" class="form-control form-control-color form-control-sm" value="@t.Color" /></td>
+                            <td><input name="tierBenefits" class="form-control form-control-sm" value="@t.Benefits" maxlength="300" /></td>
+                            <td class="text-nowrap small">@if (usage.GetValueOrDefault(t.Id) > 0) { <span class="text-muted">@T("{0} khách", usage[t.Id])</span> } else { <button type="button" class="btn btn-sm btn-outline-danger rm">@Icon("x")</button> }</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table></div>
+                <div class="card-footer small text-muted">@T("Hạng xét theo tổng điểm tích lũy trọn đời. Hạng thấp nhất phải bắt đầu từ 0 điểm. Hạng đang có khách hàng không xóa được – đổi tên hoặc điều chỉnh mức điểm thay vì xóa.")</div>
+            </div>
+        </div>
+    </div>
+    <div class="mt-3 d-flex gap-2"><button class="btn btn-primary">@T("Lưu cấu hình")</button><a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+@section Scripts {
+<script>
+    (function () {
+        const body = document.querySelector('#tiers tbody');
+        document.getElementById('addTier').addEventListener('click', () => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td><input type="hidden" name="tierId" value="0" /><input name="tierName" class="form-control form-control-sm" maxlength="50" /></td>' +
+                '<td><input name="tierMin" type="number" min="0" class="form-control form-control-sm" value="0" /></td>' +
+                '<td><input name="tierMult" type="number" min="0.1" max="10" step="0.05" class="form-control form-control-sm" value="1" /></td>' +
+                '<td><input name="tierDiscount" type="number" min="0" max="100" step="0.5" class="form-control form-control-sm" value="0" /></td>' +
+                '<td><input name="tierColor" type="color" class="form-control form-control-color form-control-sm" value="#6c757d" /></td>' +
+                '<td><input name="tierBenefits" class="form-control form-control-sm" maxlength="300" /></td>' +
+                '<td><button type="button" class="btn btn-sm btn-outline-danger rm">×</button></td>';
+            body.appendChild(tr);
+        });
+        body.addEventListener('click', e => { const b = e.target.closest('.rm'); if (b) b.closest('tr').remove(); });
+    })();
+</script>
+}

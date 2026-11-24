@@ -114,6 +114,15 @@
             </div>
         </div>
         <div class="col-lg-5">
+            @if (ViewBag.Loyalty is LoyaltySettings && Perms.CanController(User, "Loyalty"))
+            {
+                var lyTier = (LoyaltyTierDef?)ViewBag.LoyaltyTier; var lyNext = (LoyaltyTierDef?)ViewBag.LoyaltyNext;
+                <div class="card mb-3"><div class="card-header d-flex align-items-center gap-1">@Icon("trophy") @T("Khách hàng thân thiết")<a asp-controller="Loyalty" asp-action="Customer" asp-route-id="@Model.Customer.Id" class="ms-auto small fw-normal">@T("Sổ điểm →")</a></div>
+                    <div class="card-body"><div class="d-flex align-items-center gap-2">
+                        @if (lyTier != null) { <span class="badge" style="background:@lyTier.Color;color:#fff">@lyTier.Label</span> }
+                        <span class="fs-4 fw-semibold">@(((int)ViewBag.LoyaltyPoints).ToString("N0"))</span> <span class="text-muted small">@T("điểm")</span></div>
+                        <div class="small text-muted">@T("Tích lũy {0} điểm", ((int)ViewBag.LoyaltyLifetime).ToString("N0"))@(lyNext != null ? " · " + T("còn {0} điểm lên {1}", lyNext.MinPoints - (int)ViewBag.LoyaltyLifetime, lyNext.Label) : "")</div></div></div>
+            }
             <div class="card mb-3"><div class="card-header">@Icon("badge") @T("Điểm sức khỏe: {0}/100 – {1}", h.Score, CustomerHealth.LevelText(h.Level))</div>
                 <div class="card-body">
                     @foreach (var f in h.Factors)

@@ -45,12 +45,14 @@ public class CustomersController : CrmControllerBase
     }
 
     /// <summary>Khách hàng 360°: toàn bộ quan hệ, bán hàng, tài chính, chăm sóc của một khách hàng</summary>
-    public async Task<IActionResult> Details(int id, [FromServices] Customer360Service svc)
+    public async Task<IActionResult> Details(int id, [FromServices] Customer360Service svc, [FromServices] LoyaltyService loyalty)
     {
         var c = await Db.Customers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (c == null) return NotFound();
         if (!await CanAccessAsync(c, edit: false)) return NotAllowed();
         ViewBag.Nps = await Db.NpsResponses.Where(r => r.CustomerId == id && r.Score != null).OrderByDescending(r => r.RespondedAt).Select(r => r.Score).FirstOrDefaultAsync();
+        if (c.LoyaltyTierId != null || c.LoyaltyPoints > 0) { var ls = await loyalty.SettingsAsync(); ViewBag.Loyalty = ls; ViewBag.LoyaltyTier = ls.TierById(c.LoyaltyTierId); ViewBag.LoyaltyNext = ls.NextTier(c.LoyaltyLifetime); }
+        ViewBag.LoyaltyPoints = c.LoyaltyPoints; ViewBag.LoyaltyLifetime = c.LoyaltyLifetime;
         return View(await svc.BuildAsync(id));
     }
 
@@ -127,7 +129,7 @@ public class CustomersController : CrmControllerBase
         if (c == null) return NotFound();
         if (!User.CanAccess(c)) return NotAllowed();
         var used = await Db.Contacts.AnyAsync(x => x.CustomerId == id) || await Db.Opportunities.AnyAsync(x => x.CustomerId == id)
-                   || await Db.Quotes.AnyAsync(x => x.CustomerId == id) || await Db.Activities.AnyAsync(x => x.CustomerId == id) || await Db.Tickets.AnyAsync(x => x.CustomerId == id);
+                   || await Db.Quotes.AnyAsync(x => x.CustomerId == id) || await Db.Activities.AnyAsync(x => x.CustomerId == id) || await Db.Tickets.AnyAsync(x => x.CustomerId == id) || await Db.LoyaltyTransactions.AnyAsync(x => x.CustomerId == id);
         if (used)
         {
             TempData["Error"] = I18n.T("Khách hàng đã có dữ liệu liên quan (liên hệ, cơ hội, báo giá, hoạt động). Hãy chuyển phân loại sang 'Ngừng giao dịch'.");

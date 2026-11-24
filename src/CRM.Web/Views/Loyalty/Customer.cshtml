@@ -1,0 +1,94 @@
+@model Customer
+@{
+    ViewData["Title"] = T("Điểm thưởng – {0}", Model.Name);
+    var s = (LoyaltySettings)ViewBag.Settings;
+    var ledger = (List<LoyaltyTransaction>)ViewBag.Ledger;
+    var users = (Dictionary<int, string>)ViewBag.Users;
+    var tier = s.TierById(Model.LoyaltyTierId);
+    var next = s.NextTier(Model.LoyaltyLifetime);
+    var soon = (int)ViewBag.ExpiringSoon;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var manager = User.IsInRole(AppRoles.Admin) || User.IsInRole(AppRoles.Manager);
+}
+<div class="toolbar">
+    <a asp-action="Index" class="small">← @T("Khách hàng thân thiết")</a>
+    <a asp-controller="Customers" asp-action="Details" asp-route-id="@Model.Id" class="ms-auto btn btn-outline-secondary">@Icon("customer") @T("Hồ sơ khách hàng")</a>
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-1"><h5 class="mb-0">@Model.Name</h5>
+                @if (tier != null) { <span class="badge" style="background:@tier.Color;color:#fff">@tier.Label</span> }</div>
+            <div class="small text-muted mb-3">@Model.Code · @Model.Owner?.FullName</div>
+            <div class="display-6 fw-semibold">@Model.LoyaltyPoints.ToString("N0") <span class="fs-6 text-muted">@T("điểm")</span></div>
+            <div class="small text-muted">@T("Quy đổi ≈ {0}", (Model.LoyaltyPoints * s.PointValue).ToMoney()) · @T("tích lũy {0} điểm", Model.LoyaltyLifetime.ToString("N0"))</div>
+            @if (soon > 0) { <div class="small text-warning mt-1">@Icon("clock") @T("{0} điểm sắp hết hạn trong 30 ngày", soon)</div> }
+            @if (next != null)
+            {
+                var from = tier?.MinPoints ?? 0;
+                var pc = next.MinPoints == from ? 0 : 100.0 * (Model.LoyaltyLifetime - from) / (next.MinPoints - from);
+                <div class="kpi-bar mt-3"><div style="width:@(Math.Clamp(pc, 2, 100).ToString("0", inv))%; background:@next.Color"></div></div>
+                <div class="small text-muted">@T("Còn {0} điểm để lên hạng {1}", next.MinPoints - Model.LoyaltyLifetime, next.Label)</div>
+            }
+            else if (tier != null) { <div class="small text-muted mt-3">@T("Đã đạt hạng cao nhất")</div> }
+        </div></div>
+        @if (tier != null)
+        {
+            <div class="card mb-3"><div class="card-header">@Icon("badge") @T("Quyền lợi hạng {0}", tier.Label)</div><div class="card-body small">
+                <div>@T("Hệ số nhân điểm: ×{0}", tier.EarnMultiplier.ToString("0.##"))</div>
+                @if (tier.DiscountPercent > 0) { <div>@T("Chiết khấu gợi ý: {0}%", tier.DiscountPercent.ToString("0.##"))</div> }
+                @if (!string.IsNullOrWhiteSpace(tier.BenefitsLabel)) { <div class="text-muted mt-1">@tier.BenefitsLabel</div> }
+            </div></div>
+        }
+        @if (manager && s.Enabled)
+        {
+            <div class="card mb-3"><div class="card-header">@Icon("trophy") @T("Đổi điểm")</div><div class="card-body">
+                <form asp-action="Redeem" asp-route-id="@Model.Id" method="post">
+                    <label class="form-label small">@T("Số điểm đổi (tối thiểu {0})", s.MinRedeem)</label>
+                    <input name="points" type="number" min="@s.MinRedeem" max="@Model.LoyaltyPoints" class="form-control mb-2" id="pts" required />
+                    <div class="small text-muted mb-2" id="ptsval">@T("1 điểm = {0}", s.PointValue.ToMoney())</div>
+                    <label class="form-label small">@T("Đổi lấy gì / ghi chú")</label>
+                    <input name="description" maxlength="500" class="form-control mb-2" placeholder="@T("VD: giảm giá hoá đơn HD-2026-0012")" />
+                    <button class="btn btn-primary w-100" data-confirm="@T("Xác nhận đổi điểm? Thao tác không hoàn tác được.")">@T("Đổi điểm")</button>
+                </form></div></div>
+            <div class="card mb-3"><div class="card-header">@Icon("plan") @T("Điều chỉnh điểm")</div><div class="card-body">
+                <form asp-action="Adjust" asp-route-id="@Model.Id" method="post">
+                    <label class="form-label small">@T("Số điểm (âm để trừ)")</label>
+                    <input name="points" type="number" class="form-control mb-2" required />
+                    <label class="form-label small">@T("Lý do")</label>
+                    <input name="reason" maxlength="500" class="form-control mb-2" required placeholder="@T("VD: thưởng giới thiệu khách hàng mới")" />
+                    <button class="btn btn-outline-primary w-100">@T("Điều chỉnh")</button>
+                </form></div></div>
+        }
+    </div>
+    <div class="col-lg-8">
+        <div class="card"><div class="card-header">@Icon("coins") @T("Sổ điểm thưởng")</div>
+            <div class="card-body p-0 table-responsive"><table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>@T("Ngày")</th><th>@T("Loại")</th><th>@T("Nội dung")</th><th class="money">@T("Điểm")</th><th>@T("Hạn dùng")</th><th>@T("Người thực hiện")</th></tr></thead>
+                <tbody>
+                @foreach (var t in ledger)
+                {
+                    <tr class="@(t.Reversed ? "text-muted text-decoration-line-through" : "")">
+                        <td class="small text-nowrap">@t.CreatedAt.ToString("dd/MM/yyyy")</td>
+                        <td class="small">@t.Type.GetDisplayName()</td>
+                        <td class="small">@t.Description@if (t.PaymentId.HasValue && !t.Reversed) { <a asp-controller="Payments" asp-action="Details" asp-route-id="@t.PaymentId" class="ms-1">@Icon("wallet")</a> }</td>
+                        <td class="money fw-semibold @(t.Points > 0 ? "text-success" : "text-danger")">@(t.Points > 0 ? "+" : "")@t.Points.ToString("N0")</td>
+                        <td class="small text-nowrap">@if (t.Points > 0 && t.ExpiresAt.HasValue) { @t.ExpiresAt.Value.ToString("dd/MM/yyyy") @if (t.Remaining > 0 && t.Remaining < t.Points) { <span class="text-muted">(@T("còn {0}", t.Remaining))</span> } }</td>
+                        <td class="small">@(t.CreatedById.HasValue ? users.GetValueOrDefault(t.CreatedById.Value, "") : T("Tự động"))</td>
+                    </tr>
+                }
+                @if (!ledger.Any()) { <tr><td colspan="6" class="text-muted p-3">@T("Chưa có giao dịch điểm.")</td></tr> }
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    (function () {
+        const v = @(s.PointValue.ToString("0", inv)), p = document.getElementById('pts'), o = document.getElementById('ptsval');
+        if (!p) return;
+        p.addEventListener('input', () => { const n = parseInt(p.value || '0', 10); o.textContent = n > 0 ? '≈ ' + (n * v).toLocaleString('vi-VN') + ' ₫' : '@T("1 điểm = {0}", s.PointValue.ToMoney())'; });
+    })();
+</script>
+}

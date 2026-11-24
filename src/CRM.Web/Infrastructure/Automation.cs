@@ -309,7 +309,8 @@ public class AutomationWorker : BackgroundService
                 var scored = await LeadScoring.RecalculateAsync(sp.GetRequiredService<CrmDbContext>(), null, ct);
                 var (renew, bills) = await sp.GetRequiredService<RenewalService>().RunAsync(ct);
                 var health = await sp.GetRequiredService<CustomerHealthService>().RecalculateAsync(null, ct);
-                if (n + renew + bills + health > 0) _log.LogInformation("Tự động hoá: {Rules} lượt quy tắc, {Renew} cơ hội gia hạn, {Bills} hoá đơn định kỳ; chấm điểm {Scored} lead, {Health} khách hàng đổi điểm sức khoẻ", n, renew, bills, scored, health);
+                var expiredPts = await sp.GetRequiredService<LoyaltyService>().ExpireAsync(ct);
+                if (n + renew + bills + health + expiredPts > 0) _log.LogInformation("Tự động hoá: {Rules} lượt quy tắc, {Renew} cơ hội gia hạn, {Bills} hoá đơn định kỳ; chấm điểm {Scored} lead, {Health} khách hàng đổi điểm sức khoẻ, {Expired} điểm thưởng hết hạn", n, renew, bills, scored, health, expiredPts);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested) { _log.LogWarning(ex, "Lỗi tác vụ tự động hoá"); }
             try { await Task.Delay(TimeSpan.FromHours(1), ct); } catch (OperationCanceledException) { break; }

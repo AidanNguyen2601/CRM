@@ -95,6 +95,7 @@
                         <div class="nav-items"><div class="nav-inner">
                             @if (Perms.CanController(User, "Customers")) { <a class="@Active("Customers")" asp-controller="Customers" asp-action="Index">@Icon("customer")<span>@L("Khách hàng", "Customers")</span></a> }
                             @if (Perms.CanController(User, "Health")) { <a class="@Active("Health")" asp-controller="Health" asp-action="Index">@Icon("star")<span>@T("Sức khoẻ khách hàng")</span></a> }
+                            @if (Perms.CanController(User, "Loyalty")) { <a class="@Active("Loyalty")" asp-controller="Loyalty" asp-action="Index">@Icon("trophy")<span>@T("Khách hàng thân thiết")</span></a> }
                             @if (Perms.CanController(User, "Contacts")) { <a class="@Active("Contacts")" asp-controller="Contacts" asp-action="Index">@Icon("contact")<span>@L("Người liên hệ", "Contacts")</span></a> }
                         </div></div>
                     </div>

@@ -26,7 +26,7 @@ public class PermissionService
 
     public static readonly PermModule[] Modules =
     {
-        new("Customers", "Khách hàng & liên hệ", new[] { "Customers", "Contacts", "Health" }, new[] { View, Create, Edit, Delete }),
+        new("Customers", "Khách hàng & liên hệ", new[] { "Customers", "Contacts", "Health", "Loyalty" }, new[] { View, Create, Edit, Delete }),
         new("Leads", "Lead (KH tiềm năng)", new[] { "Leads" }, new[] { View, Create, Edit, Delete }),
         new("Opportunities", "Cơ hội bán hàng & dự báo", new[] { "Opportunities", "Forecast" }, new[] { View, Create, Edit, Delete }),
         new("Quotes", "Báo giá", new[] { "Quotes" }, new[] { View, Create, Edit, Delete }),

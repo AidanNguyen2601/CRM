@@ -14,7 +14,8 @@ namespace CRM.Web.Controllers;
 /// </summary>
 public class PaymentsController : CrmControllerBase
 {
-    public PaymentsController(CrmDbContext db) : base(db) { }
+    private readonly LoyaltyService _loyalty;
+    public PaymentsController(CrmDbContext db, LoyaltyService loyalty) : base(db) => _loyalty = loyalty;
 
     public async Task<IActionResult> Index(PaymentFilter f)
     {
@@ -124,8 +125,9 @@ public class PaymentsController : CrmControllerBase
         Db.Payments.Add(p);
         await Db.SaveChangesAsync();
         if (inv != null) await RefreshInvoiceAsync(inv.Id);
+        var earned = await _loyalty.EarnForPaymentAsync(p);
 
-        TempData["Success"] = I18n.T("Đã ghi nhận phiếu thu {0}: {1}.", p.Number, p.Amount.ToMoney());
+        TempData["Success"] = I18n.T("Đã ghi nhận phiếu thu {0}: {1}.", p.Number, p.Amount.ToMoney()) + (earned > 0 ? " " + I18n.T("Tích {0} điểm thưởng cho khách hàng.", earned) : "");
         return inv != null ? RedirectToAction("Details", "Invoices", new { id = inv.Id }) : RedirectToAction(nameof(Details), new { id = p.Id });
     }
 
@@ -140,6 +142,7 @@ public class PaymentsController : CrmControllerBase
         Db.Payments.Remove(p);
         await Db.SaveChangesAsync();
         await DeleteAttachmentsAsync(AttachmentTarget.Payment, p.Id);
+        await _loyalty.ReverseForPaymentAsync(p.Id);
         if (invoiceId.HasValue) await RefreshInvoiceAsync(invoiceId.Value);
         TempData["Success"] = I18n.T("Đã xóa phiếu thu {0}.", p.Number);
         return RedirectToAction(nameof(Index));
