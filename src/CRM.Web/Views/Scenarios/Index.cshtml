@@ -1,0 +1,108 @@
+@model CRM.Web.Controllers.ScenariosViewModel
+@{
+    ViewData["Title"] = T("Kịch bản nghiệp vụ");
+    string RoleLabel(string r) => r switch
+    {
+        "System" => T("Hệ thống tự động"),
+        "Customer" => T("Khách hàng"),
+        _ => AppRoles.DisplayName(r)
+    };
+    string RoleChip(string r) => Model.ByRole.TryGetValue(r, out var names) && names.Count > 0 ? $"{string.Join(" / ", names)} ({RoleLabel(r)})" : RoleLabel(r);
+}
+<div class="row g-3">
+    <div class="col-lg-3">
+        <div class="card sc-nav"><div class="list-group list-group-flush" id="scNav">
+            @foreach (var f in Model.Flows)
+            {
+                <a class="list-group-item list-group-item-action d-flex gap-2 align-items-start" href="#flow-@f.Key">@Icon(f.Icon)<span>@($"{Model.Flows.IndexOf(f) + 1}. {f.Title}")</span></a>
+            }
+            @if (Model.ShowAccounts)
+            {
+                <a class="list-group-item list-group-item-action d-flex gap-2 align-items-start" href="#accounts">@Icon("users")<span>@T("Tài khoản dùng thử")</span></a>
+            }
+        </div></div>
+    </div>
+    <div class="col-lg-9">
+        <p class="text-muted mb-3">
+            @if (Model.ShowAccounts)
+            {
+                @T("Mỗi luồng gồm các bước theo thứ tự; nhãn cạnh tên bước là tài khoản nên đăng nhập để làm bước đó (mật khẩu mẫu ở mục Tài khoản dùng thử). Bấm vào số chứng từ để mở chứng từ đang ở đúng bước.")
+            }
+            else
+            {
+                @T("Mỗi luồng gồm các bước theo thứ tự; nhãn cạnh tên bước là vai trò thực hiện. Bấm vào chứng từ để mở chứng từ đang ở đúng bước (chỉ hiện chứng từ bạn được xem).")
+            }
+        </p>
+        @foreach (var f in Model.Flows)
+        {
+            <div class="card sc-card mb-3" id="flow-@f.Key">
+                <div class="card-header d-flex align-items-center gap-2"><span class="sc-ico">@Icon(f.Icon)</span><span class="fw-semibold">@($"{Model.Flows.IndexOf(f) + 1}. {f.Title}")</span></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">@f.Intro</p>
+                    @{ var n = 0; }
+                    @foreach (var s in f.Steps)
+                    {
+                        n++;
+                        <div class="sc-step">
+                            <div class="sc-num">@n</div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span class="fw-semibold sc-title">@s.Title</span>
+                                    @foreach (var r in s.Roles) { <span class="sc-role">@RoleChip(r)</span> }
+                                </div>
+                                <div class="small mb-1">@s.Description</div>
+                                @if (s.Samples.Count > 0 || s.Actions.Count > 0)
+                                {
+                                    <div class="d-flex flex-wrap gap-2 mt-1">
+                                        @foreach (var l in s.Samples)
+                                        {
+                                            <a class="sc-chip" href="@l.Url"><b>@l.Label</b>@if (l.Sub != null) { <span class="text-muted">@l.Sub</span> }</a>
+                                        }
+                                        @foreach (var a in s.Actions)
+                                        {
+                                            <a class="sc-chip sc-action" href="@a.Url">@a.Label</a>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (Model.ShowAccounts)
+        {
+            <div class="card mb-3" id="accounts">
+                <div class="card-header d-flex align-items-center gap-2"><span class="sc-ico">@Icon("users")</span><span class="fw-semibold">@T("Tài khoản dùng thử")</span></div>
+                <div class="card-body p-0 table-responsive"><table class="table mb-0 align-middle">
+                    <thead><tr><th>@T("Tên đăng nhập")</th><th>@T("Họ tên")</th><th>@T("Vai trò")</th><th>@T("Đơn vị")</th><th>@T("Mật khẩu")</th></tr></thead>
+                    <tbody>
+                    @foreach (var a in Model.Accounts)
+                    {
+                        <tr>
+                            <td><code>@a.Username</code></td><td>@a.FullName</td><td>@AppRoles.DisplayName(a.Role)</td><td class="small">@a.Branch</td>
+                            <td>@if (a.Password != null) { <code>@a.Password</code> } else { <span class="text-muted small">@T("đã đổi mật khẩu")</span> }</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table></div>
+                <div class="card-footer small text-muted">@T("Mật khẩu chỉ hiện khi tài khoản còn dùng mật khẩu mẫu của hệ thống; hãy đổi mật khẩu trước khi đưa vào sử dụng thật. Trang này chỉ quản trị mới thấy mục tài khoản.")</div>
+            </div>
+        }
+    </div>
+</div>
+@section Scripts {
+<script>
+    // Tô sáng mục menu của luồng đang xem
+    (function () {
+        const links = [...document.querySelectorAll('#scNav a')];
+        const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+        const io = new IntersectionObserver(es => {
+            es.forEach(e => { if (e.isIntersecting) { links.forEach(a => a.classList.remove('active')); map.get(e.target.id)?.classList.add('active'); } });
+        }, { rootMargin: '-15% 0px -70% 0px' });
+        map.forEach((_, id) => { const el = document.getElementById(id); if (el) io.observe(el); });
+        if (links[0]) links[0].classList.add('active');
+    })();
+</script>
+}

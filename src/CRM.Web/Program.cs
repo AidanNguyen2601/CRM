@@ -107,6 +107,7 @@ builder.Services.AddScoped<DuplicateCheckService>();
 builder.Services.AddScoped<WebFormService>();
 builder.Services.AddScoped<ForecastService>();
 builder.Services.AddScoped<CustomerHealthService>();
+builder.Services.AddScoped<ScenarioService>();
 builder.Services.AddHttpClient("taxlookup", c => { c.Timeout = TimeSpan.FromSeconds(8); c.DefaultRequestHeaders.UserAgent.ParseAdd("CRM-TaxLookup/1.0"); });
 builder.Services.AddScoped<InboundService>();
 builder.Services.AddHostedService<InboundWorker>();
