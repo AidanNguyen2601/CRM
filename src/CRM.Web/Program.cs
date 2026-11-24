@@ -112,6 +112,8 @@ builder.Services.AddHttpClient("taxlookup", c => { c.Timeout = TimeSpan.FromSeco
 builder.Services.AddScoped<InboundService>();
 builder.Services.AddHostedService<InboundWorker>();
 builder.Services.AddHostedService<AutomationWorker>();
+builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.ReportScheduleService>();
+builder.Services.AddHostedService<CRM.Web.Infrastructure.Reports.ReportScheduleWorker>();
 builder.Services.AddHostedService<EmailWorker>();
 builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.CustomReportService>();
 builder.Services.AddScoped<CRM.Web.Infrastructure.Reports.ReportAccessService>();

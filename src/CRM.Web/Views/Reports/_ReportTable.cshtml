@@ -1,28 +1,86 @@
-@* Bảng kết quả báo cáo + biểu đồ cột ngang (dùng chung cho báo cáo chuẩn / động / chạy thử) *@
+@* Bảng kết quả báo cáo + biểu đồ (cột ngang / đường / tròn) dùng chung cho báo cáo chuẩn / động / chạy thử *@
 @using CRM.Web.Infrastructure.Reports
 @model ReportResult
 @{
     var inv = System.Globalization.CultureInfo.InvariantCulture;
-    var chartRows = Model.ChartLabel >= 0 && Model.ChartValue >= 0
-        ? Model.Rows.Select(r => (Label: ReportResult.Format(r[Model.ChartLabel], Model.Columns[Model.ChartLabel].Kind), Value: ReportResult.ToDecimal(r[Model.ChartValue]) ?? 0))
-            .Where(x => x.Value != 0).OrderByDescending(x => x.Value).Take(15).ToList()
-        : new();
+    var kind = Model.ChartKind;
+    var hasChart = Model.ChartLabel >= 0 && Model.ChartValue >= 0;
+    var valCol = hasChart ? Model.Columns[Model.ChartValue] : null;
+    string Fmt(decimal v) => valCol!.Kind == ReportColumnKind.Money ? v.ToShortMoney() : ReportResult.Format(v, valCol.Kind);
+    // Đường: giữ thứ tự dòng (xu hướng theo thời gian); cột / tròn: xếp theo giá trị lớn nhất
+    var points = hasChart
+        ? Model.Rows.Select(r => (Label: ReportResult.Format(r[Model.ChartLabel], Model.Columns[Model.ChartLabel].Kind), Value: ReportResult.ToDecimal(r[Model.ChartValue]) ?? 0)).ToList()
+        : new List<(string Label, decimal Value)>();
+    var chartRows = kind == ReportChartKind.Line ? points.Take(60).ToList()
+        : points.Where(x => x.Value != 0).OrderByDescending(x => x.Value).Take(kind == ReportChartKind.Pie ? 8 : 15).ToList();
     var max = chartRows.Count > 0 ? Math.Max(1m, chartRows.Max(x => Math.Abs(x.Value))) : 1m;
+    var palette = new[] { "#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#94a3b8" };
 }
-@if (chartRows.Count > 1)
+@if (hasChart && chartRows.Count > 1)
 {
     <div class="card mb-3 report-chart">
-        <div class="card-header">@Icon("trending") @Model.Columns[Model.ChartValue].Title
-            @if (Model.Rows.Count > chartRows.Count) { <span class="small text-muted fw-normal">· @T("{0} giá trị lớn nhất", chartRows.Count)</span> }</div>
+        <div class="card-header">@Icon("trending") @valCol!.Title
+            @if (kind != ReportChartKind.Line && Model.Rows.Count > chartRows.Count) { <span class="small text-muted fw-normal">· @T("{0} giá trị lớn nhất", chartRows.Count)</span> }</div>
         <div class="card-body">
+        @if (kind == ReportChartKind.Line)
+        {
+            var w = 640.0; var h = 200.0; var padL = 8.0; var padR = 8.0; var padT = 12.0; var padB = 8.0;
+            var min = Math.Min(0m, chartRows.Min(x => x.Value)); var top = Math.Max(1m, chartRows.Max(x => x.Value));
+            double X(int i) => padL + (chartRows.Count == 1 ? 0 : i * (w - padL - padR) / (chartRows.Count - 1));
+            double Y(decimal v) => padT + (double)((top - v) / (top - min)) * (h - padT - padB);
+            var pts = string.Join(" ", chartRows.Select((p, i) => $"{X(i).ToString("0.#", inv)},{Y(p.Value).ToString("0.#", inv)}"));
+            var step = Math.Max(1, (int)Math.Ceiling(chartRows.Count / 12.0));
+            <svg viewBox="0 0 @w.ToString(inv) @(h.ToString(inv))" class="rc-line" role="img" aria-label="@valCol.Title" preserveAspectRatio="none">
+                <line x1="@padL.ToString(inv)" x2="@((w - padR).ToString(inv))" y1="@Y(0).ToString("0.#", inv)" y2="@Y(0).ToString("0.#", inv)" class="rc-axis" />
+                <polyline points="@pts" class="rc-path" />
+                @for (var i = 0; i < chartRows.Count; i++)
+                {
+                    <circle cx="@X(i).ToString("0.#", inv)" cy="@Y(chartRows[i].Value).ToString("0.#", inv)" r="3.2" class="rc-dot"><title>@chartRows[i].Label: @Fmt(chartRows[i].Value)</title></circle>
+                }
+            </svg>
+            <div class="rc-xlabels">@for (var i = 0; i < chartRows.Count; i += step) { <span>@chartRows[i].Label</span> }</div>
+            <div class="small text-muted mt-1">@T("Thấp nhất {0} · cao nhất {1}", Fmt(chartRows.Min(x => x.Value)), Fmt(chartRows.Max(x => x.Value)))</div>
+        }
+        else if (kind == ReportChartKind.Pie)
+        {
+            var total = chartRows.Sum(x => Math.Abs(x.Value));
+            var rest = points.Where(x => x.Value != 0).Sum(x => Math.Abs(x.Value)) - total;
+            var slices = chartRows.Select(x => (x.Label, Value: Math.Abs(x.Value))).ToList();
+            if (rest > 0) slices.Add((T("Khác"), rest));
+            var sum = slices.Sum(s => s.Value);
+            const double R = 15.9155;   // chu vi = 100
+            var offset = 25.0;
+            <div class="d-flex flex-wrap gap-4 align-items-center">
+                <svg viewBox="0 0 42 42" class="rc-pie" role="img" aria-label="@valCol.Title">
+                    <circle cx="21" cy="21" r="@R.ToString(inv)" fill="none" class="rc-pie-bg" stroke-width="7" />
+                    @for (var i = 0; i < slices.Count; i++)
+                    {
+                        var pct = (double)(slices[i].Value * 100m / sum);
+                        <circle cx="21" cy="21" r="@R.ToString(inv)" fill="none" stroke="@palette[Math.Min(i, palette.Length - 1)]" stroke-width="7"
+                                stroke-dasharray="@pct.ToString("0.##", inv) @((100 - pct).ToString("0.##", inv))" stroke-dashoffset="@offset.ToString("0.##", inv)"><title>@slices[i].Label: @Fmt(slices[i].Value) (@pct.ToString("0.#", inv)%)</title></circle>
+                        offset -= pct;
+                    }
+                </svg>
+                <ul class="rc-legend list-unstyled mb-0">
+                    @for (var i = 0; i < slices.Count; i++)
+                    {
+                        <li><span class="rc-sw" style="background:@palette[Math.Min(i, palette.Length - 1)]"></span><span class="rc-name" title="@slices[i].Label">@slices[i].Label</span>
+                            <span class="text-muted">@Fmt(slices[i].Value) · @((slices[i].Value * 100m / sum).ToString("0.#", inv))%</span></li>
+                    }
+                </ul>
+            </div>
+        }
+        else
+        {
             @foreach (var x in chartRows)
             {
                 <div class="bar-row">
                     <div class="lbl" title="@x.Label">@x.Label</div>
                     <div class="bar"><div class="@(x.Value < 0 ? "neg" : "")" style="width:@((Math.Abs(x.Value) * 100m / max).ToString("0.#", inv))%"></div></div>
-                    <div class="val">@(Model.Columns[Model.ChartValue].Kind == ReportColumnKind.Money ? x.Value.ToShortMoney() : ReportResult.Format(x.Value, Model.Columns[Model.ChartValue].Kind))</div>
+                    <div class="val">@Fmt(x.Value)</div>
                 </div>
             }
+        }
         </div>
     </div>
 }
@@ -32,14 +90,18 @@
         @foreach (var c in Model.Columns) { <th class="@(c.IsNumeric ? "money" : "")">@c.Title</th> }
     </tr></thead>
     <tbody>
-    @foreach (var row in Model.Rows)
+    @for (var ri = 0; ri < Model.Rows.Count; ri++)
     {
+        var row = Model.Rows[ri];
+        var link = ri < Model.Links.Count ? Model.Links[ri] : null;
         <tr>
             @for (var i = 0; i < Model.Columns.Count; i++)
             {
                 var c = Model.Columns[i];
                 var neg = c.IsNumeric && (ReportResult.ToDecimal(row[i]) ?? 0) < 0;
-                <td class="@(c.IsNumeric ? "money" : "") @(neg ? "text-danger" : "")">@ReportResult.Format(row[i], c.Kind)</td>
+                <td class="@(c.IsNumeric ? "money" : "") @(neg ? "text-danger" : "")">
+                    @if (link != null && i == Model.LinkColumn) { <a href="@link">@ReportResult.Format(row[i], c.Kind)</a> } else { @ReportResult.Format(row[i], c.Kind) }
+                </td>
             }
         </tr>
     }
@@ -54,6 +116,6 @@
 </table>
 </div>
 <div class="card-footer bg-white small text-muted d-flex justify-content-between flex-wrap gap-2">
-    <span>@T("{0} dòng", Model.Rows.Count.ToString("N0"))</span>
+    <span>@T("{0} dòng", Model.Rows.Count.ToString("N0"))@if (Model.Links.Any(l => l != null)) { <span> · @T("bấm vào mã / tên để mở chi tiết")</span> }</span>
     @if (!string.IsNullOrEmpty(Model.Note)) { <span>@Model.Note</span> }
 </div></div>

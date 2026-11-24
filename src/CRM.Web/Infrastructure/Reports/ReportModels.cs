@@ -6,6 +6,9 @@ namespace CRM.Web.Infrastructure.Reports;
 /// <summary>Kiểu dữ liệu cột báo cáo (quyết định định dạng hiển thị / xuất Excel)</summary>
 public enum ReportColumnKind { Text, Money, Number, Percent, Date }
 
+/// <summary>Kiểu biểu đồ của báo cáo: cột ngang (xếp hạng), đường (xu hướng theo thứ tự dòng), tròn (tỷ trọng)</summary>
+public enum ReportChartKind { Bar, Line, Pie }
+
 public record ReportColumn(string Title, ReportColumnKind Kind = ReportColumnKind.Text, bool Total = true)
 {
     public bool IsNumeric => Kind is ReportColumnKind.Money or ReportColumnKind.Number or ReportColumnKind.Percent;
@@ -21,6 +24,10 @@ public class ReportResult
     /// <summary>Biểu đồ cột: chỉ số cột nhãn và cột giá trị (-1 = không vẽ)</summary>
     public int ChartLabel { get; set; } = -1;
     public int ChartValue { get; set; } = -1;
+    public ReportChartKind ChartKind { get; set; } = ReportChartKind.Bar;
+    /// <summary>Liên kết mở bản ghi chi tiết của từng dòng (song song với Rows; null = không có) – hiện ở cột LinkColumn</summary>
+    public List<string?> Links { get; } = new();
+    public int LinkColumn { get; set; }
     public string? Note { get; set; }
     public bool Truncated { get; set; }
 
@@ -47,7 +54,14 @@ public class ReportResult
         return this;
     }
 
-    public ReportResult Chart(int label, int value) { ChartLabel = label; ChartValue = value; return this; }
+    public ReportResult Chart(int label, int value, ReportChartKind kind = ReportChartKind.Bar) { ChartLabel = label; ChartValue = value; ChartKind = kind; return this; }
+
+    /// <summary>Thêm dòng kèm liên kết chi tiết (bấm vào cột LinkColumn để mở bản ghi)</summary>
+    public void AddLink(string? url, params object?[] values)
+    {
+        while (Links.Count < Rows.Count) Links.Add(null);
+        Rows.Add(values); Links.Add(url);
+    }
 
     public static decimal? ToDecimal(object? v) => v switch
     {

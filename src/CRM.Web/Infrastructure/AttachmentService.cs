@@ -65,6 +65,11 @@ public class AttachmentService
             var ok = user.CanAccessTicket(t, t.Customer?.OwnerId, await _db.Activities.AnyAsync(a => a.TicketId == id && a.OwnerId == uid));
             return (true, ok, ok);
         }
+        if (type == AttachmentTarget.ReportSchedule)
+        {
+            var ex = await _db.ReportSchedules.AnyAsync(s => s.Id == id);
+            return (ex, ex && user.IsInRole(AppRoles.Admin), false);   // file do hệ thống tạo: chỉ quản trị xem, không thêm / xóa thủ công
+        }
         if (type == AttachmentTarget.Product)
         {
             var exists = await _db.Products.AnyAsync(p => p.Id == id);

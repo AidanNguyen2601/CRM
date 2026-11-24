@@ -597,6 +597,12 @@ public static class SchemaUpgrader
                 ALTER TABLE [dbo].[Customers] ADD [HealthScore] int NULL, [HealthUpdatedAt] datetime2 NULL;
             """;
 
+        // ---------- Báo cáo động: trình dựng không cần SQL + kiểu biểu đồ ----------
+        yield return """
+            IF OBJECT_ID(N'[dbo].[CustomReports]', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.CustomReports', N'BuilderJson') IS NULL
+                ALTER TABLE [dbo].[CustomReports] ADD [BuilderJson] nvarchar(max) NULL, [ChartKind] nvarchar(10) NULL;
+            """;
+
         // ---------- Phân quyền báo cáo + vùng dữ liệu ----------
         yield return """
             IF OBJECT_ID(N'[dbo].[ReportAccesses]', N'U') IS NULL
@@ -614,6 +620,33 @@ public static class SchemaUpgrader
                     [UpdatedAt] datetime2 NOT NULL
                 );
                 CREATE UNIQUE INDEX [IX_ReportAccesses_ReportKey_SubjectType_Subject] ON [dbo].[ReportAccesses] ([ReportKey], [SubjectType], [Subject]);
+            END
+            """;
+
+        // ---------- Gửi báo cáo định kỳ qua email ----------
+        yield return """
+            IF OBJECT_ID(N'[dbo].[ReportSchedules]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[ReportSchedules] (
+                    [Id] int IDENTITY(1,1) NOT NULL CONSTRAINT [PK_ReportSchedules] PRIMARY KEY,
+                    [Name] nvarchar(150) NOT NULL,
+                    [ReportKey] nvarchar(60) NOT NULL,
+                    [Frequency] int NOT NULL,
+                    [DayOfWeek] int NOT NULL,
+                    [DayOfMonth] int NOT NULL,
+                    [Hour] int NOT NULL,
+                    [Period] int NOT NULL,
+                    [RecipientIds] nvarchar(1000) NOT NULL,
+                    [IncludeExcel] bit NOT NULL,
+                    [PreviewRows] int NOT NULL,
+                    [IsActive] bit NOT NULL,
+                    [NextRunAt] datetime2 NULL,
+                    [LastRunAt] datetime2 NULL,
+                    [LastStatus] nvarchar(500) NULL,
+                    [CreatedById] int NULL,
+                    [CreatedAt] datetime2 NOT NULL
+                );
+                CREATE INDEX [IX_ReportSchedules_IsActive_NextRunAt] ON [dbo].[ReportSchedules] ([IsActive], [NextRunAt]);
             END
             """;
 

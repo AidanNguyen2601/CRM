@@ -5,7 +5,8 @@ namespace CRM.Web.Models.Entities;
 public enum CustomReportSource
 {
     [Display(Name = "Câu lệnh SQL")] Sql = 1,
-    [Display(Name = "Chọn từ View")] View = 2
+    [Display(Name = "Chọn từ View")] View = 2,
+    [Display(Name = "Trình dựng (không cần SQL)")] Builder = 3
 }
 
 /// <summary>
@@ -48,6 +49,11 @@ public class CustomReport
     // ----- Biểu đồ -----
     [StringLength(128)][Display(Name = "Cột nhãn biểu đồ")] public string? ChartLabelColumn { get; set; }
     [StringLength(128)][Display(Name = "Cột giá trị biểu đồ")] public string? ChartValueColumn { get; set; }
+    /// <summary>Kiểu biểu đồ: bar (cột ngang) | line (đường) | pie (tròn) | none; trống = cột ngang khi có chọn cột biểu đồ</summary>
+    [StringLength(10)][Display(Name = "Kiểu biểu đồ")] public string? ChartKind { get; set; }
+
+    /// <summary>Định nghĩa báo cáo dạng trình dựng (JSON: nguồn, cột, nhóm / phép tính, điều kiện lọc) – xem ReportBuilderDef</summary>
+    public string? BuilderJson { get; set; }
 
     /// <summary>Vai trò được chạy báo cáo, cách nhau dấu phẩy (Admin luôn được)</summary>
     [StringLength(100)][Display(Name = "Vai trò được xem")] public string AllowedRoles { get; set; } = "Admin,Manager";
@@ -98,4 +104,53 @@ public class ReportAccess
     [StringLength(500)] public string? BranchIds { get; set; }
     public int? UpdatedById { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+}
+
+public enum ScheduleFrequency
+{
+    [Display(Name = "Hằng ngày")] Daily = 1,
+    [Display(Name = "Hằng tuần")] Weekly = 2,
+    [Display(Name = "Hằng tháng")] Monthly = 3
+}
+
+/// <summary>Kỳ dữ liệu của báo cáo gửi định kỳ (tính lùi từ ngày chạy)</summary>
+public enum SchedulePeriod
+{
+    [Display(Name = "Hôm qua")] Yesterday = 1,
+    [Display(Name = "7 ngày qua")] Last7Days = 2,
+    [Display(Name = "30 ngày qua")] Last30Days = 9,
+    [Display(Name = "Tháng này (đến hôm nay)")] ThisMonth = 3,
+    [Display(Name = "Tháng trước")] LastMonth = 4,
+    [Display(Name = "Quý này (đến hôm nay)")] ThisQuarter = 5,
+    [Display(Name = "Quý trước")] LastQuarter = 6,
+    [Display(Name = "Năm nay (đến hôm nay)")] ThisYear = 7,
+    [Display(Name = "Năm trước")] LastYear = 8
+}
+
+/// <summary>
+/// Lịch gửi báo cáo qua email: mỗi người nhận nhận báo cáo theo ĐÚNG quyền và vùng dữ liệu của chính họ (phân quyền báo cáo),
+/// kèm file Excel. ReportKey = "std:{key}" hoặc "custom:{id}".
+/// </summary>
+public class ReportSchedule
+{
+    public int Id { get; set; }
+    [Required(ErrorMessage = "Vui lòng nhập tên lịch gửi"), StringLength(150)][Display(Name = "Tên lịch gửi")] public string Name { get; set; } = string.Empty;
+    [Required, StringLength(60)][Display(Name = "Báo cáo")] public string ReportKey { get; set; } = string.Empty;
+    [Display(Name = "Tần suất")] public ScheduleFrequency Frequency { get; set; } = ScheduleFrequency.Weekly;
+    /// <summary>Thứ trong tuần (0 = Chủ nhật … 6 = Thứ bảy) khi gửi hằng tuần</summary>
+    [Range(0, 6)][Display(Name = "Thứ")] public int DayOfWeek { get; set; } = 1;
+    /// <summary>Ngày trong tháng (1–31; tháng ngắn hơn thì gửi ngày cuối tháng) khi gửi hằng tháng</summary>
+    [Range(1, 31)][Display(Name = "Ngày trong tháng")] public int DayOfMonth { get; set; } = 1;
+    [Range(0, 23)][Display(Name = "Giờ gửi")] public int Hour { get; set; } = 8;
+    [Display(Name = "Kỳ dữ liệu")] public SchedulePeriod Period { get; set; } = SchedulePeriod.LastMonth;
+    /// <summary>Id người dùng nhận, cách nhau dấu phẩy</summary>
+    [StringLength(1000)] public string RecipientIds { get; set; } = string.Empty;
+    [Display(Name = "Đính kèm file Excel")] public bool IncludeExcel { get; set; } = true;
+    [Range(0, 100)][Display(Name = "Số dòng xem trước trong email")] public int PreviewRows { get; set; } = 10;
+    [Display(Name = "Đang gửi")] public bool IsActive { get; set; } = true;
+    public DateTime? NextRunAt { get; set; }
+    public DateTime? LastRunAt { get; set; }
+    [StringLength(500)] public string? LastStatus { get; set; }
+    public int? CreatedById { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 }

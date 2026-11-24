@@ -10,7 +10,7 @@ using static CRM.Web.Infrastructure.I18n;
 namespace CRM.Web.Infrastructure.Reports;
 
 /// <summary>Bảng / View và các cột – dùng cho trình soạn báo cáo động</summary>
-public record DbObjectInfo(string Name, bool IsView, List<string> Columns);
+public record DbObjectInfo(string Name, bool IsView, List<string> Columns, Dictionary<string, string>? Types = null);
 
 /// <summary>
 /// Chạy báo cáo động. Lớp bảo vệ:
@@ -77,14 +77,15 @@ public class CustomReportService
     {
         var rows = await _db.Database.SqlQueryRaw<SchemaRow>("""
             SELECT t.TABLE_NAME AS ObjectName, CAST(CASE WHEN t.TABLE_TYPE = 'VIEW' THEN 1 ELSE 0 END AS bit) AS IsView,
-                   c.COLUMN_NAME AS ColumnName, c.ORDINAL_POSITION AS Ordinal
+                   c.COLUMN_NAME AS ColumnName, c.ORDINAL_POSITION AS Ordinal, c.DATA_TYPE AS DataType
             FROM INFORMATION_SCHEMA.TABLES t
             JOIN INFORMATION_SCHEMA.COLUMNS c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
             WHERE t.TABLE_SCHEMA = 'dbo' AND t.TABLE_NAME NOT LIKE '[_][_]%'
             """).ToListAsync();
         return rows.Where(r => !(r.ObjectName == "Users" && r.ColumnName == "PasswordHash"))
             .GroupBy(r => (r.ObjectName, r.IsView))
-            .Select(g => new DbObjectInfo(g.Key.ObjectName, g.Key.IsView, g.OrderBy(r => r.Ordinal).Select(r => r.ColumnName).ToList()))
+            .Select(g => new DbObjectInfo(g.Key.ObjectName, g.Key.IsView, g.OrderBy(r => r.Ordinal).Select(r => r.ColumnName).ToList(),
+                g.ToDictionary(r => r.ColumnName, r => r.DataType, StringComparer.OrdinalIgnoreCase)))
             .OrderByDescending(o => o.IsView).ThenBy(o => o.Name).ToList();
     }
 
@@ -94,6 +95,7 @@ public class CustomReportService
         public bool IsView { get; set; }
         public string ColumnName { get; set; } = "";
         public int Ordinal { get; set; }
+        public string DataType { get; set; } = "";
     }
 
     /// <summary>Dựng câu lệnh SELECT cho báo cáo dạng View (tên View / cột được đối chiếu với danh sách thật, không ghép chuỗi tự do)</summary>
@@ -121,10 +123,27 @@ public class CustomReportService
         return (sql, null);
     }
 
+    /// <summary>Biên dịch báo cáo dạng trình dựng; ask = giá trị người xem nhập cho điều kiện "Hỏi khi chạy" (null = mặc định)</summary>
+    public async Task<(BuilderCompiled? Compiled, string? Error)> CompileBuilderAsync(string? json, Func<string, string?>? ask)
+    {
+        var def = ReportBuilderDef.Parse(json);
+        if (def == null) return (null, T("Chưa cấu hình báo cáo (chọn nguồn dữ liệu và cột)."));
+        var (res, err) = ReportBuilder.Compile(def, await SchemaAsync(), ask);
+        return (res, err);
+    }
+
+    /// <summary>Nguồn dữ liệu (View) và cột cho trình dựng</summary>
+    public async Task<List<BuilderDataset>> BuilderDatasetsAsync() => ReportBuilder.Datasets(await SchemaAsync());
+
     /// <summary>Câu lệnh cuối cùng của báo cáo (SQL tự viết hoặc dựng từ View)</summary>
     public async Task<(string? Sql, string? Error)> SqlForAsync(CustomReport r)
     {
         if (r.SourceType == CustomReportSource.View) return await BuildViewSqlAsync(r);
+        if (r.SourceType == CustomReportSource.Builder)
+        {
+            var c = await CompileBuilderAsync(r.BuilderJson, null);
+            return c.Compiled == null ? (null, c.Error) : (c.Compiled.Sql, null);
+        }
         var err = Validate(r.SqlText);
         return err != null ? (null, err) : (r.SqlText, null);
     }
@@ -135,7 +154,7 @@ public class CustomReportService
 
     /// <summary>Chạy câu lệnh dưới người dùng chỉ đọc; trả về kết quả hoặc thông báo lỗi thân thiện</summary>
     public async Task<(ReportResult? Result, string? Error)> RunAsync(string sql, ReportFilter f, ClaimsPrincipal user, int maxRows,
-        string? chartLabel = null, string? chartValue = null, bool? ownOnly = null)
+        string? chartLabel = null, string? chartValue = null, bool? ownOnly = null, string? chartKind = null, IReadOnlyDictionary<string, object?>? extra = null)
     {
         var err = Validate(sql);
         if (err != null) return (null, err);
@@ -157,6 +176,7 @@ public class CustomReportService
         cmd.Parameters.Add(new SqlParameter("@CurrentUserId", SqlDbType.Int) { Value = user.GetUserId() });
         cmd.Parameters.Add(new SqlParameter("@SeesAll", SqlDbType.Bit) { Value = seesAll });
         cmd.Parameters.Add(new SqlParameter("@BranchIds", SqlDbType.NVarChar, -1) { Value = _scope.Active ? string.Join(",", _scope.Ids) : "" });
+        if (extra != null) foreach (var kv in extra) cmd.Parameters.Add(new SqlParameter(kv.Key, kv.Value ?? DBNull.Value));
 
         try
         {
@@ -185,7 +205,8 @@ public class CustomReportService
             if (r.Columns.Count > 1 && r.Columns.Skip(1).Any(c => c.IsNumeric && c.Total) && r.Rows.Count > 1) r.AutoTotals(T("Tổng"));
             var li = r.Columns.FindIndex(c => string.Equals(c.Title, chartLabel, StringComparison.OrdinalIgnoreCase));
             var vi = r.Columns.FindIndex(c => string.Equals(c.Title, chartValue, StringComparison.OrdinalIgnoreCase));
-            if (li >= 0 && vi >= 0 && r.Columns[vi].IsNumeric) r.Chart(li, vi);
+            if (li >= 0 && vi >= 0 && r.Columns[vi].IsNumeric && chartKind != "none")
+                r.Chart(li, vi, chartKind == "line" ? ReportChartKind.Line : chartKind == "pie" ? ReportChartKind.Pie : ReportChartKind.Bar);
             if (r.Truncated) r.Note = T("Chỉ hiển thị {0} dòng đầu tiên. Hãy lọc thêm hoặc xuất Excel (tối đa {1} dòng).", maxRows.ToString("N0"), ExportRows.ToString("N0"));
             return (r, null);
         }

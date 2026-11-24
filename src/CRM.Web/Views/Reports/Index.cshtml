@@ -9,7 +9,10 @@
 }
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h5 class="mb-0">@Icon("trending") @T("Báo cáo chuẩn")</h5>
-    @if (isAdmin) { <a class="btn btn-outline-primary" asp-action="Access">@Icon("key") @T("Phân quyền báo cáo")</a> }
+    <div class="d-flex gap-2">
+        @if (User.SeesAll()) { <a class="btn btn-outline-primary" asp-controller="ReportSchedules" asp-action="Index">@Icon("clock") @T("Gửi báo cáo định kỳ")</a> }
+        @if (isAdmin) { <a class="btn btn-outline-primary" asp-action="Access">@Icon("key") @T("Phân quyền báo cáo")</a> }
+    </div>
 </div>
 <div class="row g-3 mb-4">
     @foreach (var g in standard.GroupBy(r => r.Group))
@@ -61,7 +64,7 @@ else
                     @if (!string.IsNullOrEmpty(r.Description)) { <div class="small text-muted">@r.Description</div> }
                     <div class="small mt-1"><span class="badge text-bg-light border">@Icon("key") @ScopeBadge(ReportAccessService.CustomKey(r.Id))</span></div></td>
                 <td>@r.Category</td>
-                <td><span class="badge @(r.SourceType == CustomReportSource.Sql ? "bg-dark" : "bg-info text-dark")">@r.SourceType.GetDisplayName()</span>
+                <td><span class="badge @(r.SourceType == CustomReportSource.Sql ? "bg-dark" : r.SourceType == CustomReportSource.Builder ? "bg-success" : "bg-info text-dark")">@r.SourceType.GetDisplayName()</span>
                     @if (r.SourceType == CustomReportSource.View) { <div class="small text-muted">@r.ViewName</div> }</td>
                 <td class="small">@string.Join(", ", r.AllowedRoles.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => AppRoles.DisplayName(x.Trim())))</td>
                 @if (isAdmin)

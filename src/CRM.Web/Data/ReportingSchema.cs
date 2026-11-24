@@ -87,10 +87,12 @@ public static class ReportingSchema
                              WHEN 5 THEN N'Mạng xã hội' WHEN 6 THEN N'Email marketing' WHEN 9 THEN N'Khác' END AS SourceName,
                CASE l.Status WHEN 1 THEN N'Mới' WHEN 2 THEN N'Đã liên hệ' WHEN 3 THEN N'Đủ điều kiện' WHEN 4 THEN N'Không phù hợp' WHEN 5 THEN N'Đã chuyển đổi' END AS StatusName,
                CASE l.Rating WHEN 1 THEN N'Nóng' WHEN 2 THEN N'Ấm' WHEN 3 THEN N'Lạnh' END AS RatingName,
-               l.EstimatedValue, l.ConvertedAt, l.CampaignId, l.OwnerId, u.FullName AS OwnerName, l.CreatedAt,
+               l.EstimatedValue, l.ConvertedAt, l.CampaignId, l.Score, l.UtmSource, l.UtmMedium, l.UtmCampaign, wf.Name AS WebFormName,
+               l.OwnerId, u.FullName AS OwnerName, l.CreatedAt,
                l.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Leads l
         LEFT JOIN dbo.Branches br ON br.Id = l.BranchId
+        LEFT JOIN dbo.WebForms wf ON wf.Id = l.WebFormId
         LEFT JOIN dbo.Users u ON u.Id = l.OwnerId
         """,
         """
@@ -101,6 +103,7 @@ public static class ReportingSchema
                ISNULL((SELECT SUM(o.Amount) FROM dbo.Opportunities o WHERE o.CustomerId = c.Id AND o.Stage = 100), 0) AS WonRevenue,
                ISNULL((SELECT SUM(o.Amount) FROM dbo.Opportunities o WHERE o.CustomerId = c.Id AND o.Stage NOT IN (0, 100)), 0) AS OpenPipeline,
                ISNULL((SELECT SUM(i.Total - i.PaidAmount) FROM dbo.Invoices i WHERE i.CustomerId = c.Id AND i.Status IN (2, 3)), 0) AS Outstanding,
+               c.HealthScore, CASE WHEN c.HealthScore IS NULL THEN NULL WHEN c.HealthScore >= 70 THEN N'Tốt' WHEN c.HealthScore >= 40 THEN N'Cần chú ý' ELSE N'Rủi ro' END AS HealthName,
                c.OwnerId, u.FullName AS OwnerName, c.CreatedAt,
                c.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Customers c
@@ -131,6 +134,9 @@ public static class ReportingSchema
                ISNULL((SELECT SUM(i.Total) FROM dbo.Invoices i WHERE i.ContractId = k.Id AND i.Status IN (2, 3, 4)), 0) AS Invoiced,
                ISNULL((SELECT SUM(p.Amount) FROM dbo.Payments p WHERE p.ContractId = k.Id), 0) AS Paid,
                k.Total - ISNULL((SELECT SUM(p.Amount) FROM dbo.Payments p WHERE p.ContractId = k.Id), 0) AS Receivable,
+               CASE k.BillingCycle WHEN 1 THEN N'Hằng tháng' WHEN 3 THEN N'Hằng quý' WHEN 6 THEN N'6 tháng' WHEN 12 THEN N'Hằng năm' ELSE N'Không định kỳ' END AS BillingCycleName,
+               k.RecurringAmount, k.NextBillingDate,
+               CAST(CASE WHEN k.BillingCycle > 0 THEN k.RecurringAmount / k.BillingCycle ELSE 0 END AS decimal(18,0)) AS MonthlyRecurring,
                k.OwnerId, u.FullName AS OwnerName, k.CreatedAt,
                k.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Contracts k
@@ -180,13 +186,57 @@ public static class ReportingSchema
                CAST(DATEDIFF(minute, t.CreatedAt, t.ResolvedAt) / 60.0 AS decimal(10,1)) AS ResolveHours,
                CAST(CASE WHEN COALESCE(t.FirstResponseAt, CASE WHEN t.Status IN (1, 2, 3) THEN GETDATE() END, t.ResolvedAt, t.ClosedAt) > t.ResponseDueAt THEN 1 ELSE 0 END AS bit) AS ResponseBreached,
                CAST(CASE WHEN COALESCE(t.ResolvedAt, CASE WHEN t.Status IN (1, 2, 3) THEN GETDATE() END, t.ClosedAt) > t.ResolveDueAt THEN 1 ELSE 0 END AS bit) AS ResolveBreached,
+               sp.Name AS SlaPolicyName, t.SlaPausedMinutes,
                t.SatisfactionScore, t.OwnerId, u.FullName AS OwnerName, c.OwnerId AS AccountOwnerId,
                t.BranchId, br.Code AS BranchCode, br.Name AS BranchName
         FROM dbo.Tickets t
         LEFT JOIN dbo.Branches br ON br.Id = t.BranchId
         LEFT JOIN dbo.Customers c ON c.Id = t.CustomerId
         LEFT JOIN dbo.Contacts ct ON ct.Id = t.ContactId
+        LEFT JOIN dbo.SlaPolicies sp ON sp.Id = t.SlaPolicyId
         LEFT JOIN dbo.Users u ON u.Id = t.OwnerId
+        """,
+        """
+        CREATE OR ALTER VIEW [dbo].[vw_Quotes] AS
+        SELECT q.Id, q.Number, c.Name AS CustomerName, q.QuoteDate, q.ValidUntil,
+               CASE q.Status WHEN 1 THEN N'Nháp' WHEN 2 THEN N'Đã gửi' WHEN 3 THEN N'Khách chấp nhận' WHEN 4 THEN N'Khách từ chối' END AS StatusName,
+               CASE q.ApprovalStatus WHEN 0 THEN N'Không cần duyệt' WHEN 1 THEN N'Chờ duyệt' WHEN 2 THEN N'Đã duyệt' WHEN 3 THEN N'Bị từ chối' END AS ApprovalName,
+               q.DiscountPercent, q.EffectiveDiscount, q.SubTotal, q.DiscountAmount, q.VatAmount, q.Total,
+               ap.FullName AS ApprovedByName, q.DiscountApprovedAt,
+               q.OwnerId, u.FullName AS OwnerName, q.CreatedAt,
+               q.BranchId, br.Code AS BranchCode, br.Name AS BranchName
+        FROM dbo.Quotes q
+        LEFT JOIN dbo.Branches br ON br.Id = q.BranchId
+        LEFT JOIN dbo.Customers c ON c.Id = q.CustomerId
+        LEFT JOIN dbo.Users u ON u.Id = q.OwnerId
+        LEFT JOIN dbo.Users ap ON ap.Id = q.DiscountApprovedById
+        """,
+        """
+        CREATE OR ALTER VIEW [dbo].[vw_Campaigns] AS
+        SELECT g.Id, g.Code, g.Name,
+               CASE g.Channel WHEN 1 THEN N'Email' WHEN 2 THEN N'SMS' WHEN 3 THEN N'Zalo / OTT' WHEN 4 THEN N'Mạng xã hội' WHEN 5 THEN N'Sự kiện / Hội thảo'
+                              WHEN 6 THEN N'Telesales' WHEN 7 THEN N'Webinar' ELSE N'Khác' END AS ChannelName,
+               CASE g.Status WHEN 1 THEN N'Kế hoạch' WHEN 2 THEN N'Đang chạy' WHEN 3 THEN N'Hoàn thành' WHEN 4 THEN N'Đã hủy' END AS StatusName,
+               g.StartDate, g.EndDate, g.Budget, g.ActualCost,
+               (SELECT COUNT(*) FROM dbo.CampaignMembers m WHERE m.CampaignId = g.Id) AS MemberCount,
+               g.OwnerId, u.FullName AS OwnerName, g.CreatedAt,
+               g.BranchId, br.Code AS BranchCode, br.Name AS BranchName
+        FROM dbo.Campaigns g
+        LEFT JOIN dbo.Branches br ON br.Id = g.BranchId
+        LEFT JOIN dbo.Users u ON u.Id = g.OwnerId
+        """,
+        """
+        CREATE OR ALTER VIEW [dbo].[vw_NpsResponses] AS
+        SELECT r.Id, s.Name AS SurveyName, c.Name AS CustomerName, ct.FullName AS ContactName,
+               r.Score, CASE WHEN r.Score IS NULL THEN N'Chưa trả lời' WHEN r.Score >= 9 THEN N'Ủng hộ' WHEN r.Score >= 7 THEN N'Trung lập' ELSE N'Phản đối' END AS NpsGroup,
+               r.Comment, r.SentAt, r.RespondedAt,
+               c.OwnerId, u.FullName AS OwnerName, c.BranchId, br.Code AS BranchCode, br.Name AS BranchName
+        FROM dbo.NpsResponses r
+        JOIN dbo.NpsSurveys s ON s.Id = r.SurveyId
+        LEFT JOIN dbo.Customers c ON c.Id = r.CustomerId
+        LEFT JOIN dbo.Contacts ct ON ct.Id = r.ContactId
+        LEFT JOIN dbo.Users u ON u.Id = c.OwnerId
+        LEFT JOIN dbo.Branches br ON br.Id = c.BranchId
         """,
     };
 

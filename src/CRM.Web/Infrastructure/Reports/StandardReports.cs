@@ -9,7 +9,7 @@ namespace CRM.Web.Infrastructure.Reports;
 /// Danh mục báo cáo chuẩn của CRM. Mọi báo cáo áp quyền xem: nhân viên kinh doanh chỉ thấy dữ liệu mình phụ trách.
 /// Dữ liệu được lọc trên SQL rồi tổng hợp trong bộ nhớ (đơn giản, chính xác, đủ nhanh với quy mô CRM).
 /// </summary>
-public static class StandardReports
+public static partial class StandardReports
 {
     public static string GroupSales => T("Bán hàng");
     public static string GroupMarketing => T("Khách hàng & tiếp thị");
@@ -18,7 +18,9 @@ public static class StandardReports
     public static string GroupSupport => T("Chăm sóc khách hàng");
     public static string GroupBranch => T("Chuỗi công ty / chi nhánh");
 
-    public static IReadOnlyList<ReportDefinition> All => new ReportDefinition[]
+    public static IReadOnlyList<ReportDefinition> All => Base.Concat(Extra).ToList();
+
+    private static IReadOnlyList<ReportDefinition> Base => new ReportDefinition[]
     {
         new("sales-by-rep", GroupSales, T("Doanh số theo nhân viên"), T("Cơ hội thắng, doanh số, giá trị trung bình, tỷ lệ thắng và pipeline đang mở của từng nhân viên trong kỳ."), "users",
             ReportFilters.Period, SalesByRep),
@@ -127,8 +129,9 @@ public static class StandardReports
         foreach (var g in won.GroupBy(o => o.CustomerId).OrderByDescending(g => g.Sum(o => o.Amount)).Take(top))
         {
             var a = g.First(); var rev = g.Sum(o => o.Amount);
-            r.Add(++rank, a.Code, a.Name, a.Industry, a.City, g.Count(), rev, total == 0 ? 0 : Math.Round(rev * 100m / total, 1));
+            r.AddLink($"/Customers/Details/{g.Key}", ++rank, a.Code, a.Name, a.Industry, a.City, g.Count(), rev, total == 0 ? 0 : Math.Round(rev * 100m / total, 1));
         }
+        r.LinkColumn = 2;
         r.AutoTotals(T("Tổng (top {0})", top)).Chart(2, 6);
         r.Totals![0] = null; r.Totals[1] = T("Tổng (top {0})", top);
         r.Note = T("Tổng doanh số tất cả khách hàng trong kỳ: {0}", total.ToMoney());
@@ -247,11 +250,12 @@ public static class StandardReports
             var os = opps.Where(o => o.CampaignId == c.Id).ToList();
             var rev = os.Where(o => o.Stage == OpportunityStage.ClosedWon).Sum(o => o.Amount);
             var cost = c.ActualCost > 0 ? c.ActualCost : c.Budget;
-            r.Add(c.Code, c.Name, c.Channel.GetDisplayName(), ms.Count,
+            r.AddLink($"/Campaigns/Details/{c.Id}", c.Code, c.Name, c.Channel.GetDisplayName(), ms.Count,
                 ms.Count(m => m.Status is not (CampaignMemberStatus.Pending or CampaignMemberStatus.Failed)),
                 ms.Count(m => m.Status is CampaignMemberStatus.Responded or CampaignMemberStatus.Converted),
                 leads.Count(l => l.CampaignId == c.Id), os.Count, rev, cost, cost == 0 ? null : Math.Round((rev - cost) * 100m / cost, 1));
         }
+        r.LinkColumn = 1;
         r.AutoTotals(T("Tổng cộng")).Chart(1, 8);
         var tc = (decimal)r.Totals![9]!; r.Totals[10] = tc == 0 ? null : Math.Round(((decimal)r.Totals[8]! - tc) * 100m / tc, 1);
         r.Note = T("ROI = (doanh số thắng − chi phí) / chi phí. Chi phí lấy chi phí thực tế, chưa có thì lấy ngân sách.");
@@ -272,8 +276,9 @@ public static class StandardReports
         {
             decimal Bucket(int min, int max) => g.Where(i => { var d = i.DueDate.HasValue ? (today - i.DueDate.Value.Date).Days : 0; return d >= min && d <= max; }).Sum(i => i.Debt);
             var a = g.First();
-            r.Add(a.Code, a.Name, g.Count(), g.Sum(i => i.Debt), Bucket(int.MinValue, 0), Bucket(1, 30), Bucket(31, 60), Bucket(61, 90), Bucket(91, int.MaxValue));
+            r.AddLink($"/Customers/Details/{g.Key}", a.Code, a.Name, g.Count(), g.Sum(i => i.Debt), Bucket(int.MinValue, 0), Bucket(1, 30), Bucket(31, 60), Bucket(61, 90), Bucket(91, int.MaxValue));
         }
+        r.LinkColumn = 1;
         return r.AutoTotals(T("Tổng cộng")).Chart(1, 3);
     }
 
@@ -311,7 +316,7 @@ public static class StandardReports
         foreach (var c in list)
         {
             var p = paid.GetValueOrDefault(c.Id);
-            r.Add(c.Number, c.Title, c.Customer, c.EndDate, (c.EndDate!.Value.Date - today).Days, c.Total, p, c.Total - p, c.Owner);
+            r.AddLink($"/Contracts/Details/{c.Id}", c.Number, c.Title, c.Customer, c.EndDate, (c.EndDate!.Value.Date - today).Days, c.Total, p, c.Total - p, c.Owner);
         }
         r.Note = T("Bao gồm cả hợp đồng đang thực hiện đã quá ngày kết thúc (số ngày âm).");
         return r.AutoTotals(T("Tổng cộng"));

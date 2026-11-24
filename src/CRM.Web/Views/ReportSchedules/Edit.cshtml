@@ -1,0 +1,54 @@
+@using CRM.Web.Infrastructure.Reports
+@model ReportSchedule
+@{
+    ViewData["Title"] = Model.Id == 0 ? T("Thêm lịch gửi báo cáo") : T("Sửa lịch gửi: {0}", Model.Name);
+    var choices = (List<CRM.Web.Controllers.ReportSchedulesController.ReportChoice>)ViewBag.Choices;
+    var recipients = (IEnumerable<dynamic>)ViewBag.Recipients;
+    var selected = (int[])ViewBag.Selected;
+    var days = new[] { 1, 2, 3, 4, 5, 6, 0 };
+}
+<div class="card" style="max-width:920px"><div class="card-body">
+<form asp-action="Save" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+    <div class="row g-3">
+        <div class="col-md-7"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /></div>
+        <div class="col-md-5 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" asp-for="IsActive" /><label class="form-check-label" asp-for="IsActive"></label></div></div>
+        <div class="col-12"><label asp-for="ReportKey" class="form-label"></label>
+            <select asp-for="ReportKey" class="form-select">
+                @foreach (var g in choices.GroupBy(c => c.Group)) { <optgroup label="@g.Key">@foreach (var c in g) { <option value="@c.Key" selected="@(c.Key == Model.ReportKey)">@c.Title</option> }</optgroup> }
+            </select></div>
+
+        <div class="col-md-3"><label asp-for="Frequency" class="form-label"></label><select asp-for="Frequency" class="form-select" id="freq" asp-items="Html.GetEnumSelectList<ScheduleFrequency>()"></select></div>
+        <div class="col-md-3" data-freq="2"><label asp-for="DayOfWeek" class="form-label"></label>
+            <select asp-for="DayOfWeek" class="form-select">@foreach (var d in days) { <option value="@d" selected="@(d == Model.DayOfWeek)">@ReportScheduleService.DayName(d)</option> }</select></div>
+        <div class="col-md-3" data-freq="3"><label asp-for="DayOfMonth" class="form-label"></label><input asp-for="DayOfMonth" type="number" min="1" max="31" class="form-control" />
+            <div class="form-text">@T("Tháng ngắn hơn: gửi ngày cuối tháng")</div></div>
+        <div class="col-md-3"><label asp-for="Hour" class="form-label"></label><select asp-for="Hour" class="form-select">@for (var h = 0; h < 24; h++) { <option value="@h" selected="@(h == Model.Hour)">@($"{h:00}:00")</option> }</select></div>
+        <div class="col-md-6"><label asp-for="Period" class="form-label"></label><select asp-for="Period" class="form-select" asp-items="Html.GetEnumSelectList<SchedulePeriod>()"></select>
+            <div class="form-text">@T("Tính lùi từ ngày gửi, ví dụ gửi sáng thứ Hai báo cáo \"Tháng trước\" hoặc \"7 ngày qua\".")</div></div>
+        <div class="col-md-3"><label asp-for="PreviewRows" class="form-label"></label><input asp-for="PreviewRows" type="number" min="0" max="100" class="form-control" /><div class="form-text">@T("0 = chỉ gửi file đính kèm")</div></div>
+        <div class="col-md-3 d-flex align-items-center"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" asp-for="IncludeExcel" /><label class="form-check-label" asp-for="IncludeExcel"></label></div></div>
+
+        <div class="col-12"><label class="form-label">@T("Người nhận")</label>
+            <div class="border rounded p-2" style="max-height:240px;overflow:auto">
+                @foreach (var u in recipients)
+                {
+                    <div class="form-check"><input class="form-check-input" type="checkbox" name="recipients" value="@u.Id" id="r@(u.Id)" checked="@(selected.Contains((int)u.Id))" />
+                        <label class="form-check-label" for="r@(u.Id)">@u.FullName <span class="text-muted small">· @AppRoles.DisplayName((string)u.Role) · @(string.IsNullOrEmpty((string?)u.Email) ? T("chưa có email") : (string)u.Email)</span></label></div>
+                }
+            </div>
+            <div class="form-text">@T("Mỗi người nhận số liệu trong vùng dữ liệu được phân quyền cho chính họ, không phải của người tạo lịch.")</div></div>
+    </div>
+    <div class="mt-4 d-flex gap-2"><button class="btn btn-primary">@T("Lưu lịch gửi")</button><a asp-action="Index" class="btn btn-light">@T("Hủy")</a></div>
+</form>
+</div></div>
+@section Scripts {
+<script>
+    (function () {
+        const sel = document.getElementById('freq');
+        function sync() { document.querySelectorAll('[data-freq]').forEach(el => el.style.display = el.dataset.freq === sel.value ? '' : 'none'); }
+        sel.addEventListener('change', sync); sync();
+    })();
+</script>
+}

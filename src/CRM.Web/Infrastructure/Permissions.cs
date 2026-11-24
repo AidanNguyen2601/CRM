@@ -40,7 +40,7 @@ public class PermissionService
         new("Products", "Hàng hoá / dịch vụ & bảng giá", new[] { "Products", "PriceLists" }, new[] { View, Create, Edit, Delete }),
         new("Kpi", "KPI & hoa hồng", new[] { "Kpi", "Commissions" }, new[] { View }),
         new("SalesPlans", "Kế hoạch bán hàng", new[] { "SalesPlans" }, new[] { View }),
-        new("Reports", "Báo cáo", new[] { "Reports" }, new[] { View, Export }),
+        new("Reports", "Báo cáo", new[] { "Reports", "ReportSchedules" }, new[] { View, Export }),
         new("Emails", "Gửi email", new[] { "Emails" }, new[] { View, Create }),
         new("Import", "Nhập Excel & gộp trùng", new[] { "Import", "Duplicates" }, new[] { View })
     };

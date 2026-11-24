@@ -62,11 +62,35 @@
     {
         <div><label class="form-label small mb-1">@T("Tìm kiếm")</label><input name="Keyword" value="@f.Keyword" class="form-control" /></div>
     }
-    @if (fl != ReportFilters.None) { <button class="btn btn-outline-primary">@T("Xem báo cáo")</button> }
+    @* Điều kiện "Hỏi khi chạy" của báo cáo dạng trình dựng: để trống = không lọc *@
+    @foreach (var a in Model.Asks)
+    {
+        if (ReportBuilder.IsRelative(a.Op) || a.Op is "isnull" or "notnull") { continue; }
+        string Iso(string? s) => DateTime.TryParseExact(s, new[] { "yyyy-MM-dd", "dd/MM/yyyy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d.ToString("yyyy-MM-dd") : (s ?? "");
+        <div><label class="form-label small mb-1">@a.Label</label>
+            <div class="d-flex gap-1">
+            @if (a.Type == "bool")
+            {
+                <select name="@a.Name" class="form-select"><option value="">@T("-- Tất cả --")</option><option value="1" selected="@(a.Value is "1" or "true")">@T("Có")</option><option value="0" selected="@(a.Value is "0" or "false")">@T("Không")</option></select>
+            }
+            else if (a.Type == "date")
+            {
+                <input type="date" name="@a.Name" value="@Iso(a.Value)" class="form-control" />
+                @if (a.Range) { <input type="date" name="@a.Name2" value="@Iso(a.Value2)" class="form-control" /> }
+            }
+            else
+            {
+                <input name="@a.Name" value="@a.Value" class="form-control" inputmode="@(a.Type == "number" ? "decimal" : "text")" placeholder="@(a.Op == "in" ? T("cách nhau dấu phẩy") : "")" />
+                @if (a.Range) { <input name="@a.Name2" value="@a.Value2" class="form-control" /> }
+            }
+            </div></div>
+    }
+    @if (fl != ReportFilters.None || Model.Asks.Count > 0) { <button class="btn btn-outline-primary">@T("Xem báo cáo")</button> }
     <div class="ms-auto d-flex gap-2">
         @if (Model.Result != null)
         {
             @if (Model.Grant?.CanExport != false) { <a class="btn btn-success" href="@exportUrl">@Icon("download") @T("Xuất Excel")</a> }
+            @if (Model.ScheduleKey != null && User.SeesAll()) { <a class="btn btn-outline-secondary" asp-controller="ReportSchedules" asp-action="Create" asp-route-key="@Model.ScheduleKey">@Icon("clock") @T("Lên lịch gửi")</a> }
             <button type="button" class="btn btn-outline-secondary" onclick="window.print()">@T("In")</button>
         }
     </div>

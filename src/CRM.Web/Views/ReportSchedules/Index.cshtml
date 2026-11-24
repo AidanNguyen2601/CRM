@@ -1,0 +1,43 @@
+@using CRM.Web.Infrastructure.Reports
+@model List<ReportSchedule>
+@{
+    ViewData["Title"] = T("Gửi báo cáo định kỳ");
+    var titles = (Dictionary<int, string>)ViewBag.Titles;
+    var users = (Dictionary<int, string>)ViewBag.Users;
+    var ready = (bool)ViewBag.MailReady;
+}
+<div class="toolbar">
+    <a asp-controller="Reports" asp-action="Index" class="small">← @T("Tất cả báo cáo")</a>
+    <a class="btn btn-primary ms-auto" asp-action="Create">@Icon("plus") @T("Thêm lịch gửi")</a>
+</div>
+@if (!ready)
+{
+    <div class="alert alert-warning small">@T("Máy chủ gửi thư chưa được cấu hình – email báo cáo sẽ nằm trong hàng đợi cho tới khi cấu hình xong.") @if (User.IsInRole(AppRoles.Admin)) { <a asp-controller="Emails" asp-action="Settings">@T("Cấu hình ngay")</a> }</div>
+}
+<div class="alert alert-light border small">
+    @T("Mỗi người nhận được báo cáo theo đúng quyền và vùng dữ liệu của chính họ (Phân quyền báo cáo), kèm file Excel. Người không còn quyền xem báo cáo sẽ bị bỏ qua. Hệ thống kiểm tra lịch mỗi 5 phút.")
+</div>
+<div class="card"><div class="card-body p-0 table-responsive"><table class="table table-hover mb-0 align-middle">
+    <thead><tr><th>@T("Tên lịch gửi")</th><th>@T("Báo cáo")</th><th>@T("Lịch")</th><th>@T("Kỳ dữ liệu")</th><th>@T("Người nhận")</th><th>@T("Lần gửi tới")</th><th>@T("Lần gửi gần nhất")</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var s in Model)
+    {
+        var rc = ReportScheduleService.ParseIds(s.RecipientIds);
+        <tr class="@(s.IsActive ? "" : "text-muted")">
+            <td><a asp-action="Edit" asp-route-id="@s.Id" class="fw-semibold">@s.Name</a>@if (!s.IsActive) { <span class="badge text-bg-secondary ms-1">@T("Tạm dừng")</span> }</td>
+            <td class="small">@titles[s.Id]</td>
+            <td class="small">@ReportScheduleService.Describe(s)</td>
+            <td class="small">@s.Period.GetDisplayName()</td>
+            <td class="small" title="@string.Join(", ", rc.Select(i => users.GetValueOrDefault(i, "#" + i)))">@T("{0} người", rc.Length)</td>
+            <td class="small text-nowrap">@(s.NextRunAt?.ToDateTime() ?? "–")</td>
+            <td class="small">@if (s.LastRunAt.HasValue) { <div>@s.LastRunAt.Value.ToDateTime()</div><div class="text-muted">@s.LastStatus</div> } else { <span class="text-muted">–</span> }</td>
+            <td class="text-end text-nowrap">
+                <form asp-action="RunNow" asp-route-id="@s.Id" method="post" class="d-inline" data-confirm="@T("Gửi báo cáo \"{0}\" ngay bây giờ cho {1} người nhận?", s.Name, rc.Length)"><button class="btn btn-sm btn-outline-primary">@Icon("send") @T("Gửi ngay")</button></form>
+                <form asp-action="Toggle" asp-route-id="@s.Id" method="post" class="d-inline"><button class="btn btn-sm btn-outline-secondary">@(s.IsActive ? T("Tạm dừng") : T("Bật lại"))</button></form>
+                <form asp-action="Delete" asp-route-id="@s.Id" method="post" class="d-inline" data-confirm="@T("Xóa lịch gửi \"{0}\"?", s.Name)"><button class="btn btn-sm btn-outline-danger">@T("Xóa")</button></form>
+            </td>
+        </tr>
+    }
+    @if (!Model.Any()) { <tr><td colspan="8" class="text-muted p-3">@T("Chưa có lịch gửi. Mở một báo cáo rồi bấm \"Lên lịch gửi\", hoặc bấm \"Thêm lịch gửi\".")</td></tr> }
+    </tbody>
+</table></div></div>

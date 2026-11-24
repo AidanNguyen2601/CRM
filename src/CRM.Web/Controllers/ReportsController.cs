@@ -28,6 +28,10 @@ public class ReportPageModel
     public string? ScopeText { get; set; }
     /// <summary>Hiện ô lọc người phụ trách (vùng dữ liệu không giới hạn "của mình")</summary>
     public bool ShowOwnerFilter { get; set; }
+    /// <summary>Ô "Hỏi khi chạy" của báo cáo dạng trình dựng</summary>
+    public List<BuilderAsk> Asks { get; set; } = new();
+    /// <summary>Mã báo cáo cho nút "Lên lịch gửi" (std:… / custom:…)</summary>
+    public string? ScheduleKey { get; set; }
 }
 
 /// <summary>Báo cáo chuẩn (viết sẵn) và báo cáo động (SQL / View do quản trị định nghĩa); phân quyền từng báo cáo + vùng dữ liệu</summary>
@@ -77,7 +81,7 @@ public class ReportsController : CrmControllerBase
         var m = new ReportPageModel
         {
             Title = def.Title, Description = def.Description, Icon = def.Icon, Filters = flags, Filter = f, Group = def.Group,
-            RouteValues = new { id }, ExportAction = nameof(Export), Grant = g, ScopeText = scopeText,
+            RouteValues = new { id }, ExportAction = nameof(Export), Grant = g, ScopeText = scopeText, ScheduleKey = ReportAccessService.StdKey(id),
             ShowOwnerFilter = g.OwnOnly == false || (g.OwnOnly == null && (User.SeesAll() || (User.IsSupportDesk() && def.Group == StandardReports.GroupSupport))),
             Result = await def.Run(new ReportContext { Db = Db, User = User, Filter = f, OwnOnly = g.OwnOnly, Scope = HttpContext.RequestServices.GetRequiredService<BranchScope>() })
         };
@@ -113,14 +117,16 @@ public class ReportsController : CrmControllerBase
             Title = rep.Name, Description = rep.Description, Icon = "receivable", Custom = rep, RouteValues = new { id }, ExportAction = nameof(CustomExport),
             Grant = g, ScopeText = scopeText, ShowOwnerFilter = g.OwnOnly == false || (g.OwnOnly == null && User.SeesAll())
         };
-        var (sql, err) = await _custom.SqlForAsync(rep);
+        var pre = await PrepareAsync(rep, rep.ChartLabelColumn, rep.ChartValueColumn, fromQuery: true);
+        var sql = pre.Sql; var err = pre.Error;
+        m.Asks = pre.Asks; m.ScheduleKey = ReportAccessService.CustomKey(rep.Id);
         if (sql != null)
         {
             m.Filters = ApplyOwnerFlag(FiltersFor(rep, sql), g);
             Defaults(f, m.Filters);
             if (g.OwnOnly == true) f.OwnerId = null;
             m.Sql = sql;
-            (m.Result, err) = await _custom.RunAsync(sql, f, User, CustomReportService.DisplayRows, rep.ChartLabelColumn, rep.ChartValueColumn, g.OwnOnly);
+            (m.Result, err) = await _custom.RunAsync(sql, f, User, CustomReportService.DisplayRows, pre.ChartLabel, pre.ChartValue, g.OwnOnly, rep.ChartKind, pre.Extra);
         }
         m.Filter = f;
         m.Error = err;
@@ -135,12 +141,13 @@ public class ReportsController : CrmControllerBase
         var g = await _access.ResolveCustomAsync(rep, Me);
         if (Denied(g, true) is { } deny) return deny;
         var scopeText = _access.Apply(g, User);
-        var (sql, err) = await _custom.SqlForAsync(rep);
-        if (sql == null) { TempData["Error"] = err; return RedirectToAction(nameof(Custom), new { id }); }
+        var pre = await PrepareAsync(rep, null, null, fromQuery: true);
+        var sql = pre.Sql;
+        if (sql == null) { TempData["Error"] = pre.Error; return RedirectToAction(nameof(Custom), new { id }); }
         var filters = ApplyOwnerFlag(FiltersFor(rep, sql), g);
         Defaults(f, filters);
         if (g.OwnOnly == true) f.OwnerId = null;
-        var (r, runErr) = await _custom.RunAsync(sql, f, User, CustomReportService.ExportRows, ownOnly: g.OwnOnly);
+        var (r, runErr) = await _custom.RunAsync(sql, f, User, CustomReportService.ExportRows, ownOnly: g.OwnOnly, extra: pre.Extra);
         if (r == null) { TempData["Error"] = runErr; return RedirectToAction(nameof(Custom), new { id }); }
         return Xlsx(rep.Name, Subtitle(filters, f, scopeText), r);
     }
@@ -149,11 +156,15 @@ public class ReportsController : CrmControllerBase
     public async Task<IActionResult> CustomCreate(CustomReportSource source = CustomReportSource.Sql)
     {
         ViewBag.Schema = await _custom.SchemaAsync();
+        ViewBag.Datasets = await _custom.BuilderDatasetsAsync();
         return View("CustomForm", new CustomReport
         {
             SourceType = source, AllowedRoles = "Admin,Manager",
             SqlText = source == CustomReportSource.Sql ? "SELECT TOP (100) *\nFROM vw_Opportunities\nWHERE (@SeesAll = 1 OR OwnerId = @CurrentUserId)\nORDER BY Amount DESC" : null,
             ViewName = source == CustomReportSource.View ? "vw_Opportunities" : null
+,
+            BuilderJson = source == CustomReportSource.Builder ? "{\"source\":\"vw_Opportunities\",\"mode\":\"summary\",\"groups\":[{\"field\":\"StageName\"}],\"measures\":[{\"agg\":\"count\"},{\"agg\":\"sum\",\"field\":\"Amount\"}]}" : null,
+            ChartKind = source == CustomReportSource.Builder ? "bar" : null
         });
     }
 
@@ -163,6 +174,7 @@ public class ReportsController : CrmControllerBase
         var rep = await Db.CustomReports.FindAsync(id);
         if (rep == null) return NotFound();
         ViewBag.Schema = await _custom.SchemaAsync();
+        ViewBag.Datasets = await _custom.BuilderDatasetsAsync();
         return View("CustomForm", rep);
     }
 
@@ -173,10 +185,11 @@ public class ReportsController : CrmControllerBase
         model.AllowedRoles = string.Join(",", (roles ?? Array.Empty<string>()).Where(r => AppRoles.All.Contains(r)).Append(AppRoles.Admin).Distinct());
         Normalize(model);
         var (sql, err) = await _custom.SqlForAsync(model);
-        if (err != null) ModelState.AddModelError(model.SourceType == CustomReportSource.Sql ? nameof(model.SqlText) : nameof(model.ViewName), err);
+        if (err != null) ModelState.AddModelError(model.SourceType == CustomReportSource.Sql ? nameof(model.SqlText) : model.SourceType == CustomReportSource.View ? nameof(model.ViewName) : string.Empty, err);
         if (!ModelState.IsValid)
         {
             ViewBag.Schema = await _custom.SchemaAsync();
+            ViewBag.Datasets = await _custom.BuilderDatasetsAsync();
             return View("CustomForm", model);
         }
 
@@ -214,12 +227,13 @@ public class ReportsController : CrmControllerBase
     public async Task<IActionResult> CustomPreview(CustomReport model, ReportFilter f)
     {
         Normalize(model);
-        var (sql, err) = await _custom.SqlForAsync(model);
+        var pre = await PrepareAsync(model, model.ChartLabelColumn, model.ChartValueColumn, fromQuery: false);
+        var sql = pre.Sql; var err = pre.Error;
         ReportResult? r = null;
         if (sql != null)
         {
             Defaults(f, FiltersFor(model, sql));
-            (r, err) = await _custom.RunAsync(sql, f, User, 100, model.ChartLabelColumn, model.ChartValueColumn);
+            (r, err) = await _custom.RunAsync(sql, f, User, 100, pre.ChartLabel, pre.ChartValue, null, model.ChartKind, pre.Extra);
         }
         ViewBag.Error = err;
         ViewBag.Sql = sql;
@@ -325,8 +339,24 @@ public class ReportsController : CrmControllerBase
 
     private static void Normalize(CustomReport m)
     {
-        if (m.SourceType == CustomReportSource.Sql) { m.ViewName = m.ViewColumns = m.DateColumn = m.OwnerColumn = m.OrderBy = null; m.TopRows = null; }
-        else m.SqlText = null;
+        if (m.SourceType == CustomReportSource.Sql) { m.ViewName = m.ViewColumns = m.DateColumn = m.OwnerColumn = m.OrderBy = null; m.TopRows = null; m.BuilderJson = null; }
+        else if (m.SourceType == CustomReportSource.View) { m.SqlText = null; m.BuilderJson = null; }
+        else { m.SqlText = null; m.ViewName = m.ViewColumns = m.DateColumn = m.OwnerColumn = m.OrderBy = null; m.TopRows = null; }
+        if (m.ChartKind is not ("bar" or "line" or "pie" or "none")) m.ChartKind = null;
+    }
+
+    private record Prepared(string? Sql, string? Error, Dictionary<string, object?>? Extra, List<BuilderAsk> Asks, string? ChartLabel, string? ChartValue);
+
+    /// <summary>Câu lệnh + tham số của báo cáo động. Dạng trình dựng: biên dịch từ định nghĩa, nhận giá trị "Hỏi khi chạy" từ URL (fromQuery)</summary>
+    private async Task<Prepared> PrepareAsync(CustomReport rep, string? chartLabel, string? chartValue, bool fromQuery)
+    {
+        if (rep.SourceType != CustomReportSource.Builder)
+        {
+            var (s, e) = await _custom.SqlForAsync(rep);
+            return new Prepared(s, e, null, new(), chartLabel, chartValue);
+        }
+        var (c, err) = await _custom.CompileBuilderAsync(rep.BuilderJson, fromQuery ? (k => Request.Query.TryGetValue(k, out var v) ? v.ToString() : null) : null);
+        return c == null ? new Prepared(null, err, null, new(), null, null) : new Prepared(c.Sql, null, c.Params, c.Asks, c.ChartLabel, c.ChartValue);
     }
 
     /// <summary>Ô lọc cần hiện cho báo cáo động: theo tham số câu lệnh có dùng (hoặc cột ngày / người phụ trách của View)</summary>

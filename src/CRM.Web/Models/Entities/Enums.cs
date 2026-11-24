@@ -149,5 +149,7 @@ public enum AttachmentTarget
     Activity = 9,
     Product = 10,
     Campaign = 11,
-    Ticket = 12
+    Ticket = 12,
+    /// <summary>File Excel đính kèm email báo cáo gửi định kỳ (chỉ quản trị tải được)</summary>
+    ReportSchedule = 30
 }

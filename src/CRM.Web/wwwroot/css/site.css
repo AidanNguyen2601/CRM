@@ -491,3 +491,20 @@ html[data-theme="dark"] .sc-ico, html[data-theme="dark"] .sc-role { background: 
 html[data-theme="dark"] .sc-chip { background: transparent; border-color: #4a5380; color: #c7d2fe; }
 html[data-theme="dark"] .sc-chip:hover { background: rgba(129,140,248,.18); }
 html[data-theme="dark"] .sc-step:not(:last-child)::before { border-left-color: #4a5380; }
+
+/* ---------- Biểu đồ đường / tròn trong báo cáo ---------- */
+.rc-line { width: 100%; height: 200px; display: block; }
+.rc-axis { stroke: #cbd5e1; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.rc-path { fill: none; stroke: #4f46e5; stroke-width: 2.2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.rc-dot { fill: #fff; stroke: #4f46e5; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.rc-xlabels { display: flex; justify-content: space-between; font-size: .72rem; color: #64748b; margin-top: 4px; gap: 4px; }
+.rc-pie { width: 190px; height: 190px; transform: rotate(0deg); flex-shrink: 0; }
+.rc-pie-bg { stroke: #eef2f7; }
+.rc-legend li { display: flex; align-items: center; gap: 8px; font-size: .85rem; padding: 2px 0; }
+.rc-sw { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.rc-name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-theme="dark"] .rc-axis { stroke: #334155; }
+html[data-theme="dark"] .rc-dot { fill: #151f30; }
+html[data-theme="dark"] .rc-pie-bg { stroke: #1c2940; }
+html[data-theme="dark"] .rc-xlabels { color: #94a3b8; }
+@media print { .rc-pie, .rc-line { break-inside: avoid; } }

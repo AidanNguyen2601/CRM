@@ -6,6 +6,17 @@
     var isSql = Model.SourceType == CustomReportSource.Sql;
     var roles = Model.AllowedRoles.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
     var schemaJson = System.Text.Json.JsonSerializer.Serialize(schema.Select(o => new { o.Name, o.IsView, o.Columns }));
+    var datasets = (List<BuilderDataset>?)ViewBag.Datasets ?? new List<BuilderDataset>();
+    var datasetsJson = System.Text.Json.JsonSerializer.Serialize(datasets);
+    var labelsJson = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        aggs = new Dictionary<string, string> { ["count"] = T("Số dòng"), ["countd"] = T("Số {0} khác nhau", "{0}"), ["sum"] = T("Tổng {0}", "{0}"), ["avg"] = T("Trung bình {0}", "{0}"), ["min"] = T("Nhỏ nhất {0}", "{0}"), ["max"] = T("Lớn nhất {0}", "{0}") },
+        aggNames = new Dictionary<string, string> { ["count"] = T("Đếm số dòng"), ["countd"] = T("Đếm giá trị khác nhau"), ["sum"] = T("Tổng"), ["avg"] = T("Trung bình"), ["min"] = T("Nhỏ nhất"), ["max"] = T("Lớn nhất") },
+        ops = new Dictionary<string, string> { ["eq"] = T("bằng"), ["ne"] = T("khác"), ["gt"] = T("lớn hơn"), ["ge"] = T("lớn hơn hoặc bằng"), ["lt"] = T("nhỏ hơn"), ["le"] = T("nhỏ hơn hoặc bằng"), ["between"] = T("trong khoảng"), ["contains"] = T("chứa"), ["startswith"] = T("bắt đầu bằng"), ["in"] = T("thuộc danh sách"), ["isnull"] = T("để trống"), ["notnull"] = T("có giá trị"), ["thismonth"] = T("tháng này"), ["lastmonth"] = T("tháng trước"), ["thisquarter"] = T("quý này"), ["thisyear"] = T("năm nay"), ["lastyear"] = T("năm trước"), ["last7"] = T("7 ngày qua"), ["last30"] = T("30 ngày qua"), ["last90"] = T("90 ngày qua") },
+        buckets = new Dictionary<string, string> { ["none"] = T("Nguyên giá trị"), ["day"] = T("Theo ngày"), ["month"] = T("Theo tháng"), ["quarter"] = T("Theo quý"), ["year"] = T("Theo năm") },
+        bucketSuffix = new Dictionary<string, string> { ["day"] = " (" + T("ngày") + ")", ["month"] = " (" + T("tháng") + ")", ["quarter"] = " (" + T("quý") + ")", ["year"] = " (" + T("năm") + ")" },
+        ui = new Dictionary<string, string> { ["pick"] = T("-- Chọn --"), ["none"] = T("-- Không --"), ["label"] = T("Tên cột trong kết quả (tuỳ chọn)"), ["remove"] = T("Xóa"), ["ask"] = T("Hỏi khi chạy"), ["askLabel"] = T("Nhãn ô nhập (tuỳ chọn)"), ["value"] = T("Giá trị"), ["to"] = T("đến"), ["listHint"] = T("mỗi giá trị một dòng hoặc cách nhau dấu phẩy"), ["yes"] = T("Có"), ["no"] = T("Không") }
+    });
 }
 <form asp-action="CustomSave" method="post" id="reportForm">
     <input type="hidden" asp-for="Id" />
@@ -66,9 +77,57 @@
                 </div>
             </div>
 
+            @* ----- TRÌNH DỰNG (không cần SQL) ----- *@
+            <div class="card mb-3 src-panel" data-src="Builder">
+                <div class="card-header">@Icon("kanban") @T("Dựng báo cáo (không cần SQL)")</div>
+                <div class="card-body">
+                    <input type="hidden" asp-for="BuilderJson" id="BuilderJson" />
+                    <div class="row g-3">
+                        <div class="col-md-5"><label class="form-label">@T("Nguồn dữ liệu")</label><select id="bDataset" class="form-select"></select></div>
+                        <div class="col-md-7"><label class="form-label d-block">@T("Kiểu báo cáo")</label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="bMode" id="bModeList" value="list" /><label class="btn btn-outline-primary" for="bModeList">@T("Danh sách chi tiết")</label>
+                                <input type="radio" class="btn-check" name="bMode" id="bModeSummary" value="summary" /><label class="btn btn-outline-primary" for="bModeSummary">@T("Tổng hợp (nhóm & cộng dồn)")</label>
+                            </div></div>
+                        <div class="col-12" id="bListBox">
+                            <label class="form-label">@T("Cột hiển thị") <span class="small text-muted">(@T("bỏ trống = các cột đầu tiên; thứ tự theo thứ tự chọn"))</span></label>
+                            <div id="bColumns" class="column-picker"></div>
+                        </div>
+                        <div class="col-12" id="bSummaryBox">
+                            <div class="fw-semibold mb-1">@T("Nhóm theo") <span class="small text-muted fw-normal">(@T("mỗi giá trị là một dòng của báo cáo"))</span></div>
+                            <div id="bGroups"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="bAddGroup">+ @T("Thêm cột nhóm")</button>
+                            <div class="fw-semibold mb-1">@T("Phép tính") <span class="small text-muted fw-normal">(@T("cộng dồn cho từng nhóm"))</span></div>
+                            <div id="bMeasures"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bAddMeasure">+ @T("Thêm phép tính")</button>
+                        </div>
+                        <div class="col-12">
+                            <div class="fw-semibold mb-1">@T("Điều kiện lọc") <span class="small text-muted fw-normal">(@T("tất cả điều kiện đều phải đúng; tick \"Hỏi khi chạy\" để người xem tự nhập giá trị"))</span></div>
+                            <div id="bFilters"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bAddFilter">+ @T("Thêm điều kiện")</button>
+                        </div>
+                        <div class="col-md-4"><label class="form-label">@T("Cột ngày để lọc theo kỳ")</label><select id="bDate" class="form-select"></select>
+                            <div class="form-text">@T("Hiện ô Từ ngày – Đến ngày trên trang báo cáo")</div></div>
+                        <div class="col-md-4"><label class="form-label">@T("Sắp xếp theo")</label>
+                            <div class="input-group"><select id="bSort" class="form-select"></select>
+                                <span class="input-group-text"><input type="checkbox" class="form-check-input mt-0" id="bSortDesc" aria-label="@T("Giảm dần")" /><span class="ms-1 small">@T("Giảm dần")</span></span></div></div>
+                        <div class="col-md-2"><label class="form-label">@T("Giới hạn số dòng")</label><input id="bTop" type="number" min="1" max="100000" class="form-control" placeholder="@T("Tất cả")" /></div>
+                        <div class="col-md-6"><label class="form-label">@T("Biểu đồ: nhãn")</label><select id="bChartLabel" class="form-select"></select></div>
+                        <div class="col-md-6"><label class="form-label">@T("Biểu đồ: giá trị (cột số)")</label><select id="bChartValue" class="form-select"></select></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card mb-3"><div class="card-body row g-3">
-                <div class="col-md-4"><label asp-for="ChartLabelColumn" class="form-label"></label><input asp-for="ChartLabelColumn" class="form-control" placeholder="@T("Tên cột trong kết quả")" /></div>
-                <div class="col-md-4"><label asp-for="ChartValueColumn" class="form-label"></label><input asp-for="ChartValueColumn" class="form-control" placeholder="@T("Cột số")" /></div>
+                <div class="col-md-4 hide-builder"><label asp-for="ChartLabelColumn" class="form-label"></label><input asp-for="ChartLabelColumn" class="form-control" placeholder="@T("Tên cột trong kết quả")" /></div>
+                <div class="col-md-4 hide-builder"><label asp-for="ChartValueColumn" class="form-label"></label><input asp-for="ChartValueColumn" class="form-control" placeholder="@T("Cột số")" /></div>
+                <div class="col-md-4"><label asp-for="ChartKind" class="form-label"></label>
+                    <select asp-for="ChartKind" class="form-select">
+                        <option value="">@T("Cột ngang (xếp hạng)")</option>
+                        <option value="line">@T("Đường (xu hướng theo thứ tự dòng)")</option>
+                        <option value="pie">@T("Tròn (tỷ trọng)")</option>
+                        <option value="none">@T("Không vẽ biểu đồ")</option>
+                    </select></div>
                 <div class="col-md-4">
                     <label class="form-label d-block">@T("Vai trò được xem")</label>
                     @foreach (var r in AppRoles.All)
@@ -132,6 +191,7 @@
     function showSource() {
         const src = form.querySelector('input[name=SourceType]:checked').value;
         document.querySelectorAll('.src-panel').forEach(p => p.style.display = p.dataset.src === src ? '' : 'none');
+        document.querySelectorAll('.hide-builder').forEach(p => p.style.display = src === 'Builder' ? 'none' : '');
     }
     form.querySelectorAll('input[name=SourceType]').forEach(r => r.addEventListener('change', showSource));
     showSource();
@@ -189,6 +249,182 @@
         sqlBox.value = sqlBox.value.slice(0, s) + '    ' + sqlBox.value.slice(sqlBox.selectionEnd);
         sqlBox.selectionStart = sqlBox.selectionEnd = s + 4;
     });
+
+    // ================= TRÌNH DỰNG BÁO CÁO (không cần SQL) =================
+    const datasets = @Html.Raw(datasetsJson);
+    const L = @Html.Raw(labelsJson);
+    const hid = document.getElementById('BuilderJson');
+    let def;
+    try { def = JSON.parse(hid.value || '{}'); } catch (e) { def = {}; }
+    def = Object.assign({ source: '', mode: 'list', columns: [], groups: [], measures: [], filters: [], dateColumn: '', sortField: '', sortDesc: false, top: null, chartLabelIdx: -1, chartValueIdx: -1 }, def);
+    ['columns', 'groups', 'measures', 'filters'].forEach(k => { if (!Array.isArray(def[k])) def[k] = []; });
+    // Tên thuộc tính JSON viết hoa / thường đều được máy chủ chấp nhận; chuẩn hoá về chữ thường đầu
+    const norm = o => { const r = {}; Object.keys(o).forEach(k => r[k.charAt(0).toLowerCase() + k.slice(1)] = o[k]); return r; };
+    def = norm(def); ['columns', 'groups', 'measures', 'filters'].forEach(k => def[k] = def[k].map(norm));
+
+    const dsSel = document.getElementById('bDataset');
+    const OPS = {
+        text: ['eq', 'ne', 'contains', 'startswith', 'in', 'isnull', 'notnull'],
+        number: ['eq', 'ne', 'gt', 'ge', 'lt', 'le', 'between', 'in', 'isnull', 'notnull'],
+        date: ['eq', 'ge', 'le', 'between', 'thismonth', 'lastmonth', 'thisquarter', 'thisyear', 'lastyear', 'last7', 'last30', 'last90', 'isnull', 'notnull'],
+        bool: ['eq']
+    };
+    const NOVALUE = ['isnull', 'notnull', 'thismonth', 'lastmonth', 'thisquarter', 'thisyear', 'lastyear', 'last7', 'last30', 'last90'];
+    const dataset = () => datasets.find(d => d.Name === def.source) || datasets[0];
+    const fields = () => (dataset() ? dataset().Fields : []);
+    const fieldOf = n => fields().find(f => f.Name === n);
+    const typeOf = n => (fieldOf(n) || { Type: 'text' }).Type;
+    const labelOf = n => (fieldOf(n) || { Label: n }).Label;
+    const opts = (list, sel, blank) => (blank ? `<option value="">${esc(blank)}</option>` : '') + list.map(f => `<option value="${esc(f.v)}" ${String(f.v) === String(sel) ? 'selected' : ''}>${esc(f.t)}</option>`).join('');
+    const fieldOpts = (sel, filter, blank) => opts(fields().filter(filter || (() => true)).map(f => ({ v: f.Name, t: `${f.Label}${f.Label !== f.Name ? ' — ' + f.Name : ''}` })), sel, blank);
+
+    function outputCols() {
+        if (def.mode === 'summary') {
+            const g = def.groups.map(x => ({ t: (x.label || labelOf(x.field)) + (x.bucket && x.bucket !== 'none' && L.bucketSuffix[x.bucket] ? L.bucketSuffix[x.bucket] : ''), num: false }));
+            const ms = (def.measures.length ? def.measures : [{ agg: 'count' }]).map(m => ({ t: m.label || L.aggs[m.agg || 'count'].replace('{0}', m.field ? labelOf(m.field) : ''), num: true }));
+            return g.concat(ms);
+        }
+        const cols = def.columns.length ? def.columns.map(c => ({ t: c.label || labelOf(c.field), num: typeOf(c.field) === 'number' })) : fields().slice(0, 40).map(f => ({ t: f.Label, num: f.Type === 'number' }));
+        return cols;
+    }
+
+    function sync() {
+        def.top = def.top ? Number(def.top) : null;
+        hid.value = JSON.stringify(def);
+    }
+
+    function renderAll() {
+        dsSel.innerHTML = datasets.map(d => `<option value="${esc(d.Name)}" ${d.Name === def.source ? 'selected' : ''}>${esc(d.Label)}</option>`).join('');
+        if (!def.source && datasets[0]) def.source = datasets[0].Name;
+        document.getElementById(def.mode === 'summary' ? 'bModeSummary' : 'bModeList').checked = true;
+        document.getElementById('bListBox').style.display = def.mode === 'summary' ? 'none' : '';
+        document.getElementById('bSummaryBox').style.display = def.mode === 'summary' ? '' : 'none';
+        bRenderColumns(); renderGroups(); renderMeasures(); renderFilters(); renderMisc();
+        sync();
+    }
+
+    function bRenderColumns() {
+        const chosen = def.columns.map(c => c.field);
+        document.getElementById('bColumns').innerHTML = fields().map(f =>
+            `<label class="col-chip ${chosen.includes(f.Name) ? 'on' : ''}" title="${esc(f.Name)}"><input type="checkbox" value="${esc(f.Name)}" ${chosen.includes(f.Name) ? 'checked' : ''}> ${esc(f.Label)}</label>`).join('');
+    }
+    document.getElementById('bColumns').addEventListener('change', e => {
+        if (e.target.type !== 'checkbox') return;
+        e.target.closest('label').classList.toggle('on', e.target.checked);
+        if (e.target.checked) def.columns.push({ field: e.target.value });
+        else def.columns = def.columns.filter(c => c.field !== e.target.value);
+        renderMisc(); sync();
+    });
+
+    function rowHtml(inner, idx, kind) {
+        return `<div class="b-row d-flex flex-wrap gap-2 align-items-center mb-2" data-kind="${kind}" data-idx="${idx}">${inner}<button type="button" class="btn btn-sm btn-outline-danger b-del" title="${esc(L.ui.remove)}">&times;</button></div>`;
+    }
+
+    function renderGroups() {
+        document.getElementById('bGroups').innerHTML = def.groups.map((g, i) => {
+            const isDate = typeOf(g.field) === 'date';
+            return rowHtml(`<select class="form-select form-select-sm b-field" style="max-width:260px">${fieldOpts(g.field, null, L.ui.pick)}</select>
+                ${isDate ? `<select class="form-select form-select-sm b-bucket" style="max-width:150px">${opts(Object.entries(L.buckets).map(([v, t]) => ({ v, t })), g.bucket || 'none')}</select>` : ''}
+                <input class="form-control form-control-sm b-label" style="max-width:220px" placeholder="${esc(L.ui.label)}" value="${esc(g.label || '')}" />`, i, 'groups');
+        }).join('');
+    }
+    function renderMeasures() {
+        document.getElementById('bMeasures').innerHTML = def.measures.map((m, i) => {
+            const agg = m.agg || 'count';
+            const filt = agg === 'countd' ? null : (agg === 'min' || agg === 'max') ? (f => f.Type === 'number' || f.Type === 'date') : (f => f.Type === 'number');
+            return rowHtml(`<select class="form-select form-select-sm b-agg" style="max-width:200px">${opts(Object.entries(L.aggNames).map(([v, t]) => ({ v, t })), agg)}</select>
+                ${agg === 'count' ? '' : `<select class="form-select form-select-sm b-field" style="max-width:260px">${fieldOpts(m.field, filt, L.ui.pick)}</select>`}
+                <input class="form-control form-control-sm b-label" style="max-width:220px" placeholder="${esc(L.ui.label)}" value="${esc(m.label || '')}" />`, i, 'measures');
+        }).join('');
+    }
+    function valueInput(f, which) {
+        const t = typeOf(f.field), v = which === 2 ? (f.value2 || '') : (f.value || ''), cls = `form-control form-control-sm b-value${which}`;
+        if (t === 'bool') return `<select class="form-select form-select-sm b-value${which}" style="max-width:120px"><option value="1" ${v === '1' || v === 'true' ? 'selected' : ''}>${esc(L.ui.yes)}</option><option value="0" ${v === '0' || v === 'false' ? 'selected' : ''}>${esc(L.ui.no)}</option></select>`;
+        if (t === 'date') return `<input type="date" class="${cls}" style="max-width:170px" value="${esc(toIso(v))}" />`;
+        if (t === 'number') return `<input type="text" inputmode="decimal" class="${cls}" style="max-width:150px" value="${esc(v)}" placeholder="${esc(L.ui.value)}" />`;
+        if (f.op === 'in') return `<input type="text" class="${cls}" style="max-width:300px" value="${esc(v)}" placeholder="${esc(L.ui.listHint)}" />`;
+        return `<input type="text" class="${cls}" style="max-width:240px" value="${esc(v)}" placeholder="${esc(L.ui.value)}" />`;
+    }
+    function toIso(s) { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s || ''); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : (s || ''); }
+    function renderFilters() {
+        document.getElementById('bFilters').innerHTML = def.filters.map((f, i) => {
+            const ops = OPS[typeOf(f.field)] || OPS.text;
+            if (!ops.includes(f.op)) f.op = ops[0];
+            const noVal = NOVALUE.includes(f.op);
+            return rowHtml(`<select class="form-select form-select-sm b-field" style="max-width:240px">${fieldOpts(f.field, null, L.ui.pick)}</select>
+                <select class="form-select form-select-sm b-op" style="max-width:190px">${opts(ops.map(o => ({ v: o, t: L.ops[o] })), f.op)}</select>
+                ${noVal ? '' : valueInput(f, 1)}${f.op === 'between' ? `<span class="small text-muted">${esc(L.ui.to)}</span>${valueInput(f, 2)}` : ''}
+                ${noVal ? '' : `<label class="form-check small mb-0"><input type="checkbox" class="form-check-input b-ask" ${f.ask ? 'checked' : ''}> ${esc(L.ui.ask)}</label>`}
+                ${f.ask && !noVal ? `<input class="form-control form-control-sm b-flabel" style="max-width:200px" placeholder="${esc(L.ui.askLabel)}" value="${esc(f.label || '')}" />` : ''}`, i, 'filters');
+        }).join('');
+    }
+    function renderMisc() {
+        const dates = fields().filter(f => f.Type === 'date');
+        document.getElementById('bDate').innerHTML = `<option value="">${esc(L.ui.none)}</option>` + dates.map(f => `<option value="${esc(f.Name)}" ${f.Name === def.dateColumn ? 'selected' : ''}>${esc(f.Label)}</option>`).join('');
+        const out = outputCols();
+        const sortOpts = def.mode === 'summary'
+            ? out.map((o, i) => ({ v: '#' + i, t: o.t }))
+            : fields().map(f => ({ v: f.Name, t: f.Label }));
+        document.getElementById('bSort').innerHTML = opts(sortOpts, def.sortField, L.ui.none);
+        document.getElementById('bSortDesc').checked = !!def.sortDesc;
+        document.getElementById('bTop').value = def.top || '';
+        document.getElementById('bChartLabel').innerHTML = opts(out.map((o, i) => ({ v: i, t: o.t })), def.chartLabelIdx, L.ui.none);
+        document.getElementById('bChartValue').innerHTML = opts(out.map((o, i) => ({ v: i, t: o.t })).filter((o, i) => out[i].num), def.chartValueIdx, L.ui.none);
+    }
+
+    // ----- Sự kiện -----
+    dsSel.addEventListener('change', () => { def.source = dsSel.value; def.columns = []; def.groups = []; def.measures = []; def.filters = []; def.dateColumn = ''; def.sortField = ''; def.chartLabelIdx = def.chartValueIdx = -1; renderAll(); });
+    document.querySelectorAll('input[name=bMode]').forEach(r => r.addEventListener('change', () => {
+        def.mode = r.value; def.sortField = ''; def.chartLabelIdx = def.chartValueIdx = -1;
+        if (def.mode === 'summary' && def.groups.length === 0 && def.measures.length === 0) def.measures.push({ agg: 'count' });
+        renderAll();
+    }));
+    document.getElementById('bAddGroup').addEventListener('click', () => { def.groups.push({ field: '', bucket: 'none' }); renderGroups(); renderMisc(); sync(); });
+    document.getElementById('bAddMeasure').addEventListener('click', () => { def.measures.push({ agg: 'sum', field: '' }); renderMeasures(); renderMisc(); sync(); });
+    document.getElementById('bAddFilter').addEventListener('click', () => { def.filters.push({ field: '', op: 'eq', value: '', ask: false }); renderFilters(); sync(); });
+    ['bDate', 'bSort', 'bSortDesc', 'bTop', 'bChartLabel', 'bChartValue'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+        def.dateColumn = document.getElementById('bDate').value;
+        def.sortField = document.getElementById('bSort').value;
+        def.sortDesc = document.getElementById('bSortDesc').checked;
+        def.top = document.getElementById('bTop').value;
+        def.chartLabelIdx = document.getElementById('bChartLabel').value === '' ? -1 : Number(document.getElementById('bChartLabel').value);
+        def.chartValueIdx = document.getElementById('bChartValue').value === '' ? -1 : Number(document.getElementById('bChartValue').value);
+        sync();
+    }));
+    function rowOf(el) { const r = el.closest('.b-row'); return r ? { arr: def[r.dataset.kind], i: Number(r.dataset.idx), kind: r.dataset.kind } : null; }
+    const builderPanel = document.querySelector('.src-panel[data-src=Builder]');
+    builderPanel.addEventListener('click', e => {
+        const del = e.target.closest('.b-del'); if (!del) return;
+        const r = rowOf(del); r.arr.splice(r.i, 1);
+        renderGroups(); renderMeasures(); renderFilters(); renderMisc(); sync();
+    });
+    builderPanel.addEventListener('change', e => {
+        const r = rowOf(e.target); if (!r) return;
+        const o = r.arr[r.i], c = e.target.classList;
+        if (c.contains('b-field')) { o.field = e.target.value; if (r.kind === 'filters') { o.op = (OPS[typeOf(o.field)] || OPS.text)[0]; o.value = ''; o.value2 = ''; } if (r.kind === 'groups') o.bucket = 'none'; }
+        else if (c.contains('b-bucket')) o.bucket = e.target.value;
+        else if (c.contains('b-agg')) { o.agg = e.target.value; if (o.agg === 'count') o.field = '*'; else if (!fieldOf(o.field)) o.field = ''; }
+        else if (c.contains('b-label')) o.label = e.target.value;
+        else if (c.contains('b-flabel')) o.label = e.target.value;
+        else if (c.contains('b-op')) o.op = e.target.value;
+        else if (c.contains('b-ask')) o.ask = e.target.checked;
+        else if (c.contains('b-value1')) o.value = e.target.value;
+        else if (c.contains('b-value2')) o.value2 = e.target.value;
+        else return;
+        if (r.kind === 'groups') renderGroups();
+        if (r.kind === 'measures') renderMeasures();
+        if (r.kind === 'filters') renderFilters();
+        renderMisc(); sync();
+    });
+    builderPanel.addEventListener('input', e => {   // gõ chữ: cập nhật định nghĩa ngay, không dựng lại (giữ con trỏ)
+        const r = rowOf(e.target); if (!r || e.target.tagName !== 'INPUT' || e.target.type === 'checkbox') return;
+        const o = r.arr[r.i], c = e.target.classList;
+        if (c.contains('b-label') || c.contains('b-flabel')) o.label = e.target.value;
+        else if (c.contains('b-value1')) o.value = e.target.value;
+        else if (c.contains('b-value2')) o.value2 = e.target.value;
+        sync();
+    });
+    renderAll();
 
     // ----- Chạy thử -----
     document.getElementById('previewBtn').addEventListener('click', async () => {
